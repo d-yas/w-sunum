@@ -356,6 +356,15 @@ textarea.inp { height: auto; padding: 6px 8px; resize: vertical; }
 .slide-note { color: var(--ink-muted); }
 .chart-axis-text { fill: var(--chart-label); font-family: var(--font-sans); font-size: 11px; }
 
+/* src/viz/ grafiklerinin tema renkleri. Sunum niteliğinde var() yerine sınıf
+   kullanılır; PNG dışa aktarımı hesaplanmış stili gömdüğü için sınıf kesin. */
+.viz-label { fill: var(--chart-label); font-family: var(--font-sans); font-size: 11px; }
+.viz-value { fill: var(--ink-primary); font-family: var(--font-sans); font-size: 12px; font-variant-numeric: tabular-nums; }
+.viz-strong { fill: var(--ink-secondary); font-family: var(--font-sans); font-size: 12px; font-weight: 600; }
+.viz-grid { stroke: var(--chart-grid); fill: none; }
+.viz-hair { stroke: var(--hairline); fill: none; }
+.viz-track { fill: var(--chart-segment-background); }
+
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 6px; border: 2px solid transparent; background-clip: padding-box; }
 ::-webkit-scrollbar-track { background: transparent; }

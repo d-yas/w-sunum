@@ -8,7 +8,7 @@ import { DataGrid } from "@/components/DataGrid";
 import { ColorsPanel, ExportPanel, KindPicker, OptionsPanel } from "@/components/Panels";
 import { copyBlobToClipboard, serializeElement, snapshotElement } from "@/lib/export-png";
 import { buildPptx, type PptxSlide } from "@/lib/pptx";
-import { KIND_LABELS, newChart, type ChartKind, type ChartSpec, type Workspace } from "@/lib/spec";
+import { KIND_GROUPS, KIND_LABELS, dataShape, newChart, type ChartKind, type ChartSpec, type Workspace } from "@/lib/spec";
 import { downloadBlob, downloadText, loadWorkspace, normalizeWorkspace, safeFilename, saveWorkspace } from "@/lib/storage";
 
 type Tab = "veri" | "gorunum" | "renk" | "susle" | "disa";
@@ -68,19 +68,41 @@ export function App() {
     });
   };
 
+  /** Renk panelinde listelenecek adlar — her tür rengi başka bir eksene dağıtır. */
   const seriesNames = useMemo(() => {
-    switch (active.kind) {
-      case "ring":
+    const uniqueFirst = (col: number) => {
+      const seen: string[] = [];
+      for (const r of active.data.rows) {
+        const v = (r[col] ?? "").trim();
+        if (v && !seen.includes(v)) seen.push(v);
+      }
+      return seen;
+    };
+    switch (dataShape(active.kind)) {
+      case "categoryValue":
         return active.data.rows.map((r) => (r[0] ?? "").trim()).filter(Boolean);
-      case "sankey": {
+      case "flow": {
         const seen: string[] = [];
-        for (const r of active.data.rows) for (const n of [r[0], r[1]]) if (n && !seen.includes(n.trim())) seen.push(n.trim());
+        for (const r of active.data.rows) {
+          for (const n of [r[0], r[1]]) {
+            const v = (n ?? "").trim();
+            if (v && !seen.includes(v)) seen.push(v);
+          }
+        }
         return seen;
       }
-      case "heatmap":
+      case "hierarchy":
+        return uniqueFirst(0);
+      case "xy":
+        return uniqueFirst(4).length > 0 ? uniqueFirst(4) : ["Noktalar"];
+      case "calendar":
         return ["Hücre rengi"];
+      case "region":
+        return ["Yoğunluk"];
       default:
-        return active.data.columns.slice(1).map((c, i) => c.trim() || `Seri ${i + 1}`);
+        return active.kind === "slope"
+          ? active.data.rows.map((r) => (r[0] ?? "").trim()).filter(Boolean)
+          : active.data.columns.slice(1).map((c, i) => c.trim() || `Seri ${i + 1}`);
     }
   }, [active]);
 
@@ -278,10 +300,14 @@ export function App() {
         <div className="relative">
           <select className="inp" value="" onChange={(e) => e.target.value && addChart(e.target.value as ChartKind)} title="Yeni grafik">
             <option value="">+ Yeni grafik</option>
-            {(Object.keys(KIND_LABELS) as ChartKind[]).map((k) => (
-              <option key={k} value={k}>
-                {KIND_LABELS[k]}
-              </option>
+            {KIND_GROUPS.map((g) => (
+              <optgroup key={g.title} label={g.title}>
+                {g.kinds.map((k) => (
+                  <option key={k} value={k}>
+                    {KIND_LABELS[k]}
+                  </option>
+                ))}
+              </optgroup>
             ))}
           </select>
         </div>

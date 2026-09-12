@@ -9,8 +9,17 @@ Paylaşmak için yalnız bu dosyayı gönderin.
 ## Kullanım (son kullanıcı)
 
 1. `veri-gorsel.html` dosyasını Chrome ya da Edge ile açın (çift tık yeter).
-2. Sol üstten grafik türünü seçin: Sütun, Yatay çubuk, Çizgi, Alan, Halka,
-   Isı takvimi, Akış (Sankey).
+2. Sol üstten grafik türünü seçin. Türler beş grupta toplanır:
+   - **Karşılaştırma** — Sütun, Yatay çubuk, Marimekko, Şelale, Huni
+   - **Zaman ve eğilim** — Çizgi, Alan, Eğim, Isı takvimi
+   - **Pay ve bileşim** — Halka, Gösterge, Ağaç haritası, Güneş patlaması,
+     Daire yığını, Piktogram
+   - **İlişki ve dağılım** — Dağılım, Balon, Radar, Akış (Sankey), Akor, Ağ, Yay
+   - **Coğrafya** — Harita (boyalı ya da kabarcık; dünya / kıta / Türkiye ve çevresi)
+
+   Aynı tablo biçimini paylaşan türler arasında geçerken veriniz korunur
+   (örneğin Sankey → Akor → Ağ → Yay, ya da Sütun → Radar → Marimekko);
+   biçim değişince örnek veri gelir.
 3. **Veri** sekmesinde tabloyu doldurun. Excel'den kopyalayıp doğrudan
    hücreye yapıştırabilirsiniz (çok satırlı yapıştırma tabloyu genişletir);
    `Yapıştır` düğmesi tüm tabloyu değiştirir; CSV/JSON yükleme ve indirme var.
@@ -53,6 +62,12 @@ Paylaşmak için yalnız bu dosyayı gönderin.
    Zemin ışıklarının merkezi de sürüklenebilir: kartı tamamen kapladıkları
    için tutulacak bir kutuları yok, onun yerine sahnede bir nişan noktası
    çıkar (Yumuşak küre, Radyal gradyan, Halka dalgaları, Spot konisi).
+6b. **Kart dekoru** (Görünüm sekmesinin altında): kart arka planına doku
+   (nokta, ızgara, yarım ton, çapraz, dalga, ASCII), gradyan yıkama, bloom
+   ışıması ve başlık vurgu çubuğu. Süsle sekmesindeki yerleştirilebilir
+   nesnelerden ayrı bir katman: bunlar kartın SVG'sine gömülür, elle
+   taşınmaz. Renkler grafiğin kendi paletinden gelir; hepsi PNG ve
+   PowerPoint çıktısına da geçer.
 7. **Dışa aktar**: `PNG indir` (1×–4×), `Panoya kopyala` (PowerPoint'e Ctrl+V),
    `SVG indir`, tema ya da şeffaf arka plan. **PowerPoint**: `Slayt olarak indir`
    tek grafiği, `Tüm grafikler` çalışma alanındaki her grafiği birer 16:9 slayt
@@ -76,6 +91,7 @@ pnpm kontrol      # node scripts/cdp-check.mjs [kind] [theme] [sekme] — headle
 pnpm test:susle   # süslemeler dışa aktarımda hayatta kalıyor mu — piksel ölçer
 pnpm test:yerlesim # serbest yerleşim ve hover anahtarı — gerçek fare olaylarıyla
 pnpm test:arayuz  # Del ile kaldırma, katman kısayolu, özel palet, ışık tutamacı
+node scripts/gen-country-codes.mjs   # src/lib/country-codes.ts üretir (world-atlas + Node ICU)
 ```
 
 `pnpm test:susle` her varlık ailesinden bir örneği boş bir kartın köşesine
@@ -108,6 +124,30 @@ yazar. pnpm 11'de esbuild'in kurulum betiği `pnpm-workspace.yaml` içindeki
 - `src/charts/` — **Bklit** kaynağı, coretex-hub'daki kopyadan alındı
   (üç hata düzeltmesi dâhil: yatay yığılı bar genişliği, giriş animasyonu,
   Sankey kaynak düğüm etiketi). Elden geldiğince dokunulmaz.
+- `src/viz/` — Bklit'te karşılığı olmayan, **Flourish şablonlarına denk gelen**
+  grafikler; visx ilkelleri üzerine ayrıca yazıldı, `src/charts/` hiç
+  değişmedi. Kart, palet, sayı biçimi ve dışa aktarım yolu ortaktır.
+  `with-legend.tsx` gösterge yerleşimi ikisi tarafından da kullanılır
+  (ChartCard ↔ viz döngüsel importunu önlemek için ayrı modülde).
+  Kullanılan paketler: `@visx/hierarchy` (ağaç haritası, güneş patlaması,
+  daire yığını), `@visx/chord`, `@visx/network` + `d3-force`, `@visx/geo` +
+  `topojson-client` + `world-atlas`, `@visx/glyph`. Radar, eğim, gösterge,
+  şelale, huni, marimekko ve piktogramın hazır paketi yok — `@visx/shape` ve
+  `@visx/scale` üstünde yazıldı.
+- `src/decor/CardDecor.tsx` + `bloom/gradients/patterns/ascii` — **karta
+  gömülü dekor katmanı.** Bloom şekilleri, palete bağlı gradyan hazır
+  ayarları, doku desenleri, ASCII glif setleri ve
+  `asciiBar`/`asciiSparkline` yardımcıları. `CardDecor.tsx` hepsini kartın
+  arkasına tek bir `<svg data-decor>` olarak çizer; yerleştirilebilir dekor
+  nesnelerinden (aşağıdaki varlık kaydı) ayrı bir sistemdir.
+- `src/lib/chart-icons.ts` — tür seçicideki simgeler ve piktogram ikon
+  kataloğu. **Lucide**'dan (ISC) gelir; dosya yalnız kullanılan ikonları
+  adlandırır, kalan 1.500 ikon ağaç sarsmayla düşer.
+- `src/lib/geo.ts` — harita sınırları (`world-atlas` 110m TopoJSON, ham metin
+  olarak gömülü) ve ülke adı çözümleyici. Türkçe/İngilizce ülke adları
+  tarayıcının kendi `Intl.DisplayNames`'inden gelir, tabloya gömülü değildir;
+  `src/lib/country-codes.ts` yalnız ISO numeric → alpha-2 eşlemesini tutar ve
+  `scripts/gen-country-codes.mjs` ile üretilir.
 - `src/ext/axes.tsx` — Bklit eksen sayı etiketi çizmez; bu katman aynı chart
   context'ini okuyarak `<text>` ekler. `displayName` değerleri Bklit'in
   clip-dışı listesindeki adlardır (`XAxis`, `YAxis`, `BarXAxis`).
@@ -159,3 +199,12 @@ yazar. pnpm 11'de esbuild'in kurulum betiği `pnpm-workspace.yaml` içindeki
   sessizce bir yığın bağlamı kurar, ekran dışı dışa aktarım kartında kurmaz —
   negatif `z-index` kullanan ilk sürüm ekranda doğru görünüp her PNG'de
   kayboluyordu.
+- Harita 110m çözünürlüktedir (ülke sınırları, il/eyalet yok) ve kapsam bir
+  coğrafi pencereye sığdırılıp kırpılır. `d3-geo` küresel çokgeni sarım yönüne
+  göre yorumlar: `scopeExtent` halkası saat yönünde sarılmazsa pencere
+  "kürenin geri kalanı" olarak okunur ve yakınlaştırma hiç uygulanmaz.
+- Ağ grafiğinin kuvvet yerleşimi bir kez, senkron çözülür (sabit başlangıç +
+  sabit adım). Canlı simülasyon PNG'yi belirsiz kılardı; buna karşılık düğüm
+  yerleşimi elle sürüklenemez.
+- Piktogram simgeleri satır başına sabit sayıdadır ve boyut bütün satırlarda
+  ortaktır; en kalabalık satır boyutu belirler.

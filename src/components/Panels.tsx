@@ -1,14 +1,20 @@
 import type { ReactNode } from "react";
 
+import { GRADIENT_LABELS, PATTERN_LABELS } from "@/decor";
+import { KIND_ICONS, PICTO_ICONS } from "@/lib/chart-icons";
 import { PALETTES, getPalette, isCustom, newPalette, seriesColor, type Palette } from "@/lib/palettes";
 import type { Locale } from "@/lib/format";
+import { SCOPE_LABELS } from "@/lib/geo";
 import {
+  KIND_GROUPS,
   KIND_LABELS,
   adaptDataForKind,
-  type ChartKind,
+  dataShape,
   type ChartOptions,
   type ChartSpec,
   type ExportBackground,
+  type MapProjection,
+  type MapScope,
   type Theme,
 } from "@/lib/spec";
 
@@ -93,78 +99,40 @@ export function Section({ title, children }: { title: string; children: ReactNod
 
 /* ---------------- chart kind ---------------- */
 
-const KIND_ORDER: ChartKind[] = ["bar", "barH", "line", "area", "ring", "heatmap", "sankey"];
-
-function KindIcon({ kind }: { kind: ChartKind }) {
-  const s = { fill: "none", stroke: "currentColor", strokeWidth: 1.6, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
-  switch (kind) {
-    case "bar":
-      return (
-        <svg viewBox="0 0 24 24" {...s}>
-          <path d="M4 20V10M10 20V4M16 20v-8M22 20H2" />
-        </svg>
-      );
-    case "barH":
-      return (
-        <svg viewBox="0 0 24 24" {...s}>
-          <path d="M4 5h10M4 11h16M4 17h7M4 2v20" />
-        </svg>
-      );
-    case "line":
-      return (
-        <svg viewBox="0 0 24 24" {...s}>
-          <path d="M3 17l5-6 4 3 6-8 3 4" />
-        </svg>
-      );
-    case "area":
-      return (
-        <svg viewBox="0 0 24 24" {...s}>
-          <path d="M3 17l5-6 4 3 6-8 3 4v10H3z" fill="currentColor" fillOpacity={0.2} />
-        </svg>
-      );
-    case "ring":
-      return (
-        <svg viewBox="0 0 24 24" {...s}>
-          <circle cx="12" cy="12" r="8" strokeOpacity={0.3} />
-          <path d="M12 4a8 8 0 0 1 8 8" strokeWidth={2.2} />
-        </svg>
-      );
-    case "heatmap":
-      return (
-        <svg viewBox="0 0 24 24" {...s}>
-          {[0, 1, 2, 3].flatMap((x) =>
-            [0, 1, 2].map((y) => (
-              <rect key={`${x}${y}`} x={3 + x * 4.8} y={5 + y * 4.8} width="3.6" height="3.6" rx="0.8" fill="currentColor" fillOpacity={((x + y) % 4) * 0.25 + 0.15} stroke="none" />
-            ))
-          )}
-        </svg>
-      );
-    case "sankey":
-      return (
-        <svg viewBox="0 0 24 24" {...s}>
-          <path d="M3 6h4c4 0 5 4 9 4h5M3 18h4c4 0 5-4 9-4h5" />
-        </svg>
-      );
-  }
-}
-
+/**
+ * Tür seçici. Simgeler Lucide'dan gelir (`src/lib/chart-icons.ts`); 23 tür düz bir
+ * ızgaraya sığmadığı için `KIND_GROUPS` başlıklarına bölünür ve aynı veri
+ * biçimini paylaşan türler "veri korunur" işaretiyle gösterilir.
+ */
 export function KindPicker({ spec, onChange }: { spec: ChartSpec; onChange: (s: ChartSpec) => void }) {
   return (
-    <div className="kind-grid">
-      {KIND_ORDER.map((k) => (
-        <button
-          key={k}
-          type="button"
-          className="kind-btn"
-          aria-pressed={spec.kind === k}
-          onClick={() => {
-            if (k === spec.kind) return;
-            onChange({ ...spec, kind: k, data: adaptDataForKind(spec.data, spec.kind, k) });
-          }}
-        >
-          <KindIcon kind={k} />
-          {KIND_LABELS[k]}
-        </button>
+    <div className="flex flex-col gap-2.5">
+      {KIND_GROUPS.map((group) => (
+        <div key={group.title}>
+          <div className="panel-label mb-1">{group.title}</div>
+          <div className="kind-grid">
+            {group.kinds.map((k) => {
+              const Icon = KIND_ICONS[k];
+              const keeps = dataShape(k) === dataShape(spec.kind);
+              return (
+                <button
+                  key={k}
+                  type="button"
+                  className="kind-btn"
+                  aria-pressed={spec.kind === k}
+                  title={keeps && k !== spec.kind ? `${KIND_LABELS[k]} — aynı tabloyu kullanır, veri korunur` : KIND_LABELS[k]}
+                  onClick={() => {
+                    if (k === spec.kind) return;
+                    onChange({ ...spec, kind: k, data: adaptDataForKind(spec.data, spec.kind, k) });
+                  }}
+                >
+                  <Icon size={20} strokeWidth={1.6} aria-hidden />
+                  {KIND_LABELS[k]}
+                </button>
+              );
+            })}
+          </div>
+        </div>
       ))}
     </div>
   );
@@ -179,6 +147,12 @@ export function OptionsPanel({ spec, onChange }: { spec: ChartSpec; onChange: (s
   const cartesian = spec.kind === "line" || spec.kind === "area" || spec.kind === "bar" || spec.kind === "barH";
   const timeLike = spec.kind === "line" || spec.kind === "area";
   const bars = spec.kind === "bar" || spec.kind === "barH";
+  const hierarchy = dataShape(spec.kind) === "hierarchy";
+  const xy = dataShape(spec.kind) === "xy";
+  const relation = spec.kind === "chord" || spec.kind === "network" || spec.kind === "arc";
+  // Göstergesi olmayan türler: takvim kendi ölçeğini, akış ve piktogram
+  // etiketlerini grafiğin içinde taşır.
+  const noLegend = spec.kind === "heatmap" || spec.kind === "sankey" || spec.kind === "pictogram";
 
   return (
     <div className="flex flex-col">
@@ -239,7 +213,7 @@ export function OptionsPanel({ spec, onChange }: { spec: ChartSpec; onChange: (s
         </Field>
       </Section>
 
-      {spec.kind !== "heatmap" && spec.kind !== "sankey" && (
+      {!noLegend && (
         <Section title="Gösterge (legend)">
           <Field label="Göster">
             <Switch checked={o.legend} onChange={(v) => set({ legend: v })} />
@@ -373,6 +347,343 @@ export function OptionsPanel({ spec, onChange }: { spec: ChartSpec; onChange: (s
           </Field>
         </Section>
       )}
+
+      {hierarchy && (
+        <Section title="Hiyerarşi">
+          <Field label="Etiketler">
+            <Switch checked={o.hierarchyLabels} onChange={(v) => set({ hierarchyLabels: v })} />
+          </Field>
+          <Field label="Değerler">
+            <Switch checked={o.hierarchyValues} onChange={(v) => set({ hierarchyValues: v })} />
+          </Field>
+          <Field label="Renk" hint="Ana gruba göre tonlama ya da düz renk">
+            <Seg
+              value={o.hierarchyColorDepth === 1 ? "flat" : "shade"}
+              options={[["shade", "Tonlu"], ["flat", "Düz"]]}
+              onChange={(v) => set({ hierarchyColorDepth: v === "flat" ? 1 : 0 })}
+            />
+          </Field>
+          <Field label="Aralık">
+            <Num value={o.hierarchyPad} min={0} max={20} onChange={(v) => set({ hierarchyPad: v ?? 3 })} />
+          </Field>
+          {spec.kind === "sunburst" && (
+            <Field label="İç boşluk" hint="Dış yarıçapın yüzdesi">
+              <Num value={o.sunburstInner} min={0} max={70} onChange={(v) => set({ sunburstInner: v ?? 32 })} />
+            </Field>
+          )}
+        </Section>
+      )}
+
+      {xy && (
+        <Section title={spec.kind === "bubble" ? "Balonlar" : "Noktalar"}>
+          <Field label="Simge">
+            <select className="inp" value={o.pointGlyph} onChange={(e) => set({ pointGlyph: e.target.value as ChartOptions["pointGlyph"] })}>
+              <option value="circle">Daire</option>
+              <option value="square">Kare</option>
+              <option value="diamond">Elmas</option>
+              <option value="triangle">Üçgen</option>
+              <option value="star">Yıldız</option>
+              <option value="cross">Artı</option>
+              <option value="wye">Çatal</option>
+            </select>
+          </Field>
+          {spec.kind === "bubble" ? (
+            <Field label="En büyük balon" hint="Yarıçap, piksel">
+              <Num value={o.bubbleMax} min={8} max={120} onChange={(v) => set({ bubbleMax: v ?? 46 })} />
+            </Field>
+          ) : (
+            <Field label="Nokta boyutu">
+              <Num value={o.pointSize} min={2} max={30} onChange={(v) => set({ pointSize: v ?? 7 })} />
+            </Field>
+          )}
+          <Field label="Opaklık">
+            <Num value={o.pointOpacity} min={0.1} max={1} step={0.05} onChange={(v) => set({ pointOpacity: v ?? 0.85 })} />
+          </Field>
+          <Field label="Nokta etiketleri">
+            <Switch checked={o.pointLabels} onChange={(v) => set({ pointLabels: v })} />
+          </Field>
+          <Field label="Eğilim çizgisi" hint="En küçük kareler + R²">
+            <Switch checked={o.trendLine} onChange={(v) => set({ trendLine: v })} />
+          </Field>
+          <Field label="Çeyrek çizgileri">
+            <Switch checked={o.quadrants} onChange={(v) => set({ quadrants: v })} />
+          </Field>
+          <Field label="X ekseni adı">
+            <input className="inp w-32" value={o.xLabel} onChange={(e) => set({ xLabel: e.target.value })} />
+          </Field>
+          <Field label="Y ekseni adı">
+            <input className="inp w-32" value={o.yLabel} onChange={(e) => set({ yLabel: e.target.value })} />
+          </Field>
+        </Section>
+      )}
+
+      {relation && (
+        <Section title="İlişki">
+          <Field label="Düğüm adları">
+            <Switch checked={o.nodeLabels} onChange={(v) => set({ nodeLabels: v })} />
+          </Field>
+          <Field label="Bağlantı opaklığı">
+            <Num value={o.linkOpacity} min={0.1} max={1} step={0.05} onChange={(v) => set({ linkOpacity: v ?? 0.5 })} />
+          </Field>
+          {spec.kind === "chord" && (
+            <>
+              <Field label="Halka kalınlığı">
+                <Num value={o.chordThickness} min={4} max={48} onChange={(v) => set({ chordThickness: v ?? 14 })} />
+              </Field>
+              <Field label="Dilim aralığı">
+                <Num value={o.chordPad} min={0} max={0.2} step={0.01} onChange={(v) => set({ chordPad: v ?? 0.04 })} />
+              </Field>
+            </>
+          )}
+          {spec.kind === "network" && (
+            <>
+              <Field label="Düğüm boyutu">
+                <Num value={o.networkNodeSize} min={3} max={30} onChange={(v) => set({ networkNodeSize: v ?? 9 })} />
+              </Field>
+              <Field label="İtme gücü" hint="Daha negatif = daha dağınık">
+                <Num value={o.networkCharge} min={-1200} max={-20} step={20} onChange={(v) => set({ networkCharge: v ?? -260 })} />
+              </Field>
+            </>
+          )}
+          {spec.kind === "arc" && (
+            <Field label="Yay yüksekliği">
+              <Num value={o.arcHeight} min={0.2} max={1} step={0.05} onChange={(v) => set({ arcHeight: v ?? 0.62 })} />
+            </Field>
+          )}
+        </Section>
+      )}
+
+      {spec.kind === "radar" && (
+        <Section title="Radar">
+          <Field label="Izgara biçimi">
+            <Seg
+              value={o.radarStraight ? "poly" : "circle"}
+              options={[["poly", "Çokgen"], ["circle", "Daire"]]}
+              onChange={(v) => set({ radarStraight: v === "poly" })}
+            />
+          </Field>
+          <Field label="Halka sayısı">
+            <Num value={o.radarLevels} min={1} max={8} onChange={(v) => set({ radarLevels: v ?? 4 })} />
+          </Field>
+          <Field label="Dolgu opaklığı">
+            <Num value={o.radarFill} min={0} max={1} step={0.02} onChange={(v) => set({ radarFill: v ?? 0.18 })} />
+          </Field>
+          <Field label="Çizgi kalınlığı">
+            <Num value={o.strokeWidth} min={1} max={8} step={0.5} onChange={(v) => set({ strokeWidth: v ?? 2 })} />
+          </Field>
+          <Field label="Noktalar">
+            <Switch checked={o.radarDots} onChange={(v) => set({ radarDots: v })} />
+          </Field>
+          <Field label="Üst sınır" hint="Boş = veriden">
+            <Num value={o.yMax} allowEmpty onChange={(v) => set({ yMax: v })} />
+          </Field>
+        </Section>
+      )}
+
+      {spec.kind === "slope" && (
+        <Section title="Eğim">
+          <Field label="Uç etiketleri">
+            <Switch checked={o.slopeLabels} onChange={(v) => set({ slopeLabels: v })} />
+          </Field>
+          <Field label="Uçlarda değer">
+            <Switch checked={o.slopeValues} onChange={(v) => set({ slopeValues: v })} />
+          </Field>
+          <Field label="Çizgi kalınlığı">
+            <Num value={o.strokeWidth} min={1} max={8} step={0.5} onChange={(v) => set({ strokeWidth: v ?? 2 })} />
+          </Field>
+          <Field label="Nokta yarıçapı" hint="0 = nokta yok">
+            <Num value={o.slopeDots} min={0} max={12} onChange={(v) => set({ slopeDots: v ?? 5 })} />
+          </Field>
+        </Section>
+      )}
+
+      {spec.kind === "gauge" && (
+        <Section title="Gösterge">
+          <Field label="Yay açısı" hint="Derece; 180 yarım daire">
+            <Num value={o.gaugeSweep} min={90} max={350} step={10} onChange={(v) => set({ gaugeSweep: v ?? 250 })} />
+          </Field>
+          <Field label="Kalınlık">
+            <Num value={o.gaugeThickness} min={4} max={90} onChange={(v) => set({ gaugeThickness: v ?? 26 })} />
+          </Field>
+          <Field label="Skala aralığı">
+            <div className="flex items-center gap-1">
+              <Num value={o.gaugeMin} onChange={(v) => set({ gaugeMin: v ?? 0 })} width={64} />
+              <span className="text-muted-foreground">→</span>
+              <Num value={o.gaugeMax} onChange={(v) => set({ gaugeMax: v ?? 100 })} width={64} />
+            </div>
+          </Field>
+          <Field label="Skala adımı">
+            <Num value={o.gaugeTicks} min={1} max={12} onChange={(v) => set({ gaugeTicks: v ?? 5 })} />
+          </Field>
+          <Field label="Skalayı göster">
+            <Switch checked={o.xAxis} onChange={(v) => set({ xAxis: v })} />
+          </Field>
+          <Field label="İbre">
+            <Switch checked={o.gaugeNeedle} onChange={(v) => set({ gaugeNeedle: v })} />
+          </Field>
+        </Section>
+      )}
+
+      {spec.kind === "waterfall" && (
+        <Section title="Şelale">
+          <Field label="Toplam sütunu">
+            <Switch checked={o.waterfallTotal} onChange={(v) => set({ waterfallTotal: v })} />
+          </Field>
+          <Field label="Toplam etiketi">
+            <input className="inp w-32" value={o.waterfallTotalLabel} onChange={(e) => set({ waterfallTotalLabel: e.target.value })} />
+          </Field>
+          <Field label="Bağlayıcı çizgiler">
+            <Switch checked={o.waterfallConnectors} onChange={(v) => set({ waterfallConnectors: v })} />
+          </Field>
+          <Field label="Çubuk aralığı">
+            <Num value={o.barGap} min={0} max={0.8} step={0.05} onChange={(v) => set({ barGap: v ?? 0.35 })} />
+          </Field>
+        </Section>
+      )}
+
+      {spec.kind === "funnel" && (
+        <Section title="Huni">
+          <Field label="Biçim">
+            <Seg
+              value={o.funnelShape}
+              options={[["funnel", "Huni"], ["pyramid", "Piramit"], ["bar", "Çubuk"]]}
+              onChange={(v) => set({ funnelShape: v })}
+            />
+          </Field>
+          <Field label="Aşama aralığı">
+            <Num value={o.funnelGap} min={0} max={40} onChange={(v) => set({ funnelGap: v ?? 6 })} />
+          </Field>
+          <Field label="Dönüşüm yüzdesi">
+            <Switch checked={o.funnelDropLabels} onChange={(v) => set({ funnelDropLabels: v })} />
+          </Field>
+        </Section>
+      )}
+
+      {spec.kind === "marimekko" && (
+        <Section title="Marimekko">
+          <Field label="Pay etiketleri">
+            <Switch checked={o.mekkoLabels} onChange={(v) => set({ mekkoLabels: v })} />
+          </Field>
+          <Field label="Sütun başlıkları">
+            <Switch checked={o.xAxis} onChange={(v) => set({ xAxis: v })} />
+          </Field>
+          <Field label="Yüzde ekseni">
+            <Switch checked={o.yAxis} onChange={(v) => set({ yAxis: v })} />
+          </Field>
+          <Field label="Sütun aralığı">
+            <Num value={o.mekkoGap} min={0} max={24} onChange={(v) => set({ mekkoGap: v ?? 3 })} />
+          </Field>
+        </Section>
+      )}
+
+      {spec.kind === "pictogram" && (
+        <Section title="Piktogram">
+          <Field label="Simge">
+            <select className="inp w-32" value={o.pictoIcon} onChange={(e) => set({ pictoIcon: e.target.value })}>
+              {PICTO_ICONS.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.label}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Simge başına birim">
+            <Num value={o.pictoUnit} min={1} onChange={(v) => set({ pictoUnit: v ?? 10 })} />
+          </Field>
+          <Field label="Satır başına simge">
+            <Num value={o.pictoPerRow} min={1} max={60} onChange={(v) => set({ pictoPerRow: v ?? 10 })} />
+          </Field>
+          <Field label="Simge aralığı">
+            <Num value={o.pictoGap} min={0} max={20} onChange={(v) => set({ pictoGap: v ?? 4 })} />
+          </Field>
+        </Section>
+      )}
+
+      {spec.kind === "map" && (
+        <Section title="Harita">
+          <Field label="Kapsam">
+            <select className="inp w-36" value={o.mapScope} onChange={(e) => set({ mapScope: e.target.value as MapScope })}>
+              {(Object.keys(SCOPE_LABELS) as MapScope[]).map((s) => (
+                <option key={s} value={s}>
+                  {SCOPE_LABELS[s]}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Gösterim">
+            <Seg
+              value={o.mapMode}
+              options={[["choropleth", "Boyalı"], ["bubble", "Kabarcık"]]}
+              onChange={(v) => set({ mapMode: v })}
+            />
+          </Field>
+          <Field label="İzdüşüm">
+            <select className="inp w-36" value={o.mapProjection} onChange={(e) => set({ mapProjection: e.target.value as MapProjection })}>
+              <option value="naturalEarth">Natural Earth</option>
+              <option value="equalEarth">Equal Earth</option>
+              <option value="mercator">Mercator</option>
+              <option value="orthographic">Küre</option>
+            </select>
+          </Field>
+          {o.mapMode === "bubble" && (
+            <Field label="En büyük kabarcık">
+              <Num value={o.mapBubbleMax} min={6} max={90} onChange={(v) => set({ mapBubbleMax: v ?? 34 })} />
+            </Field>
+          )}
+          <Field label="Değerleri yaz">
+            <Switch checked={o.mapLabels} onChange={(v) => set({ mapLabels: v })} />
+          </Field>
+          <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
+            Ülke sütununa Türkçe ad ("Almanya"), İngilizce ad ("Germany"), ISO kodu ("DE") ya da sayısal kod ("276")
+            yazabilirsiniz. Eşleşmeyenler grafiğin altında listelenir.
+          </p>
+        </Section>
+      )}
+
+      <Section title="Dekor">
+        <Field label="Doku">
+          <select className="inp w-28" value={o.decorPattern} onChange={(e) => set({ decorPattern: e.target.value as ChartOptions["decorPattern"] })}>
+            <option value="none">Yok</option>
+            {(Object.keys(PATTERN_LABELS) as (keyof typeof PATTERN_LABELS)[]).map((k) => (
+              <option key={k} value={k}>
+                {PATTERN_LABELS[k]}
+              </option>
+            ))}
+          </select>
+        </Field>
+        {o.decorPattern !== "none" && (
+          <Field label="Doku opaklığı">
+            <Num value={o.decorPatternOpacity} min={0.05} max={1} step={0.05} onChange={(v) => set({ decorPatternOpacity: v ?? 0.5 })} />
+          </Field>
+        )}
+        <Field label="Gradyan">
+          <select className="inp w-28" value={o.decorGradient} onChange={(e) => set({ decorGradient: e.target.value as ChartOptions["decorGradient"] })}>
+            <option value="none">Yok</option>
+            {(Object.keys(GRADIENT_LABELS) as (keyof typeof GRADIENT_LABELS)[]).map((k) => (
+              <option key={k} value={k}>
+                {GRADIENT_LABELS[k]}
+              </option>
+            ))}
+          </select>
+        </Field>
+        <Field label="Bloom" hint="Arkada yumuşak renk ışıması">
+          <select className="inp w-28" value={o.decorBloom} onChange={(e) => set({ decorBloom: e.target.value as ChartOptions["decorBloom"] })}>
+            <option value="none">Yok</option>
+            <option value="topRight">Sağ üst</option>
+            <option value="bottomLeft">Sol alt</option>
+            <option value="center">Merkez halka</option>
+            <option value="corners">Köşeler</option>
+          </select>
+        </Field>
+        {o.decorBloom !== "none" && (
+          <Field label="Bloom rengi" hint="Kaçıncı seri rengi">
+            <Num value={o.decorBloomSeries + 1} min={1} max={8} onChange={(v) => set({ decorBloomSeries: (v ?? 1) - 1 })} />
+          </Field>
+        )}
+        <Field label="Başlık vurgu çubuğu">
+          <Switch checked={o.decorAccentBar} onChange={(v) => set({ decorAccentBar: v })} />
+        </Field>
+      </Section>
 
       <Section title="Sayı biçimi">
         <Field label="Yerel">

@@ -19,19 +19,28 @@ import {
   HeatmapYAxis,
   type HeatmapLevelColors,
 } from "@/charts/heatmap";
-import { Legend, LegendItem, LegendLabel, LegendMarker, LegendValue } from "@/charts/legend";
 import { Ring } from "@/charts/ring";
 import { RingChart } from "@/charts/ring-chart";
 import { useRingHover, useRingStable } from "@/charts/ring-context";
 import { SankeyChart, SankeyLink, SankeyNode, SankeyTooltip } from "@/charts/sankey";
 import { StaticChartPreviewProvider } from "@/charts/static-chart-preview-context";
 import { ChartTooltip, TooltipContent } from "@/charts/tooltip";
+import { AccentBar, CardDecor } from "@/decor";
 import { BarValueAxis, BarXAxis, XAxis, YAxis } from "@/ext/axes";
 import { toCartesian, toHeatmap, toRing, toSankey, type CartesianModel } from "@/lib/adapters";
 import { formatDateLong, formatNumber, type NumberFormatSpec } from "@/lib/format";
 import { getPalette, seriesColor, type Palette } from "@/lib/palettes";
 import type { SlotKey } from "@/decor/model";
-import type { ChartSpec, Theme } from "@/lib/spec";
+import { dataShape, type ChartSpec, type Theme } from "@/lib/spec";
+import { WaterfallViz, FunnelViz, MarimekkoViz } from "@/viz/columns";
+import { HierarchyViz } from "@/viz/hierarchy";
+import { MapViz } from "@/viz/map";
+import { PictogramViz } from "@/viz/pictogram";
+import { GaugeViz, RadarViz } from "@/viz/radial";
+import { RelationViz } from "@/viz/relation";
+import { SlopeViz } from "@/viz/slope";
+import { WithLegend } from "@/viz/with-legend";
+import { XYViz } from "@/viz/xy";
 
 export interface ChartCardProps {
   spec: ChartSpec;
@@ -128,19 +137,35 @@ export const ChartCard = forwardRef<HTMLDivElement, ChartCardProps>(function Cha
         ...style,
       }}
     >
+      <CardDecor width={o.width} height={o.height} options={o} colors={colors} />
       <DecorLayer {...decorProps} phase="arka" />
       {(spec.title || spec.subtitle) && !hiddenSlot("baslik") && (
-        <header data-slot="baslik" style={slot("baslik", { position: "relative", zIndex: 1, marginBottom: o.chartInset + 4 })}>
-          {spec.title && (
-            <div className="slide-title" style={{ fontSize: o.titleSize }}>
-              {spec.title}
-            </div>
+        <header
+          data-slot="baslik"
+          style={slot("baslik", {
+            position: "relative",
+            zIndex: 1,
+            marginBottom: o.chartInset + 4,
+            display: o.decorAccentBar ? "flex" : undefined,
+            gap: o.decorAccentBar ? 10 : undefined,
+            alignItems: o.decorAccentBar ? "stretch" : undefined,
+          })}
+        >
+          {o.decorAccentBar && (
+            <AccentBar color={colors[0]} height={o.titleSize * (spec.subtitle ? 1.9 : 1.3)} />
           )}
-          {spec.subtitle && (
-            <div className="slide-subtitle" style={{ fontSize: Math.round(o.titleSize * 0.6), marginTop: 4 }}>
-              {spec.subtitle}
-            </div>
-          )}
+          <div>
+            {spec.title && (
+              <div className="slide-title" style={{ fontSize: o.titleSize }}>
+                {spec.title}
+              </div>
+            )}
+            {spec.subtitle && (
+              <div className="slide-subtitle" style={{ fontSize: Math.round(o.titleSize * 0.6), marginTop: 4 }}>
+                {spec.subtitle}
+              </div>
+            )}
+          </div>
         </header>
       )}
       {!hiddenSlot("grafik") && (
@@ -168,16 +193,26 @@ export const ChartCard = forwardRef<HTMLDivElement, ChartCardProps>(function Cha
   );
 });
 
+/** Kaç renk gerekiyor — palet bu sayıya göre açılır. */
 function countSeries(spec: ChartSpec): number {
-  switch (spec.kind) {
-    case "ring":
+  switch (dataShape(spec.kind)) {
+    case "categoryValue":
       return spec.data.rows.filter((r) => (r[0] ?? "").trim()).length;
-    case "sankey":
-      return new Set(spec.data.rows.flatMap((r) => [r[0], r[1]]).filter(Boolean)).size;
-    case "heatmap":
+    case "flow":
+      return new Set(spec.data.rows.flatMap((r) => [r[0], r[1]]).map((s) => (s ?? "").trim()).filter(Boolean)).size;
+    case "hierarchy":
+      // Renk ana gruplara dağıtılır.
+      return new Set(spec.data.rows.map((r) => (r[0] ?? "").trim()).filter(Boolean)).size;
+    case "xy":
+      return new Set(spec.data.rows.map((r) => (r[4] ?? "").trim()).filter(Boolean)).size || 1;
+    case "calendar":
+    case "region":
       return 1;
     default:
-      return Math.max(1, spec.data.columns.length - 1);
+      // Eğim grafiğinde çizgi satırdır, seri değil.
+      return spec.kind === "slope"
+        ? Math.max(1, spec.data.rows.filter((r) => (r[0] ?? "").trim()).length)
+        : Math.max(1, spec.data.columns.length - 1);
   }
 }
 
@@ -191,6 +226,7 @@ interface BodyProps {
 }
 
 function ChartBody({ spec, colors, isStatic, theme }: BodyProps) {
+  const viz = { spec, colors, isStatic, theme };
   switch (spec.kind) {
     case "line":
     case "area":
@@ -204,69 +240,36 @@ function ChartBody({ spec, colors, isStatic, theme }: BodyProps) {
       return <Heat spec={spec} colors={colors} isStatic={isStatic} theme={theme} />;
     case "sankey":
       return <Flow spec={spec} colors={colors} isStatic={isStatic} />;
+
+    /* src/viz/ — Flourish karşılıkları */
+    case "treemap":
+    case "sunburst":
+    case "pack":
+      return <HierarchyViz {...viz} />;
+    case "scatter":
+    case "bubble":
+      return <XYViz {...viz} />;
+    case "chord":
+    case "network":
+    case "arc":
+      return <RelationViz {...viz} />;
+    case "radar":
+      return <RadarViz {...viz} />;
+    case "gauge":
+      return <GaugeViz {...viz} />;
+    case "slope":
+      return <SlopeViz {...viz} />;
+    case "waterfall":
+      return <WaterfallViz {...viz} />;
+    case "funnel":
+      return <FunnelViz {...viz} />;
+    case "marimekko":
+      return <MarimekkoViz {...viz} />;
+    case "pictogram":
+      return <PictogramViz {...viz} />;
+    case "map":
+      return <MapViz {...viz} />;
   }
-}
-
-/* ---------------- shared legend + layout ---------------- */
-
-interface LegendSpec {
-  label: string;
-  value: number;
-  color: string;
-  maxValue?: number;
-}
-
-function WithLegend({
-  spec,
-  items,
-  children,
-  hoveredIndex,
-  onHoverChange,
-}: {
-  spec: ChartSpec;
-  items: LegendSpec[];
-  children: ReactNode;
-  hoveredIndex?: number | null;
-  onHoverChange?: (i: number | null) => void;
-}) {
-  const { options: o } = spec;
-  const show = o.legend && items.length > 0;
-  const fmt = (v: number) => formatNumber(v, o.format);
-  const legend = show ? (
-    <Legend
-      items={items}
-      hoveredIndex={hoveredIndex}
-      onHoverChange={onHoverChange}
-      className={
-        o.legendPosition === "right"
-          ? "flex flex-col gap-1.5 justify-center min-w-[120px] max-w-[220px]"
-          : "flex flex-row flex-wrap gap-x-5 gap-y-1.5 justify-center"
-      }
-    >
-      <LegendItem className="flex items-center gap-2 px-0 py-0">
-        <LegendMarker className="h-2.5 w-2.5" />
-        <LegendLabel className="text-[13px] font-medium" />
-        {o.legendValues && <LegendValue className="text-[13px] tabular-nums text-legend-muted-foreground" formatValue={fmt} />}
-      </LegendItem>
-    </Legend>
-  ) : null;
-
-  const gap = o.chartInset;
-  if (o.legendPosition === "right") {
-    return (
-      <div style={{ flex: 1, minHeight: 0, display: "flex", gap: gap * 2 }}>
-        <div style={{ flex: 1, minWidth: 0, minHeight: 0, position: "relative" }}>{children}</div>
-        {legend}
-      </div>
-    );
-  }
-  return (
-    <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", gap }}>
-      {o.legendPosition === "top" && legend}
-      <div style={{ flex: 1, minHeight: 0, position: "relative" }}>{children}</div>
-      {o.legendPosition === "bottom" && legend}
-    </div>
-  );
 }
 
 const FILL = "absolute inset-0 h-full w-full";

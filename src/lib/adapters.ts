@@ -197,6 +197,331 @@ export function toSankey(spec: ChartSpec): SankeyModel {
   return { data: { nodes, links }, nodeNames: names, total };
 }
 
+/* ------------------------------------------------------------------ */
+/* Kategori + değer — huni, şelale, piktogram, gösterge                 */
+/* ------------------------------------------------------------------ */
+
+export interface CategoryItem {
+  label: string;
+  value: number;
+  /** Üçüncü sütun; halka ve göstergede hedef, diğerlerinde yok. */
+  target: number | null;
+}
+
+export interface CategoryModel {
+  items: CategoryItem[];
+  total: number;
+  max: number;
+  min: number;
+}
+
+export function toCategoryValue(spec: ChartSpec): CategoryModel {
+  const locale = spec.options.format.locale;
+  const items: CategoryItem[] = [];
+  for (const r of spec.data.rows) {
+    const label = (r[0] ?? "").trim();
+    const value = parseNumber(r[1], locale);
+    if (label === "" || value == null) continue;
+    items.push({ label, value, target: parseNumber(r[2], locale) });
+  }
+  const values = items.map((i) => i.value);
+  return {
+    items,
+    total: values.reduce((a, v) => a + v, 0),
+    max: values.length ? Math.max(...values) : 0,
+    min: values.length ? Math.min(...values) : 0,
+  };
+}
+
+/** Şelale adımları: her kalem bir önceki kümülatiften başlar. */
+export interface WaterfallStep {
+  label: string;
+  value: number;
+  start: number;
+  end: number;
+  kind: "increase" | "decrease" | "total";
+}
+
+export function toWaterfall(spec: ChartSpec): { steps: WaterfallStep[]; min: number; max: number } {
+  const { items } = toCategoryValue(spec);
+  const steps: WaterfallStep[] = [];
+  let running = 0;
+  for (const it of items) {
+    const start = running;
+    running += it.value;
+    steps.push({
+      label: it.label,
+      value: it.value,
+      start,
+      end: running,
+      kind: it.value >= 0 ? "increase" : "decrease",
+    });
+  }
+  if (spec.options.waterfallTotal && steps.length > 0) {
+    steps.push({
+      label: spec.options.waterfallTotalLabel || "Toplam",
+      value: running,
+      start: 0,
+      end: running,
+      kind: "total",
+    });
+  }
+  let min = 0;
+  let max = 0;
+  for (const s of steps) {
+    min = Math.min(min, s.start, s.end);
+    max = Math.max(max, s.start, s.end);
+  }
+  return { steps, min, max };
+}
+
+/* ------------------------------------------------------------------ */
+/* Hiyerarşi — ağaç haritası, güneş patlaması, daire yığını            */
+/* ------------------------------------------------------------------ */
+
+export interface HierarchyDatum {
+  name: string;
+  /** Kökten itibaren derinlik 1 = ana grup, 2 = alt grup. */
+  value?: number;
+  children?: HierarchyDatum[];
+}
+
+export interface HierarchyModel {
+  root: HierarchyDatum;
+  /** Ana grup adları, renk sırasını belirler. */
+  groups: string[];
+  leaves: number;
+  total: number;
+}
+
+/**
+ * `Ana grup ; Alt grup ; Değer` → iki düzeyli ağaç. Alt grup boşsa ana grup
+ * yaprak olur; aynı ana grup hem yaprak hem dal olamayacağı için o durumda
+ * ana grup tek çocuklu bir dala dönüşür.
+ */
+export function toHierarchy(spec: ChartSpec): HierarchyModel {
+  const locale = spec.options.format.locale;
+  const groups: string[] = [];
+  const byGroup = new Map<string, HierarchyDatum[]>();
+  let total = 0;
+  let leaves = 0;
+
+  for (const r of spec.data.rows) {
+    const group = (r[0] ?? "").trim();
+    const child = (r[1] ?? "").trim();
+    const value = parseNumber(r[2], locale);
+    if (group === "" || value == null || value <= 0) continue;
+    if (!byGroup.has(group)) {
+      byGroup.set(group, []);
+      groups.push(group);
+    }
+    byGroup.get(group)!.push({ name: child || group, value });
+    total += value;
+    leaves++;
+  }
+
+  return {
+    root: {
+      name: "kök",
+      children: groups.map((g) => {
+        const children = byGroup.get(g)!;
+        // Tek isimsiz yaprak: ara düğüm yaratma, doğrudan yaprak yap.
+        if (children.length === 1 && children[0].name === g) return { name: g, value: children[0].value };
+        return { name: g, children };
+      }),
+    },
+    groups,
+    leaves,
+    total,
+  };
+}
+
+/* ------------------------------------------------------------------ */
+/* Dağılım — scatter / balon                                            */
+/* ------------------------------------------------------------------ */
+
+export interface XYPoint {
+  label: string;
+  x: number;
+  y: number;
+  size: number;
+  group: string;
+}
+
+export interface XYModel {
+  points: XYPoint[];
+  groups: string[];
+  xDomain: [number, number];
+  yDomain: [number, number];
+  sizeMax: number;
+  /** En küçük kareler doğrusu; iki noktadan azsa null. */
+  trend: { slope: number; intercept: number; r2: number } | null;
+}
+
+export function toXY(spec: ChartSpec): XYModel {
+  const locale = spec.options.format.locale;
+  const points: XYPoint[] = [];
+  const groups: string[] = [];
+  for (const r of spec.data.rows) {
+    const x = parseNumber(r[1], locale);
+    const y = parseNumber(r[2], locale);
+    if (x == null || y == null) continue;
+    const group = (r[4] ?? "").trim();
+    if (group && !groups.includes(group)) groups.push(group);
+    points.push({
+      label: (r[0] ?? "").trim(),
+      x,
+      y,
+      size: parseNumber(r[3], locale) ?? 1,
+      group,
+    });
+  }
+  const xs = points.map((p) => p.x);
+  const ys = points.map((p) => p.y);
+  return {
+    points,
+    groups: groups.length ? groups : [""],
+    xDomain: pad(xs),
+    yDomain: pad(ys),
+    sizeMax: points.reduce((a, p) => Math.max(a, p.size), 0) || 1,
+    trend: regression(points),
+  };
+}
+
+/** Uçlara %6 pay bırak, tek nokta ya da sabit değer için de bir aralık üret. */
+function pad(values: number[]): [number, number] {
+  if (values.length === 0) return [0, 1];
+  let lo = Math.min(...values);
+  let hi = Math.max(...values);
+  if (lo === hi) {
+    const d = Math.abs(lo) * 0.1 || 1;
+    lo -= d;
+    hi += d;
+  } else {
+    const d = (hi - lo) * 0.06;
+    lo -= d;
+    hi += d;
+  }
+  return [lo, hi];
+}
+
+function regression(points: XYPoint[]): XYModel["trend"] {
+  const n = points.length;
+  if (n < 2) return null;
+  let sx = 0;
+  let sy = 0;
+  let sxy = 0;
+  let sxx = 0;
+  let syy = 0;
+  for (const p of points) {
+    sx += p.x;
+    sy += p.y;
+    sxy += p.x * p.y;
+    sxx += p.x * p.x;
+    syy += p.y * p.y;
+  }
+  const denom = n * sxx - sx * sx;
+  if (denom === 0) return null;
+  const slope = (n * sxy - sx * sy) / denom;
+  const intercept = (sy - slope * sx) / n;
+  const rDen = Math.sqrt(denom * (n * syy - sy * sy));
+  const r = rDen === 0 ? 0 : (n * sxy - sx * sy) / rDen;
+  return { slope, intercept, r2: r * r };
+}
+
+/* ------------------------------------------------------------------ */
+/* İlişki — akor, ağ, yay (aynı Kaynak ; Hedef ; Değer tablosu)         */
+/* ------------------------------------------------------------------ */
+
+export interface FlowLink {
+  source: number;
+  target: number;
+  value: number;
+}
+
+export interface FlowModel {
+  names: string[];
+  links: FlowLink[];
+  /** Akor için n×n yönlü akış matrisi. */
+  matrix: number[][];
+  /** Düğüm başına toplam (giren + çıkan). */
+  totals: number[];
+  maxValue: number;
+}
+
+export function toFlow(spec: ChartSpec): FlowModel {
+  const locale = spec.options.format.locale;
+  const names: string[] = [];
+  const index = new Map<string, number>();
+  const id = (name: string) => {
+    let i = index.get(name);
+    if (i == null) {
+      i = names.length;
+      names.push(name);
+      index.set(name, i);
+    }
+    return i;
+  };
+  const links: FlowLink[] = [];
+  for (const r of spec.data.rows) {
+    const s = (r[0] ?? "").trim();
+    const t = (r[1] ?? "").trim();
+    const v = parseNumber(r[2], locale);
+    if (!s || !t || v == null || v <= 0 || s === t) continue;
+    links.push({ source: id(s), target: id(t), value: v });
+  }
+  const n = names.length;
+  const matrix = Array.from({ length: n }, () => new Array<number>(n).fill(0));
+  const totals = new Array<number>(n).fill(0);
+  let maxValue = 0;
+  for (const l of links) {
+    matrix[l.source][l.target] += l.value;
+    totals[l.source] += l.value;
+    totals[l.target] += l.value;
+    if (l.value > maxValue) maxValue = l.value;
+  }
+  return { names, links, matrix, totals, maxValue };
+}
+
+/* ------------------------------------------------------------------ */
+/* Harita — ülke adı / kod → değer                                      */
+/* ------------------------------------------------------------------ */
+
+export interface RegionModel {
+  /** world-atlas'ın ISO 3166-1 numeric id'si → değer. */
+  byId: Map<string, number>;
+  /** Girilen ama haritada karşılığı bulunamayan satırlar. */
+  unmatched: string[];
+  min: number;
+  max: number;
+  count: number;
+}
+
+export function toRegion(spec: ChartSpec, resolve: (key: string) => string | null): RegionModel {
+  const locale = spec.options.format.locale;
+  const byId = new Map<string, number>();
+  const unmatched: string[] = [];
+  let min = Infinity;
+  let max = -Infinity;
+  for (const r of spec.data.rows) {
+    const key = (r[0] ?? "").trim();
+    const v = parseNumber(r[1], locale);
+    if (!key || v == null) continue;
+    const id = resolve(key);
+    if (!id) {
+      unmatched.push(key);
+      continue;
+    }
+    byId.set(id, (byId.get(id) ?? 0) + v);
+  }
+  for (const v of byId.values()) {
+    if (v < min) min = v;
+    if (v > max) max = v;
+  }
+  if (!byId.size) return { byId, unmatched, min: 0, max: 0, count: 0 };
+  return { byId, unmatched, min, max, count: byId.size };
+}
+
 /** Numbers in the first data column — used to decide if a table looks numeric. */
 export function tableLooksNumeric(data: TableData, locale: Locale): boolean {
   const cells = data.rows.slice(0, 20).map((r) => r[1]).filter((c) => (c ?? "").trim() !== "");
