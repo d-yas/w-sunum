@@ -10,8 +10,10 @@ import { DecorStage } from "@/components/DecorStage";
 import { DataGrid } from "@/components/DataGrid";
 import { ColorsPanel, ExportPanel, KindPicker, OptionsPanel } from "@/components/Panels";
 import { copyBlobToClipboard, serializeElement, snapshotElement } from "@/lib/export-png";
+import { buildCardSvg } from "@/lib/export-svg";
 import { createHistory } from "@/lib/history";
 import { buildPptx, type PptxSlide } from "@/lib/pptx";
+import { buildZip } from "@/lib/zip";
 import { KIND_LABELS, dataShape, newChart, type ChartKind, type ChartSpec, type Workspace } from "@/lib/spec";
 import { downloadBlob, downloadText, loadWorkspace, normalizeWorkspace, safeFilename, saveWorkspace } from "@/lib/storage";
 import { useThumbnails } from "@/lib/thumbnails";
@@ -257,21 +259,59 @@ export function App() {
       return out;
     });
 
+  /** Kartın tamamını vektör olarak serileştir — başlık ve gösterge dâhil. */
+  const cardSvgText = useCallback(
+    async (spec: ChartSpec) => {
+      let text = "";
+      await renderStatic(async (node) => {
+        const svg = buildCardSvg(node, {
+          width: spec.options.width,
+          height: spec.options.height,
+          transparent: ws.export.background === "transparent",
+        });
+        text = new XMLSerializer().serializeToString(svg);
+      }, spec);
+      return text;
+    },
+    [renderStatic, ws.export.background]
+  );
+
   const exportSvg = () =>
     withBusy("SVG hazırlanıyor", async () => {
-      let out = "";
-      await renderStatic(async (node) => {
-        // Not `querySelector("svg")` — since the decoration pack, the first
-        // <svg> in the card is the background layer. The chart is the one
-        // without a data-decor marker.
-        const svg = node.querySelector<SVGSVGElement>("svg:not([data-decor])");
-        if (!svg) throw new Error("Bu grafikte SVG bulunamadı.");
-        const text = new XMLSerializer().serializeToString(buildCardSvg(node, svg, active.options.width, active.options.height));
-        const name = `${safeFilename(active.title || active.name)}.svg`;
-        downloadText(name, text, "image/svg+xml");
-        out = `İndirildi: ${name}. Not: SVG çizim alanını ve süslemeyi içerir; başlık ve gösterge HTML olduğu için dışarıda kalır.`;
-      });
-      return out;
+      const text = await cardSvgText(active);
+      const name = `${safeFilename(active.title || active.name)}.svg`;
+      downloadText(name, text, "image/svg+xml");
+      return `İndirildi: ${name} (${Math.round(text.length / 1024)} KB, vektör).`;
+    });
+
+  const copySvg = () =>
+    withBusy("SVG kopyalanıyor", async () => {
+      const text = await cardSvgText(active);
+      await navigator.clipboard.writeText(text);
+      return `SVG panoya kopyalandı (${Math.round(text.length / 1024)} KB). Illustrator / Figma'ya yapıştırın.`;
+    });
+
+  /** Her grafik bir dosya, hepsi tek bir zip — STORE yöntemli kendi yazıcımız. */
+  const exportAll = (kind: "png" | "svg") =>
+    withBusy(kind === "png" ? "PNG paketi hazırlanıyor" : "SVG paketi hazırlanıyor", async () => {
+      const files: { name: string; data: Uint8Array | string }[] = [];
+      let i = 0;
+      for (const spec of ws.charts) {
+        i += 1;
+        const stem = `${String(i).padStart(2, "0")}-${safeFilename(spec.title || spec.name)}`;
+        if (kind === "svg") {
+          files.push({ name: `${stem}.svg`, data: await cardSvgText(spec) });
+        } else {
+          await renderStatic(async (node) => {
+            const blob = await snapshotElement(node, { scale: ws.export.scale, background: null });
+            files.push({ name: `${stem}@${ws.export.scale}x.png`, data: new Uint8Array(await blob.arrayBuffer()) });
+          }, spec);
+        }
+      }
+      const bytes = buildZip(files);
+      const name = kind === "png" ? "grafikler-png.zip" : "grafikler-svg.zip";
+      downloadBlob(name, new Blob([bytes], { type: "application/zip" }));
+      return `İndirildi: ${name} (${files.length} dosya, ${Math.round(bytes.length / 1024)} KB)`;
     });
 
   /** One 16:9 slide per chart; the PNG is fitted and centred, slide bg matches the card. */
@@ -309,6 +349,7 @@ export function App() {
         });
         return out;
       },
+      cardSvg: async () => cardSvgText(active),
       snapshotDataUrl: async (scale = 2) => {
         let out = "";
         await renderStatic(async (node) => {
@@ -322,7 +363,7 @@ export function App() {
         return out;
       },
     };
-  }, [renderStatic]);
+  }, [renderStatic, cardSvgText, active]);
 
   /* ---------------- workspace io ---------------- */
 
@@ -587,8 +628,13 @@ export function App() {
                 onDownload={exportPng}
                 onCopy={copyPng}
                 onSvg={exportSvg}
+                onSvgCopy={copySvg}
+                onAllPng={() => exportAll("png")}
+                onAllSvg={() => exportAll("svg")}
                 onPptx={() => exportPptx(false)}
                 onPptxAll={() => exportPptx(true)}
+                onSaveJson={exportWorkspace}
+                onLoadJson={() => fileRef.current?.click()}
                 chartCount={ws.charts.length}
                 message={message}
               />
@@ -623,50 +669,4 @@ function cssColorToHex(color: string): string | null {
   if (!m) return null;
   if (m[4] != null && Number(m[4]) === 0) return null;
   return [m[1], m[2], m[3]].map((v) => Number(v).toString(16).padStart(2, "0").toUpperCase()).join("");
-}
-
-/**
- * Compose one card-sized SVG: background decoration, the chart translated to
- * where it actually sits in the card, then foreground decoration.
- *
- * The decoration layers are copied verbatim — every asset writes explicit
- * presentation attributes, so unlike the chart they need no style inlining.
- * Their <text> asks to inherit the font, which is why the root carries one.
- */
-const SVG_NS = "http://www.w3.org/2000/svg";
-
-function buildCardSvg(card: HTMLElement, chart: SVGSVGElement, width: number, height: number): SVGSVGElement {
-  const out = document.createElementNS(SVG_NS, "svg");
-  out.setAttribute("xmlns", SVG_NS);
-  out.setAttribute("width", String(width));
-  out.setAttribute("height", String(height));
-  out.setAttribute("viewBox", `0 0 ${width} ${height}`);
-  out.setAttribute("font-family", getComputedStyle(card).fontFamily);
-
-  const cardBox = card.getBoundingClientRect();
-  const layers = (phase: string) => Array.from(card.querySelectorAll<SVGSVGElement>(`svg[data-decor="${phase}"]`));
-  for (const layer of layers("arka")) out.appendChild(layer.cloneNode(true));
-
-  const box = chart.getBoundingClientRect();
-  const g = document.createElementNS(SVG_NS, "g");
-  g.setAttribute("transform", `translate(${Math.round(box.left - cardBox.left)} ${Math.round(box.top - cardBox.top)})`);
-  const clone = chart.cloneNode(true) as SVGSVGElement;
-  inlineSvgStyles(chart, clone);
-  g.appendChild(clone);
-  out.appendChild(g);
-
-  for (const layer of layers("on")) out.appendChild(layer.cloneNode(true));
-  return out;
-}
-
-/** Copy computed presentation styles onto a detached SVG clone so it renders standalone. */
-function inlineSvgStyles(source: Element, target: Element) {
-  const props = ["fill", "stroke", "stroke-width", "stroke-dasharray", "stroke-linecap", "stroke-linejoin", "opacity", "fill-opacity", "stroke-opacity", "font-family", "font-size", "font-weight", "text-anchor", "dominant-baseline", "transform", "clip-path", "mask", "filter", "visibility", "color"];
-  const cs = getComputedStyle(source);
-  const decl = props.map((p) => `${p}:${cs.getPropertyValue(p)}`).join(";");
-  target.setAttribute("style", decl);
-  target.removeAttribute("class");
-  const sc = source.children;
-  const tc = target.children;
-  for (let i = 0; i < sc.length; i++) if (tc[i]) inlineSvgStyles(sc[i], tc[i]);
 }

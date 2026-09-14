@@ -1140,8 +1140,13 @@ export function ExportPanel({
   onDownload,
   onCopy,
   onSvg,
+  onSvgCopy,
+  onAllPng,
+  onAllSvg,
   onPptx,
   onPptxAll,
+  onSaveJson,
+  onLoadJson,
   chartCount,
   message,
 }: {
@@ -1155,14 +1160,20 @@ export function ExportPanel({
   onDownload: () => void;
   onCopy: () => void;
   onSvg: () => void;
+  onSvgCopy: () => void;
+  onAllPng: () => void;
+  onAllSvg: () => void;
   onPptx: () => void;
   onPptxAll: () => void;
+  onSaveJson: () => void;
+  onLoadJson: () => void;
   chartCount: number;
   message: string | null;
 }) {
+  const many = chartCount > 1;
   return (
     <div className="flex flex-col">
-      <Section id="png" title="PNG">
+      <Section id="png" title="PNG" collapsible={false}>
         <Field label="Çözünürlük">
           <Seg value={String(scale) as "1" | "2" | "3" | "4"} options={[["1", "1×"], ["2", "2×"], ["3", "3×"], ["4", "4×"]]} onChange={(v) => onScale(Number(v) as 1 | 2 | 3 | 4)} />
         </Field>
@@ -1173,36 +1184,72 @@ export function ExportPanel({
           Çıktı: {width * scale} × {height * scale} px
         </p>
         <div className="mt-1 flex flex-wrap gap-1.5">
-          <button className="btn btn-primary" disabled={busy} onClick={onDownload}>
-            {busy ? "Hazırlanıyor…" : "PNG indir"}
+          <button className="btn btn-primary" data-act="png" disabled={busy} onClick={onDownload}>
+            {busy ? "Hazırlanıyor…" : "İndir"}
           </button>
-          <button className="btn" disabled={busy} onClick={onCopy}>
+          <button className="btn" data-act="png-copy" disabled={busy} onClick={onCopy}>
             Panoya kopyala
           </button>
-          <button className="btn" disabled={busy} onClick={onSvg}>
-            SVG indir
+          <button className="btn" data-act="png-zip" disabled={busy || !many} onClick={onAllPng} title="Her grafik bir dosya, hepsi tek zip">
+            Tümü (zip)
           </button>
         </div>
-        {message && <p className="mt-2 text-[11px] text-muted-foreground">{message}</p>}
-        <p className="mt-3 text-[11px] leading-relaxed text-muted-foreground">
+        <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">
           Panoya kopyalanan görüntü PowerPoint'e doğrudan Ctrl+V ile yapıştırılır. Şeffaf arka plan koyu slayt
-          şablonlarında işe yarar; tema arka planı kartın rengini korur.
+          şablonlarında işe yarar.
         </p>
       </Section>
-      <Section id="pptx" title="PowerPoint">
+
+      <Section id="svg" title="SVG (vektör)" collapsible={false}>
         <div className="flex flex-wrap gap-1.5">
-          <button className="btn btn-primary" disabled={busy} onClick={onPptx}>
-            Slayt olarak indir (.pptx)
+          <button className="btn btn-primary" data-act="svg" disabled={busy} onClick={onSvg}>
+            İndir
           </button>
-          <button className="btn" disabled={busy || chartCount < 2} onClick={onPptxAll} title="Çalışma alanındaki her grafik bir slayt olur">
-            Tüm grafikler ({chartCount} slayt)
+          <button className="btn" data-act="svg-copy" disabled={busy} onClick={onSvgCopy}>
+            Panoya kopyala
+          </button>
+          <button className="btn" data-act="svg-zip" disabled={busy || !many} onClick={onAllSvg}>
+            Tümü (zip)
           </button>
         </div>
-        <p className="mt-3 text-[11px] leading-relaxed text-muted-foreground">
-          16:9 geniş ekran sunu; grafik yukarıdaki çözünürlükte PNG olarak slayta ortalanır, slayt arka planı kartın
-          rengini alır. İndirilen dosyayı açıp slaytları kendi sununuza sürükleyebilirsiniz.
+        <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">
+          Kartın tamamı vektör: başlık, gösterge, eksen etiketleri, değer etiketleri ve süsleme dâhil. Illustrator,
+          Inkscape ya da Figma'da metni ve rengi düzenleyebilirsiniz.
         </p>
       </Section>
+
+      <Section id="pptx" title="PowerPoint" collapsible={false}>
+        <div className="flex flex-wrap gap-1.5">
+          <button className="btn btn-primary" data-act="pptx" disabled={busy} onClick={onPptx}>
+            Slayt (.pptx)
+          </button>
+          <button className="btn" disabled={busy || !many} onClick={onPptxAll} title="Çalışma alanındaki her grafik bir slayt olur">
+            Tümü ({chartCount} slayt)
+          </button>
+        </div>
+        <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">
+          16:9 geniş ekran sunu; grafik yukarıdaki çözünürlükte PNG olarak slayta ortalanır. Dosyayı açıp slaytları
+          kendi sununuza sürükleyebilirsiniz.
+        </p>
+      </Section>
+
+      <Section id="json" title="Çalışma alanı" collapsible={false}>
+        <div className="flex flex-wrap gap-1.5">
+          <button className="btn" onClick={onSaveJson}>
+            Kaydet (JSON)
+          </button>
+          <button className="btn" onClick={onLoadJson}>
+            Yükle
+          </button>
+        </div>
+        <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">
+          Bütün grafikler, veriler ve paletler tek dosyada. Başka bir makineye taşımak ya da yedeklemek için.
+        </p>
+      </Section>
+
+      {message && (
+        <div className="px-3 py-2 text-[11px] leading-snug text-muted-foreground">{message}</div>
+      )}
     </div>
   );
 }

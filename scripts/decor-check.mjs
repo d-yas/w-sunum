@@ -249,7 +249,8 @@ try {
         HTMLAnchorElement.prototype.click = function () { hrefs.push(this.href); };
         document.querySelector('[role="tab"][data-tab="disa"]').click();
         await wait(300);
-        const btn = [...document.querySelectorAll('button')].find(b => b.textContent.trim() === 'SVG indir');
+        // Metne göre değil data-act özniteliğine göre: yazı bir kez değişti.
+        const btn = document.querySelector('button[data-act="svg"]');
         if (!btn) { HTMLAnchorElement.prototype.click = orig; return { error: 'SVG indir düğmesi yok' }; }
         btn.click();
         await wait(1800);
