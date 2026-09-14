@@ -74,7 +74,7 @@ try {
       const r = e.getBoundingClientRect(); return { x: r.x, y: r.y, w: r.width, h: r.height }; })()`);
 
   // Open the Süsle tab so the overlay mounts.
-  await evalIn(`document.querySelectorAll('[role="tab"]')[3].click(); true`);
+  await evalIn(`document.querySelector('[role="tab"][data-tab="susle"]').click(); true`);
   await sleep(400);
 
   /* 1 — switching free layout on must be visually inert */
@@ -140,7 +140,7 @@ try {
   );
 
   /* 3 — hover switch */
-  await evalIn(`document.querySelectorAll('[role="tab"]')[1].click(); true`);
+  await evalIn(`document.querySelector('[role="tab"][data-tab="gorunum"]').click(); true`);
   await sleep(400);
   const card = await rectOf(".stage-card");
   // Bklit's tooltip carries no role; it is identified by the token class the

@@ -76,12 +76,15 @@ try {
   await send("Page.navigate", { url }, sessionId);
   await sleep(2500);
 
-  // Optional: open a side-panel tab (1-based index) before the screenshot.
-  const tab = Number(process.argv[4] ?? 0);
-  if (tab > 0) {
+  // Optional: open a right-panel tab before the screenshot. Named, not
+  // indexed — the tab set has changed once already.
+  const TABS = ["gorunum", "renk", "susle", "disa"];
+  const tabArg = process.argv[4];
+  const tab = TABS.includes(tabArg) ? tabArg : TABS[Number(tabArg) - 1];
+  if (tab) {
     await send(
       "Runtime.evaluate",
-      { expression: `document.querySelectorAll('[role="tab"]')[${tab - 1}]?.click()` },
+      { expression: `document.querySelector('[role="tab"][data-tab="${tab}"]')?.click()` },
       sessionId
     );
     await sleep(400);

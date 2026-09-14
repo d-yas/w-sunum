@@ -27,49 +27,9 @@ import { FAMILY_LABELS, defaults, type AssetDef, type DecorFamily, type ParamDef
 import { getPalette, seriesColor, type Palette } from "@/lib/palettes";
 import type { ChartSpec, Theme } from "@/lib/spec";
 
-import { Field, Section, Seg, Switch } from "./Panels";
+import { ColorWell, Field, Section, Seg, Slider, Switch } from "./Panels";
 
 /* ---------------- primitives ---------------- */
-
-function Slider({
-  value,
-  min,
-  max,
-  step,
-  onChange,
-}: {
-  value: number;
-  min: number;
-  max: number;
-  step: number;
-  onChange: (v: number) => void;
-}) {
-  const places = step < 1 ? String(step).split(".")[1]?.length ?? 1 : 0;
-  return (
-    <div className="flex min-w-0 flex-1 items-center gap-2">
-      <input className="rng" type="range" min={min} max={max} step={step} value={value} onChange={(e) => onChange(Number(e.target.value))} />
-      <span className="rng-val">{value.toFixed(places)}</span>
-    </div>
-  );
-}
-
-/** A colour well that can also mean "whatever the palette says". */
-function ColorWell({ value, fallback, onChange }: { value: string; fallback: string; onChange: (v: string) => void }) {
-  return (
-    <div className="flex items-center gap-1.5">
-      <input className="swatch" type="color" value={value || fallback} onChange={(e) => onChange(e.target.value)} />
-      <button
-        className="btn btn-sm"
-        type="button"
-        onClick={() => onChange("")}
-        aria-pressed={value === ""}
-        title="Grafiğin paletinden al"
-      >
-        {value === "" ? "Palet ✓" : "Palet"}
-      </button>
-    </div>
-  );
-}
 
 function ParamEditor({ param, values, onChange }: { param: ParamDef; values: ParamValues; onChange: (v: ParamValues) => void }) {
   const set = (v: number | string) => onChange({ ...values, [param.key]: v });
@@ -237,7 +197,7 @@ export function DecorPanel({
   return (
     <div className="flex flex-col">
       {/* ---- free layout ---- */}
-      <Section title="Yerleşim">
+      <Section id="yerlesim" title="Yerleşim">
         <Field label="Serbest yerleşim" hint="Başlık, grafik ve dipnot da sürüklenip boyutlandırılabilir olur.">
           <Switch checked={layout.serbest} onChange={setFree} />
         </Field>
@@ -290,7 +250,7 @@ export function DecorPanel({
       </Section>
 
       {/* ---- background slots ---- */}
-      <Section title="Zemin">
+      <Section id="zemin" title="Zemin">
         {ZEMIN_SLOTS.map(({ slot, family: fam, label }) => (
           <ZeminRow
             key={slot}
@@ -305,7 +265,7 @@ export function DecorPanel({
       </Section>
 
       {/* ---- gallery ---- */}
-      <Section title="Galeri">
+      <Section id="galeri" title="Galeri">
         <div className="seg mb-2 w-full justify-between">
           {NESNE_FAMILIES.map((f) => (
             <button key={f} type="button" aria-pressed={family === f} onClick={() => setFamily(f)} className="flex-1">
@@ -327,7 +287,7 @@ export function DecorPanel({
       </Section>
 
       {/* ---- placed items ---- */}
-      <Section title={`Yerleştirilenler (${decor.nesneler.length})`}>
+      <Section id="nesneler" title={`Yerleştirilenler (${decor.nesneler.length})`}>
         {decor.nesneler.length === 0 ? (
           <p className="text-[12px] text-muted-foreground">Henüz nesne yok.</p>
         ) : (
@@ -379,7 +339,7 @@ export function DecorPanel({
 
       {/* ---- selection properties ---- */}
       {selected && selectedDef && (
-        <Section title={`Seçili: ${selectedDef.label}`}>
+        <Section id="secili" title={`Seçili: ${selectedDef.label}`}>
           <Field label="Renk">
             <ColorWell value={selected.renk} fallback={colors[0]} onChange={(renk) => setItem(selected.id, { renk })} />
           </Field>

@@ -1,29 +1,89 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 
+import { FolderOpen, Redo2, Save, Undo2 } from "lucide-react";
+
 import { ChartCard } from "@/components/ChartCard";
+import { ChartList } from "@/components/ChartList";
 import { DecorPanel } from "@/components/DecorPanel";
 import { DecorStage } from "@/components/DecorStage";
 import { DataGrid } from "@/components/DataGrid";
 import { ColorsPanel, ExportPanel, KindPicker, OptionsPanel } from "@/components/Panels";
 import { copyBlobToClipboard, serializeElement, snapshotElement } from "@/lib/export-png";
+import { createHistory } from "@/lib/history";
 import { buildPptx, type PptxSlide } from "@/lib/pptx";
-import { KIND_GROUPS, KIND_LABELS, dataShape, newChart, type ChartKind, type ChartSpec, type Workspace } from "@/lib/spec";
+import { KIND_LABELS, dataShape, newChart, type ChartKind, type ChartSpec, type Workspace } from "@/lib/spec";
 import { downloadBlob, downloadText, loadWorkspace, normalizeWorkspace, safeFilename, saveWorkspace } from "@/lib/storage";
+import { useThumbnails } from "@/lib/thumbnails";
+import { loadPrefs, savePrefs } from "@/lib/ui-prefs";
 
-type Tab = "veri" | "gorunum" | "renk" | "susle" | "disa";
+type Tab = "gorunum" | "renk" | "susle" | "disa";
+
+const TABS: [Tab, string][] = [
+  ["gorunum", "Görünüm"],
+  ["renk", "Renkler"],
+  ["susle", "Süsle"],
+  ["disa", "Dışa aktar"],
+];
 
 export function App() {
   const [ws, setWs] = useState<Workspace>(() => initialWorkspace());
-  const [tab, setTab] = useState<Tab>("veri");
+  const [tab, setTab] = useState<Tab>("gorunum");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [zoom, setZoom] = useState<"fit" | 1>("fit");
   const [decorSel, setDecorSel] = useState<string | null>(null);
   const stageRef = useRef<HTMLDivElement>(null);
   const [stageSize, setStageSize] = useState({ w: 800, h: 600 });
+  const [listHeight, setListHeight] = useState(() => loadPrefs().listHeight);
 
   const active = ws.charts.find((c) => c.id === ws.activeId) ?? ws.charts[0];
+
+  /* ---------------- geri al / yinele ---------------- */
+
+  const history = useRef(createHistory()).current;
+  // Geçmiş React durumu değil (saf bir yığın), o yüzden düğmelerin
+  // etkin/etkisiz hâli kendiliğinden yenilenmiyor; bu sayaç yenilemeyi tetikler.
+  const [histTick, setHistTick] = useState(0);
+  const canUndo = useMemo(() => history.canUndo(), [history, histTick]);
+  const canRedo = useMemo(() => history.canRedo(), [history, histTick]);
+
+  /**
+   * İşi değiştiren **tek kapı**. Değişiklikten önceki grafik/palet hâli
+   * geçmişe yazılır; tema, sekme, yakınlaştırma buradan geçmez, o yüzden
+   * geçmişte de yer almaz.
+   */
+  const commit = useCallback(
+    (fn: (w: Workspace) => Workspace) => {
+      setWs((w) => {
+        const next = fn(w);
+        if (next.charts !== w.charts || next.palettes !== w.palettes) {
+          history.record({ charts: w.charts, palettes: w.palettes });
+          setHistTick((t) => t + 1);
+        }
+        return next;
+      });
+    },
+    [history]
+  );
+
+  const undo = useCallback(() => {
+    setWs((w) => {
+      const prev = history.undo({ charts: w.charts, palettes: w.palettes });
+      setHistTick((t) => t + 1);
+      if (!prev) return w;
+      return { ...w, charts: prev.charts, palettes: prev.palettes, activeId: prev.charts.some((c) => c.id === w.activeId) ? w.activeId : prev.charts[0].id };
+    });
+  }, [history]);
+
+  const redo = useCallback(() => {
+    setWs((w) => {
+      const next = history.redo({ charts: w.charts, palettes: w.palettes });
+      setHistTick((t) => t + 1);
+      if (!next) return w;
+      return { ...w, charts: next.charts, palettes: next.palettes, activeId: next.charts.some((c) => c.id === w.activeId) ? w.activeId : next.charts[0].id };
+    });
+  }, [history]);
 
   // A decoration selection belongs to one card; switching charts drops it.
   useEffect(() => setDecorSel(null), [ws.activeId]);
@@ -45,26 +105,41 @@ export function App() {
     return () => ro.disconnect();
   }, []);
 
-  const updateChart = useCallback((next: ChartSpec) => {
-    setWs((w) => ({ ...w, charts: w.charts.map((c) => (c.id === next.id ? next : c)) }));
-  }, []);
+  const updateChart = useCallback(
+    (next: ChartSpec) => {
+      commit((w) => ({ ...w, charts: w.charts.map((c) => (c.id === next.id ? next : c)) }));
+    },
+    [commit]
+  );
 
   const addChart = (kind: ChartKind) => {
     const n = ws.charts.filter((c) => c.kind === kind).length + 1;
     const c = newChart(kind, n);
-    setWs((w) => ({ ...w, charts: [...w.charts, c], activeId: c.id }));
-    setTab("veri");
+    commit((w) => ({ ...w, charts: [...w.charts, c], activeId: c.id }));
   };
-  const duplicateChart = () => {
-    const copy: ChartSpec = { ...structuredClone(active), id: newChart(active.kind).id, name: `${active.name} (kopya)` };
-    setWs((w) => ({ ...w, charts: [...w.charts, copy], activeId: copy.id }));
+  const duplicateChart = (id: string) => {
+    const src = ws.charts.find((c) => c.id === id);
+    if (!src) return;
+    const copy: ChartSpec = { ...structuredClone(src), id: newChart(src.kind).id, name: `${src.name} (kopya)` };
+    commit((w) => ({ ...w, charts: [...w.charts, copy], activeId: copy.id }));
   };
-  const deleteChart = () => {
-    if (!window.confirm(`"${active.name}" silinsin mi?`)) return;
-    setWs((w) => {
-      const charts = w.charts.filter((c) => c.id !== active.id);
+  const deleteChart = (id: string) => {
+    const src = ws.charts.find((c) => c.id === id);
+    if (!src || !window.confirm(`"${src.name}" silinsin mi?`)) return;
+    commit((w) => {
+      const charts = w.charts.filter((c) => c.id !== id);
       const next = charts.length > 0 ? charts : [newChart("bar", 1)];
-      return { ...w, charts: next, activeId: next[0].id };
+      return { ...w, charts: next, activeId: next.some((c) => c.id === w.activeId) ? w.activeId : next[0].id };
+    });
+  };
+  const moveChart = (id: string, dir: -1 | 1) => {
+    commit((w) => {
+      const i = w.charts.findIndex((c) => c.id === id);
+      const j = i + dir;
+      if (i < 0 || j < 0 || j >= w.charts.length) return w;
+      const charts = [...w.charts];
+      [charts[i], charts[j]] = [charts[j], charts[i]];
+      return { ...w, charts };
     });
   };
 
@@ -256,12 +331,70 @@ export function App() {
   const importWorkspace = async (f: File) => {
     try {
       const next = normalizeWorkspace(JSON.parse(await f.text()));
-      setWs(next);
+      commit(() => next);
       setMessage(`${next.charts.length} grafik yüklendi.`);
     } catch {
       setMessage("Dosya okunamadı — geçerli bir çalışma alanı JSON'u değil.");
     }
   };
+
+  /* ---------------- klavye ---------------- */
+
+  /**
+   * Uygulama geri alması `<textarea>` dışında her yerde çalışır ve tarayıcının
+   * kendi geri almasını bastırır. Gerekçe: buradaki inputların hepsi kontrollü,
+   * React değeri her tuşta yeniden yazdığı için tarayıcı yığını zaten
+   * güvenilmez; kullanıcının geri almak istediği şey de çoğunlukla tablo ya da
+   * ayar değişikliği. Yapıştırma kutusu (`textarea`) istisna: orada çok satırlı
+   * metni elle düzenlemek doğal davranışı gerektiriyor.
+   */
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const mod = e.ctrlKey || e.metaKey;
+      if (!mod) return;
+      const inTextarea = (e.target as HTMLElement | null)?.tagName === "TEXTAREA";
+      const k = e.key.toLowerCase();
+      if (k === "z" && !inTextarea) {
+        e.preventDefault();
+        if (e.shiftKey) redo();
+        else undo();
+      } else if (k === "y" && !inTextarea) {
+        e.preventDefault();
+        redo();
+      } else if (k === "s") {
+        e.preventDefault();
+        if (e.shiftKey) void exportPng();
+        else exportWorkspace();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [undo, redo, exportPng, exportWorkspace]);
+
+  // Odak bir alandan çıkınca geçmişte yeni girdi başlat: başlığı yazıp alt
+  // başlığa geçmek tek adım değil iki adım olmalı.
+  useEffect(() => {
+    const onOut = () => history.mark();
+    window.addEventListener("focusout", onOut);
+    return () => window.removeEventListener("focusout", onOut);
+  }, [history]);
+
+  /* ---------------- sol panel bölmesi ---------------- */
+
+  const dragSplit = (e: React.PointerEvent<HTMLDivElement>) => {
+    const startY = e.clientY;
+    const startH = listHeight;
+    const clamp = (h: number) => Math.max(120, Math.min(Math.max(200, stageSize.h - 40), h));
+    const move = (ev: PointerEvent) => setListHeight(clamp(startH + ev.clientY - startY));
+    const up = (ev: PointerEvent) => {
+      window.removeEventListener("pointermove", move);
+      savePrefs({ listHeight: clamp(startH + ev.clientY - startY) });
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up, { once: true });
+  };
+
+  const thumbs = useThumbnails(ws, renderStatic, busy);
 
   /* ---------------- stage scale ---------------- */
 
@@ -273,56 +406,24 @@ export function App() {
     <div className="flex h-full flex-col">
       {/* Top bar */}
       <header className="flex h-12 shrink-0 items-center gap-2 border-b border-border bg-card px-3">
-        <div className="flex items-center gap-2 pr-2">
+        <div className="flex items-center gap-2 pr-1">
           <span className="inline-block h-5 w-5 rounded-md" style={{ background: "linear-gradient(135deg, var(--series-1), var(--series-3))" }} />
           <span className="text-[13px] font-semibold tracking-tight">Veri Görsel</span>
-          <span className="hidden text-[11px] text-muted-foreground sm:inline">Bklit · çevrimdışı</span>
+          <span className="hidden text-[11px] text-muted-foreground lg:inline">Bklit · çevrimdışı</span>
         </div>
         <span className="h-5 w-px bg-border" />
-        <select
-          className="inp max-w-[220px]"
-          value={active.id}
-          onChange={(e) => setWs((w) => ({ ...w, activeId: e.target.value }))}
-          title="Grafikler"
-        >
-          {ws.charts.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name}
-            </option>
-          ))}
-        </select>
-        <input
-          className="inp w-40"
-          value={active.name}
-          onChange={(e) => updateChart({ ...active, name: e.target.value })}
-          title="Grafik adı"
-        />
-        <div className="relative">
-          <select className="inp" value="" onChange={(e) => e.target.value && addChart(e.target.value as ChartKind)} title="Yeni grafik">
-            <option value="">+ Yeni grafik</option>
-            {KIND_GROUPS.map((g) => (
-              <optgroup key={g.title} label={g.title}>
-                {g.kinds.map((k) => (
-                  <option key={k} value={k}>
-                    {KIND_LABELS[k]}
-                  </option>
-                ))}
-              </optgroup>
-            ))}
-          </select>
-        </div>
-        <button className="btn" onClick={duplicateChart}>
-          Kopyala
+        <button className="btn" onClick={undo} disabled={!canUndo} title="Geri al (Ctrl+Z)" data-act="undo">
+          <Undo2 size={14} />
         </button>
-        <button className="btn btn-danger" onClick={deleteChart}>
-          Sil
+        <button className="btn" onClick={redo} disabled={!canRedo} title="Yinele (Ctrl+Shift+Z)" data-act="redo">
+          <Redo2 size={14} />
         </button>
         <span className="ml-auto" />
-        <button className="btn" onClick={exportWorkspace} title="Tüm grafikleri JSON olarak indir">
-          Kaydet (JSON)
+        <button className="btn" onClick={exportWorkspace} title="Tüm grafikleri JSON olarak indir (Ctrl+S)">
+          <Save size={14} /> Kaydet
         </button>
         <button className="btn" onClick={() => fileRef.current?.click()} title="JSON çalışma alanı yükle">
-          Yükle
+          <FolderOpen size={14} /> Yükle
         </button>
         <input
           ref={fileRef}
@@ -347,71 +448,29 @@ export function App() {
       </header>
 
       <div className="flex min-h-0 flex-1">
-        {/* Left: type + tabs */}
-        <aside className="flex w-[380px] shrink-0 flex-col border-r border-border bg-card">
-          <div className="border-b border-border p-3">
-            <KindPicker spec={active} onChange={updateChart} />
+        {/* Sol: grafik listesi + veri */}
+        <aside className="left flex w-[300px] shrink-0 flex-col border-r border-border bg-card">
+          <div className="panel-label shrink-0 px-3 pt-2.5 pb-1">Grafikler</div>
+          <div className="flex min-h-0 flex-col" style={{ height: listHeight }}>
+            <ChartList
+              charts={ws.charts}
+              activeId={active.id}
+              thumbs={thumbs}
+              onSelect={(id) => setWs((w) => ({ ...w, activeId: id }))}
+              onRename={(id, name) => {
+                const c = ws.charts.find((x) => x.id === id);
+                if (c) updateChart({ ...c, name });
+              }}
+              onDuplicate={duplicateChart}
+              onDelete={deleteChart}
+              onMove={moveChart}
+              onAdd={addChart}
+            />
           </div>
-          <div className="tabbar">
-            {(
-              [
-                ["veri", "Veri"],
-                ["gorunum", "Görünüm"],
-                ["renk", "Renkler"],
-                ["susle", "Süsle"],
-                ["disa", "Dışa aktar"],
-              ] as [Tab, string][]
-            ).map(([t, l]) => (
-              <button key={t} type="button" role="tab" aria-selected={tab === t} onClick={() => setTab(t)}>
-                {l}
-              </button>
-            ))}
-          </div>
-          <div className="min-h-0 flex-1 overflow-auto">
-            {tab === "veri" && (
-              <div className="h-full p-3">
-                <DataGrid kind={active.kind} data={active.data} onChange={(data) => updateChart({ ...active, data })} />
-              </div>
-            )}
-            {tab === "gorunum" && <OptionsPanel spec={active} onChange={updateChart} />}
-            {tab === "renk" && (
-              <ColorsPanel
-                spec={active}
-                theme={ws.theme}
-                seriesNames={seriesNames}
-                palettes={ws.palettes}
-                onPalettes={(palettes) => setWs((w) => ({ ...w, palettes }))}
-                onChange={updateChart}
-              />
-            )}
-            {tab === "susle" && (
-              <DecorPanel
-                spec={active}
-                theme={ws.theme}
-                palettes={ws.palettes}
-                selectedId={decorSel}
-                onSelect={setDecorSel}
-                onChange={updateChart}
-              />
-            )}
-            {tab === "disa" && (
-              <ExportPanel
-                scale={ws.export.scale}
-                background={ws.export.background}
-                width={active.options.width}
-                height={active.options.height}
-                busy={busy}
-                onScale={(s) => setWs((w) => ({ ...w, export: { ...w.export, scale: s } }))}
-                onBackground={(b) => setWs((w) => ({ ...w, export: { ...w.export, background: b } }))}
-                onDownload={exportPng}
-                onCopy={copyPng}
-                onSvg={exportSvg}
-                onPptx={() => exportPptx(false)}
-                onPptxAll={() => exportPptx(true)}
-                chartCount={ws.charts.length}
-                message={message}
-              />
-            )}
+          <div className="split-handle shrink-0" onPointerDown={dragSplit} title="Listeyi yeniden boyutlandır" />
+          <div className="panel-label shrink-0 px-3 pb-1">Veri</div>
+          <div className="min-h-0 flex-1 overflow-hidden px-3 pb-3">
+            <DataGrid kind={active.kind} data={active.data} onChange={(data) => updateChart({ ...active, data })} />
           </div>
         </aside>
 
@@ -479,6 +538,63 @@ export function App() {
             </div>
           )}
         </main>
+
+        {/* Sağ: özellikler */}
+        <aside className="right flex w-[320px] shrink-0 flex-col border-l border-border bg-card">
+          <div className="tabbar shrink-0">
+            {TABS.map(([t, l]) => (
+              <button key={t} type="button" role="tab" data-tab={t} aria-selected={tab === t} onClick={() => setTab(t)}>
+                {l}
+              </button>
+            ))}
+          </div>
+          <div className="min-h-0 flex-1 overflow-auto">
+            {tab === "gorunum" && (
+              <>
+                <KindPicker spec={active} onChange={updateChart} />
+                <OptionsPanel spec={active} onChange={updateChart} />
+              </>
+            )}
+            {tab === "renk" && (
+              <ColorsPanel
+                spec={active}
+                theme={ws.theme}
+                seriesNames={seriesNames}
+                palettes={ws.palettes}
+                onPalettes={(palettes) => commit((w) => ({ ...w, palettes }))}
+                onChange={updateChart}
+              />
+            )}
+            {tab === "susle" && (
+              <DecorPanel
+                spec={active}
+                theme={ws.theme}
+                palettes={ws.palettes}
+                selectedId={decorSel}
+                onSelect={setDecorSel}
+                onChange={updateChart}
+              />
+            )}
+            {tab === "disa" && (
+              <ExportPanel
+                scale={ws.export.scale}
+                background={ws.export.background}
+                width={active.options.width}
+                height={active.options.height}
+                busy={busy}
+                onScale={(s) => setWs((w) => ({ ...w, export: { ...w.export, scale: s } }))}
+                onBackground={(b) => setWs((w) => ({ ...w, export: { ...w.export, background: b } }))}
+                onDownload={exportPng}
+                onCopy={copyPng}
+                onSvg={exportSvg}
+                onPptx={() => exportPptx(false)}
+                onPptxAll={() => exportPptx(true)}
+                chartCount={ws.charts.length}
+                message={message}
+              />
+            )}
+          </div>
+        </aside>
       </div>
     </div>
   );

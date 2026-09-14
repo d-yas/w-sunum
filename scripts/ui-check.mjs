@@ -74,13 +74,13 @@ try {
     await mouse("mouseReleased", r.x + r.w / 2, r.y + r.h / 2, 0);
     return true;
   };
-  const openTab = async (i) => {
-    await evalIn(`document.querySelectorAll('[role="tab"]')[${i}].click(); true`);
+  const openTab = async (name) => {
+    await evalIn(`document.querySelector('[role="tab"][data-tab=${JSON.stringify(name)}]').click(); true`);
     await sleep(400);
   };
 
   /* 1 — Delete hides a card part, keeps its text */
-  await openTab(3);
+  await openTab("susle");
   await evalIn(`[...document.querySelectorAll('button[role="switch"]')][0].click(); true`);
   await sleep(700);
   await clickAt('.decor-box[data-slot="dipnot"]');
@@ -117,7 +117,7 @@ try {
   report(twoItems && new Set(steps).size >= 3 && steps[2] === steps[3], "katman-kisayol", steps.join("  →  "));
 
   /* 3 — a custom palette reaches the card and the export */
-  await openTab(2);
+  await openTab("renk");
   await evalIn(`[...document.querySelectorAll('button')].find((x) => x.textContent.includes('Palet ekle')).click(); true`);
   await sleep(600);
   const named = await evalIn(`(() => {
@@ -156,7 +156,7 @@ try {
   );
 
   /* 4 — drag a background light's centre */
-  await openTab(3);
+  await openTab("susle");
   await evalIn(`(() => {
     const s = [...document.querySelectorAll('select')].find((el) => [...el.options].some((o) => o.value === 'isik/kure'));
     Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set.call(s, 'isik/kure');

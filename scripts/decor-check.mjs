@@ -200,10 +200,7 @@ try {
 
   const probe = async (chartId) => {
     const expression = `(async () => {
-      const sel = document.querySelector('header select');
-      const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set;
-      setter.call(sel, ${JSON.stringify(chartId)});
-      sel.dispatchEvent(new Event('change', { bubbles: true }));
+      document.querySelector('.chart-row[data-id=' + JSON.stringify(${JSON.stringify(chartId)}) + ']').click();
       await new Promise(r => setTimeout(r, 400));
       const url = await window.__veriGorsel.snapshotDataUrl(1);
       const img = new Image();
@@ -245,16 +242,12 @@ try {
     {
       expression: `(async () => {
         const wait = (ms) => new Promise(r => setTimeout(r, ms));
-        const sel = document.querySelector('header select');
-        const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set;
-        setter.call(sel, "doku-tarama-pattern");
-        sel.dispatchEvent(new Event('change', { bubbles: true }));
+        document.querySelector('.chart-row[data-id="doku-tarama-pattern"]').click();
         await wait(400);
         const hrefs = [];
         const orig = HTMLAnchorElement.prototype.click;
         HTMLAnchorElement.prototype.click = function () { hrefs.push(this.href); };
-        const tabs = document.querySelectorAll('[role="tab"]');
-        tabs[tabs.length - 1].click();
+        document.querySelector('[role="tab"][data-tab="disa"]').click();
         await wait(300);
         const btn = [...document.querySelectorAll('button')].find(b => b.textContent.trim() === 'SVG indir');
         if (!btn) { HTMLAnchorElement.prototype.click = orig; return { error: 'SVG indir düğmesi yok' }; }

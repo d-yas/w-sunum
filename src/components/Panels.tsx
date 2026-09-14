@@ -1,12 +1,15 @@
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
+import { ChevronDown } from "lucide-react";
 
 import { GRADIENT_LABELS, PATTERN_LABELS } from "@/decor";
 import { KIND_ICONS, PICTO_ICONS } from "@/lib/chart-icons";
 import { PALETTES, getPalette, isCustom, newPalette, seriesColor, type Palette } from "@/lib/palettes";
 import type { Locale } from "@/lib/format";
 import { SCOPE_LABELS } from "@/lib/geo";
+import { sectionOpen, setSectionOpen } from "@/lib/ui-prefs";
+
+import { KindGrid } from "./KindGrid";
 import {
-  KIND_GROUPS,
   KIND_LABELS,
   adaptDataForKind,
   dataShape,
@@ -49,7 +52,7 @@ export function Seg<T extends string>({ value, options, onChange }: { value: T; 
   );
 }
 
-function Num({
+export function Num({
   value,
   onChange,
   min,
@@ -88,53 +91,116 @@ function Num({
   );
 }
 
-export function Section({ title, children }: { title: string; children: ReactNode }) {
+/**
+ * Katlanabilir panel bölümü.
+ *
+ * `id` iki iş yapıyor: açık/kapalı hâli `ui-prefs`'te o id ile saklanıyor ve
+ * `[data-section]` seçicisi sahnede bir parçaya tıklandığında ilgili bölüme
+ * kaydırmayı mümkün kılıyor (bkz. `App.tsx` inceleyici).
+ */
+export function Section({
+  id,
+  title,
+  children,
+  collapsible = true,
+}: {
+  id: string;
+  title: string;
+  children: ReactNode;
+  collapsible?: boolean;
+}) {
+  const [open, setOpen] = useState(() => (collapsible ? sectionOpen(id) : true));
+  const toggle = () => {
+    const next = !open;
+    setOpen(next);
+    setSectionOpen(id, next);
+  };
   return (
-    <section className="flex flex-col gap-0.5 border-b border-border px-3 py-3 last:border-b-0">
-      <div className="panel-label mb-1">{title}</div>
-      {children}
+    <section className="section border-b border-border px-3 py-2.5 last:border-b-0" data-section={id} data-open={open}>
+      {collapsible ? (
+        <button type="button" className="section-head" aria-expanded={open} onClick={toggle}>
+          <span className="panel-label">{title}</span>
+          <ChevronDown size={13} strokeWidth={2} aria-hidden />
+        </button>
+      ) : (
+        <div className="section-head" aria-hidden>
+          <span className="panel-label">{title}</span>
+        </div>
+      )}
+      <div className="section-body flex flex-col gap-0.5">{children}</div>
     </section>
+  );
+}
+
+/** Sürekli bir sayı için kaydırıcı + okunur değer. */
+export function Slider({
+  value,
+  min,
+  max,
+  step,
+  onChange,
+}: {
+  value: number;
+  min: number;
+  max: number;
+  step: number;
+  onChange: (v: number) => void;
+}) {
+  const places = step < 1 ? String(step).split(".")[1]?.length ?? 1 : 0;
+  return (
+    <div className="flex min-w-0 flex-1 items-center gap-2">
+      <input className="rng" type="range" min={min} max={max} step={step} value={value} onChange={(e) => onChange(Number(e.target.value))} />
+      <span className="rng-val">{value.toFixed(places)}</span>
+    </div>
+  );
+}
+
+/** Bir renk kuyusu; boş değer "paletten al" anlamına gelir. */
+export function ColorWell({ value, fallback, onChange }: { value: string; fallback: string; onChange: (v: string) => void }) {
+  return (
+    <div className="flex items-center gap-1.5">
+      <input className="swatch" type="color" value={value || fallback} onChange={(e) => onChange(e.target.value)} />
+      <button className="btn btn-sm" type="button" onClick={() => onChange("")} aria-pressed={value === ""} title="Grafiğin paletinden al">
+        {value === "" ? "Palet ✓" : "Palet"}
+      </button>
+    </div>
   );
 }
 
 /* ---------------- chart kind ---------------- */
 
 /**
- * Tür seçici. Simgeler Lucide'dan gelir (`src/lib/chart-icons.ts`); 23 tür düz bir
- * ızgaraya sığmadığı için `KIND_GROUPS` başlıklarına bölünür ve aynı veri
- * biçimini paylaşan türler "veri korunur" işaretiyle gösterilir.
+ * Tür seçici — sağ panelin başında.
+ *
+ * Izgara varsayılan olarak kapalı: kullanıcı türü bir kez seçiyor, sonra
+ * ayarlarla uğraşıyor. 23 kartlık ızgara sürekli açık kalsa panelin üst
+ * yarısını yiyor, altındaki ayarlar da göz hizasının dışında kalıyordu.
  */
 export function KindPicker({ spec, onChange }: { spec: ChartSpec; onChange: (s: ChartSpec) => void }) {
+  const [open, setOpen] = useState(false);
+  const Icon = KIND_ICONS[spec.kind];
   return (
-    <div className="flex flex-col gap-2.5">
-      {KIND_GROUPS.map((group) => (
-        <div key={group.title}>
-          <div className="panel-label mb-1">{group.title}</div>
-          <div className="kind-grid">
-            {group.kinds.map((k) => {
-              const Icon = KIND_ICONS[k];
-              const keeps = dataShape(k) === dataShape(spec.kind);
-              return (
-                <button
-                  key={k}
-                  type="button"
-                  className="kind-btn"
-                  aria-pressed={spec.kind === k}
-                  title={keeps && k !== spec.kind ? `${KIND_LABELS[k]} — aynı tabloyu kullanır, veri korunur` : KIND_LABELS[k]}
-                  onClick={() => {
-                    if (k === spec.kind) return;
-                    onChange({ ...spec, kind: k, data: adaptDataForKind(spec.data, spec.kind, k) });
-                  }}
-                >
-                  <Icon size={20} strokeWidth={1.6} aria-hidden />
-                  {KIND_LABELS[k]}
-                </button>
-              );
-            })}
-          </div>
+    <section className="section border-b border-border px-3 py-2.5" data-section="tip">
+      <div className="flex items-center gap-2">
+        <Icon size={18} strokeWidth={1.6} aria-hidden className="shrink-0 text-muted-foreground" />
+        <span className="grow truncate text-[12px] font-medium">{KIND_LABELS[spec.kind]}</span>
+        <button className="btn btn-sm" aria-expanded={open} onClick={() => setOpen((v) => !v)}>
+          {open ? "Kapat" : "Değiştir"}
+        </button>
+      </div>
+      {open && (
+        <div className="mt-2.5">
+          <KindGrid
+            current={spec.kind}
+            keepsDataOf={spec.kind}
+            onPick={(k) => {
+              if (k === spec.kind) return;
+              onChange({ ...spec, kind: k, data: adaptDataForKind(spec.data, spec.kind, k) });
+            }}
+          />
         </div>
-      ))}
-    </div>
+      )}
+    </section>
   );
 }
 
@@ -156,7 +222,7 @@ export function OptionsPanel({ spec, onChange }: { spec: ChartSpec; onChange: (s
 
   return (
     <div className="flex flex-col">
-      <Section title="Metin">
+      <Section id="metin" title="Metin">
         <Field label="Başlık">
           <input className="inp w-44" value={spec.title} onChange={(e) => onChange({ ...spec, title: e.target.value })} />
         </Field>
@@ -171,7 +237,7 @@ export function OptionsPanel({ spec, onChange }: { spec: ChartSpec; onChange: (s
         </Field>
       </Section>
 
-      <Section title="Kart">
+      <Section id="kart" title="Kart">
         <Field label="Boyut (px)">
           <div className="flex items-center gap-1">
             <Num value={o.width} min={200} max={4000} step={10} onChange={(v) => set({ width: v ?? 960 })} width={68} />
@@ -214,7 +280,7 @@ export function OptionsPanel({ spec, onChange }: { spec: ChartSpec; onChange: (s
       </Section>
 
       {!noLegend && (
-        <Section title="Gösterge (legend)">
+        <Section id="gosterge" title="Gösterge (legend)">
           <Field label="Göster">
             <Switch checked={o.legend} onChange={(v) => set({ legend: v })} />
           </Field>
@@ -228,7 +294,7 @@ export function OptionsPanel({ spec, onChange }: { spec: ChartSpec; onChange: (s
       )}
 
       {cartesian && (
-        <Section title="Eksenler ve ızgara">
+        <Section id="eksenler" title="Eksenler ve ızgara">
           <Field label="Izgara">
             <Switch checked={o.grid} onChange={(v) => set({ grid: v })} />
           </Field>
@@ -268,7 +334,7 @@ export function OptionsPanel({ spec, onChange }: { spec: ChartSpec; onChange: (s
       )}
 
       {timeLike && (
-        <Section title={spec.kind === "area" ? "Alan" : "Çizgi"}>
+        <Section id="tur" title={spec.kind === "area" ? "Alan" : "Çizgi"}>
           <Field label="Eğri">
             <Seg value={o.curve} options={[["linear", "Düz"], ["monotone", "Yumuşak"], ["step", "Basamak"], ["natural", "Doğal"]]} onChange={(v) => set({ curve: v })} />
           </Field>
@@ -287,7 +353,7 @@ export function OptionsPanel({ spec, onChange }: { spec: ChartSpec; onChange: (s
       )}
 
       {bars && (
-        <Section title="Çubuklar">
+        <Section id="tur" title="Çubuklar">
           <Field label="Yığılı">
             <Switch checked={o.stacked} onChange={(v) => set({ stacked: v })} />
           </Field>
@@ -301,7 +367,7 @@ export function OptionsPanel({ spec, onChange }: { spec: ChartSpec; onChange: (s
       )}
 
       {spec.kind === "ring" && (
-        <Section title="Halka">
+        <Section id="tur" title="Halka">
           <Field label="Mod">
             <Seg value={o.ringShare ? "share" : "target"} options={[["share", "Toplam payı"], ["target", "Hedefe göre"]]} onChange={(v) => set({ ringShare: v === "share" })} />
           </Field>
@@ -321,7 +387,7 @@ export function OptionsPanel({ spec, onChange }: { spec: ChartSpec; onChange: (s
       )}
 
       {spec.kind === "heatmap" && (
-        <Section title="Isı takvimi">
+        <Section id="tur" title="Isı takvimi">
           <Field label="Hafta başı">
             <Seg value={String(o.heatmapWeekStart) as "0" | "1"} options={[["1", "Pazartesi"], ["0", "Pazar"]]} onChange={(v) => set({ heatmapWeekStart: v === "1" ? 1 : 0 })} />
           </Field>
@@ -332,7 +398,7 @@ export function OptionsPanel({ spec, onChange }: { spec: ChartSpec; onChange: (s
       )}
 
       {spec.kind === "sankey" && (
-        <Section title="Akış">
+        <Section id="tur" title="Akış">
           <Field label="Düğüm kalınlığı">
             <Num value={o.sankeyNodeWidth} min={4} max={60} onChange={(v) => set({ sankeyNodeWidth: v ?? 16 })} />
           </Field>
@@ -349,7 +415,7 @@ export function OptionsPanel({ spec, onChange }: { spec: ChartSpec; onChange: (s
       )}
 
       {hierarchy && (
-        <Section title="Hiyerarşi">
+        <Section id="tur" title="Hiyerarşi">
           <Field label="Etiketler">
             <Switch checked={o.hierarchyLabels} onChange={(v) => set({ hierarchyLabels: v })} />
           </Field>
@@ -375,7 +441,7 @@ export function OptionsPanel({ spec, onChange }: { spec: ChartSpec; onChange: (s
       )}
 
       {xy && (
-        <Section title={spec.kind === "bubble" ? "Balonlar" : "Noktalar"}>
+        <Section id="tur" title={spec.kind === "bubble" ? "Balonlar" : "Noktalar"}>
           <Field label="Simge">
             <select className="inp" value={o.pointGlyph} onChange={(e) => set({ pointGlyph: e.target.value as ChartOptions["pointGlyph"] })}>
               <option value="circle">Daire</option>
@@ -418,7 +484,7 @@ export function OptionsPanel({ spec, onChange }: { spec: ChartSpec; onChange: (s
       )}
 
       {relation && (
-        <Section title="İlişki">
+        <Section id="tur" title="İlişki">
           <Field label="Düğüm adları">
             <Switch checked={o.nodeLabels} onChange={(v) => set({ nodeLabels: v })} />
           </Field>
@@ -454,7 +520,7 @@ export function OptionsPanel({ spec, onChange }: { spec: ChartSpec; onChange: (s
       )}
 
       {spec.kind === "radar" && (
-        <Section title="Radar">
+        <Section id="tur" title="Radar">
           <Field label="Izgara biçimi">
             <Seg
               value={o.radarStraight ? "poly" : "circle"}
@@ -481,7 +547,7 @@ export function OptionsPanel({ spec, onChange }: { spec: ChartSpec; onChange: (s
       )}
 
       {spec.kind === "slope" && (
-        <Section title="Eğim">
+        <Section id="tur" title="Eğim">
           <Field label="Uç etiketleri">
             <Switch checked={o.slopeLabels} onChange={(v) => set({ slopeLabels: v })} />
           </Field>
@@ -498,7 +564,7 @@ export function OptionsPanel({ spec, onChange }: { spec: ChartSpec; onChange: (s
       )}
 
       {spec.kind === "gauge" && (
-        <Section title="Gösterge">
+        <Section id="tur" title="Gösterge">
           <Field label="Yay açısı" hint="Derece; 180 yarım daire">
             <Num value={o.gaugeSweep} min={90} max={350} step={10} onChange={(v) => set({ gaugeSweep: v ?? 250 })} />
           </Field>
@@ -525,7 +591,7 @@ export function OptionsPanel({ spec, onChange }: { spec: ChartSpec; onChange: (s
       )}
 
       {spec.kind === "waterfall" && (
-        <Section title="Şelale">
+        <Section id="tur" title="Şelale">
           <Field label="Toplam sütunu">
             <Switch checked={o.waterfallTotal} onChange={(v) => set({ waterfallTotal: v })} />
           </Field>
@@ -542,7 +608,7 @@ export function OptionsPanel({ spec, onChange }: { spec: ChartSpec; onChange: (s
       )}
 
       {spec.kind === "funnel" && (
-        <Section title="Huni">
+        <Section id="tur" title="Huni">
           <Field label="Biçim">
             <Seg
               value={o.funnelShape}
@@ -560,7 +626,7 @@ export function OptionsPanel({ spec, onChange }: { spec: ChartSpec; onChange: (s
       )}
 
       {spec.kind === "marimekko" && (
-        <Section title="Marimekko">
+        <Section id="tur" title="Marimekko">
           <Field label="Pay etiketleri">
             <Switch checked={o.mekkoLabels} onChange={(v) => set({ mekkoLabels: v })} />
           </Field>
@@ -577,7 +643,7 @@ export function OptionsPanel({ spec, onChange }: { spec: ChartSpec; onChange: (s
       )}
 
       {spec.kind === "pictogram" && (
-        <Section title="Piktogram">
+        <Section id="tur" title="Piktogram">
           <Field label="Simge">
             <select className="inp w-32" value={o.pictoIcon} onChange={(e) => set({ pictoIcon: e.target.value })}>
               {PICTO_ICONS.map((p) => (
@@ -600,7 +666,7 @@ export function OptionsPanel({ spec, onChange }: { spec: ChartSpec; onChange: (s
       )}
 
       {spec.kind === "map" && (
-        <Section title="Harita">
+        <Section id="tur" title="Harita">
           <Field label="Kapsam">
             <select className="inp w-36" value={o.mapScope} onChange={(e) => set({ mapScope: e.target.value as MapScope })}>
               {(Object.keys(SCOPE_LABELS) as MapScope[]).map((s) => (
@@ -640,7 +706,7 @@ export function OptionsPanel({ spec, onChange }: { spec: ChartSpec; onChange: (s
         </Section>
       )}
 
-      <Section title="Dekor">
+      <Section id="dekor" title="Dekor">
         <Field label="Doku">
           <select className="inp w-28" value={o.decorPattern} onChange={(e) => set({ decorPattern: e.target.value as ChartOptions["decorPattern"] })}>
             <option value="none">Yok</option>
@@ -685,7 +751,7 @@ export function OptionsPanel({ spec, onChange }: { spec: ChartSpec; onChange: (s
         </Field>
       </Section>
 
-      <Section title="Sayı biçimi">
+      <Section id="bicim" title="Sayı biçimi">
         <Field label="Yerel">
           <Seg value={o.format.locale} options={[["tr-TR", "1.250,5"], ["en-US", "1,250.5"]]} onChange={(v: Locale) => setFmt({ locale: v })} />
         </Field>
@@ -748,7 +814,7 @@ export function ColorsPanel({
 
   return (
     <div className="flex flex-col">
-      <Section title="Palet">
+      <Section id="palet" title="Palet">
         <div className="flex flex-col gap-1.5">
           {[...PALETTES, ...palettes].map((p) => (
             <button
@@ -841,7 +907,7 @@ export function ColorsPanel({
         )}
       </Section>
 
-      <Section title="Seri renkleri">
+      <Section id="seri" title="Seri renkleri">
         {seriesNames.length === 0 && <p className="text-[11px] text-muted-foreground">Veri girildiğinde seriler burada listelenir.</p>}
         {seriesNames.map((name, i) => {
           const resolved = seriesColor(i, spec.colors, palette, theme);
@@ -915,7 +981,7 @@ export function ExportPanel({
 }) {
   return (
     <div className="flex flex-col">
-      <Section title="PNG">
+      <Section id="png" title="PNG">
         <Field label="Çözünürlük">
           <Seg value={String(scale) as "1" | "2" | "3" | "4"} options={[["1", "1×"], ["2", "2×"], ["3", "3×"], ["4", "4×"]]} onChange={(v) => onScale(Number(v) as 1 | 2 | 3 | 4)} />
         </Field>
@@ -942,7 +1008,7 @@ export function ExportPanel({
           şablonlarında işe yarar; tema arka planı kartın rengini korur.
         </p>
       </Section>
-      <Section title="PowerPoint">
+      <Section id="pptx" title="PowerPoint">
         <div className="flex flex-wrap gap-1.5">
           <button className="btn btn-primary" disabled={busy} onClick={onPptx}>
             Slayt olarak indir (.pptx)

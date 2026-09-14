@@ -247,6 +247,22 @@ textarea.inp { height: auto; padding: 6px 8px; resize: vertical; }
 .tabbar { display: flex; gap: 2px; border-bottom: 1px solid var(--border); padding: 0 8px; }
 .tabbar > button { height: 34px; padding: 0 10px; font-size: 12px; font-weight: 500; color: var(--muted-foreground); border: 0; border-bottom: 2px solid transparent; background: transparent; cursor: pointer; font-family: inherit; margin-bottom: -1px; }
 .tabbar > button[aria-selected="true"] { color: var(--foreground); border-bottom-color: var(--foreground); }
+/* Katlanabilir panel bölümü */
+.section-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%;
+  padding: 3px 0 4px; border: 0; background: transparent; cursor: pointer; font-family: inherit; text-align: left;
+}
+.section-head[aria-expanded] > svg { transition: transform .15s; color: var(--muted-foreground); flex-shrink: 0; }
+.section[data-open="false"] .section-head > svg { transform: rotate(-90deg); }
+.section[data-open="false"] > .section-body { display: none; }
+/* Bir bölüme sahneden atlandığında kısa bir vurgu — kaydırma tek başına
+   gözden kaçıyor, panelde on bölüm var ve hepsi birbirine benziyor. */
+@keyframes section-flash {
+  from { background: color-mix(in oklab, var(--ring) 16%, transparent); }
+  to { background: transparent; }
+}
+.section.flash { animation: section-flash 1.2s ease-out; border-radius: 6px; }
+
 .kind-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
 .kind-btn { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 4px; border-radius: 8px; border: 1px solid var(--border); background: var(--card); cursor: pointer; font-size: 11px; color: var(--muted-foreground); font-family: inherit; }
 .kind-btn:hover { background: var(--accent); }
@@ -267,6 +283,38 @@ textarea.inp { height: auto; padding: 6px 8px; resize: vertical; }
 .rng:focus { outline: none; }
 .rng:focus::-webkit-slider-thumb { border-color: var(--ring); box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 25%, transparent); }
 .rng-val { width: 46px; text-align: right; font-size: 11px; font-variant-numeric: tabular-nums; color: var(--muted-foreground); flex-shrink: 0; }
+
+/* Sol paneldeki grafik listesi */
+.chart-row {
+  display: flex; align-items: center; gap: 8px; width: 100%; padding: 4px 6px; margin-bottom: 2px;
+  border-radius: 7px; border: 1px solid transparent; background: transparent; cursor: pointer; text-align: left;
+}
+.chart-row:hover { background: var(--accent); }
+.chart-row[aria-selected="true"] { border-color: var(--foreground); background: var(--accent); }
+.chart-row:focus-visible { outline: 2px solid var(--ring); outline-offset: -1px; }
+.chart-row > .grow { flex: 1; min-width: 0; }
+.chart-thumb {
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  width: 56px; height: 32px; border-radius: 4px; border: 1px solid var(--border);
+  background: var(--muted); overflow: hidden; color: var(--muted-foreground);
+}
+.chart-thumb img { width: 100%; height: 100%; object-fit: contain; display: block; }
+.chart-name { font-size: 12px; line-height: 1.25; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chart-kind { font-size: 10px; color: var(--muted-foreground); line-height: 1.2; }
+/* Satır eylemleri yalnız hover/seçim/odakta: dört ikon her satırda dursa liste
+   bir araç çubuğu tarlasına dönüyor. */
+.chart-acts { display: flex; gap: 0; flex-shrink: 0; opacity: 0; transition: opacity .1s; }
+.chart-row:hover .chart-acts, .chart-row[aria-selected="true"] .chart-acts, .chart-row:focus-within .chart-acts { opacity: 1; }
+.icon-btn:disabled { opacity: .3; cursor: not-allowed; }
+.icon-btn.danger:hover { color: var(--destructive); }
+.kind-pop {
+  position: absolute; bottom: calc(100% + 4px); left: 8px; right: 8px; z-index: 20;
+  max-height: 60vh; overflow: auto; padding: 10px; border-radius: 10px;
+  border: 1px solid var(--border); background: var(--popover); box-shadow: 0 12px 32px rgba(0,0,0,.18);
+}
+/* Liste ile veri tablosu arasındaki tutamaç */
+.split-handle { height: 7px; cursor: ns-resize; border-top: 1px solid var(--border); background: transparent; }
+.split-handle:hover { background: color-mix(in oklab, var(--ring) 20%, transparent); }
 
 /* Decoration gallery */
 .decor-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
@@ -368,3 +416,12 @@ textarea.inp { height: auto; padding: 6px 8px; resize: vertical; }
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 6px; border: 2px solid transparent; background-clip: padding-box; }
 ::-webkit-scrollbar-track { background: transparent; }
+
+/* Küçük ekranlarda paneller daralır; 1100 px altında küçük resim düşer. */
+@media (max-width: 1279px) {
+  .left { width: 244px; }
+  .right { width: 284px; }
+}
+@media (max-width: 1099px) {
+  .chart-thumb { display: none; }
+}
