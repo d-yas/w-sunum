@@ -138,6 +138,39 @@ try {
   const sections = await evalIn(`document.querySelectorAll('aside.right [data-section]').length`);
   report(sections >= 4, "sag-panel", `${sections} bölüm`);
 
+  /* 8 — tıkla-seç: karttaki parça ilgili ayara götürüyor */
+  const activeTab = () => evalIn(`document.querySelector('[role="tab"][aria-selected="true"]')?.dataset.tab`);
+  const clickCard = async (sel, shift = false) => {
+    const r = await rectOf(sel);
+    if (!r) return false;
+    const x = r.x + r.w / 2;
+    const y = r.y + r.h / 2;
+    const mod = shift ? 8 : 0;
+    await cdp.send("Input.dispatchMouseEvent", { type: "mousePressed", x, y, button: "left", buttons: 1, clickCount: 1, modifiers: mod });
+    await cdp.send("Input.dispatchMouseEvent", { type: "mouseReleased", x, y, button: "left", buttons: 0, clickCount: 1, modifiers: mod });
+    await sleep(400);
+    return true;
+  };
+
+  await clickSel(`[role="tab"][data-tab="renk"]`);
+  await sleep(300);
+  const hitTitle = await clickCard('.stage-card [data-part="title"]');
+  const tabAfter = await activeTab();
+  const sectionSeen = await evalIn(`(() => {
+    const el = document.querySelector('aside.right [data-section="metin"]');
+    if (!el) return null;
+    const r = el.getBoundingClientRect();
+    const p = el.closest('.overflow-auto').getBoundingClientRect();
+    return r.top < p.bottom && r.bottom > p.top;
+  })()`);
+  report(hitTitle && tabAfter === "gorunum" && sectionSeen === true, "tikla-sec", `sekme=${tabAfter} · metin bölümü görünür=${sectionSeen}`);
+
+  const hitBar = await clickCard('.stage-card [data-part="bar"]');
+  await sleep(300);
+  const now = await store();
+  const hl1 = now.charts.find((c) => c.id === now.activeId)?.options.highlight ?? [];
+  report(hitBar && hl1.length === 1, "cubuk-vurgu", `vurgulanan=[${hl1.join(",")}]`);
+
   const shot = await cdp.send("Page.captureScreenshot", { format: "png" });
   writeFileSync(`${dir}/shell.png`, Buffer.from(shot.data, "base64"));
 

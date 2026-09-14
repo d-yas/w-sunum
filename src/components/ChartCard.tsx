@@ -159,12 +159,12 @@ export const ChartCard = forwardRef<HTMLDivElement, ChartCardProps>(function Cha
           )}
           <div>
             {spec.title && (
-              <div className="slide-title" style={{ fontSize: o.titleSize }}>
+              <div className="slide-title" data-part="title" style={{ fontSize: o.titleSize }}>
                 {spec.title}
               </div>
             )}
             {spec.subtitle && (
-              <div className="slide-subtitle" style={{ fontSize: Math.round(o.titleSize * 0.6), marginTop: 4 }}>
+              <div className="slide-subtitle" data-part="subtitle" style={{ fontSize: Math.round(o.titleSize * 0.6), marginTop: 4 }}>
                 {spec.subtitle}
               </div>
             )}
@@ -172,7 +172,7 @@ export const ChartCard = forwardRef<HTMLDivElement, ChartCardProps>(function Cha
         </header>
       )}
       {!hiddenSlot("grafik") && (
-      <div data-slot="grafik" style={slot("grafik", { position: "relative", zIndex: 1, flex: 1, minHeight: 0, display: "flex", flexDirection: "column" })}>
+      <div data-part="chart" data-slot="grafik" style={slot("grafik", { position: "relative", zIndex: 1, flex: 1, minHeight: 0, display: "flex", flexDirection: "column" })}>
         {isStatic && spec.kind !== "sankey" ? (
           <MotionConfig reducedMotion="always">
             <StaticChartPreviewProvider>{body}</StaticChartPreviewProvider>
@@ -186,6 +186,7 @@ export const ChartCard = forwardRef<HTMLDivElement, ChartCardProps>(function Cha
       {spec.note && !hiddenSlot("dipnot") && (
         <footer
           className="slide-note"
+          data-part="note"
           data-slot="dipnot"
           style={slot("dipnot", { position: "relative", zIndex: 1, fontSize: Math.max(10, Math.round(o.titleSize * 0.5)), marginTop: o.chartInset })}
         >
@@ -537,7 +538,7 @@ function Rings({ spec, colors, isStatic }: Omit<BodyProps, "theme">) {
   return (
     <WithLegend spec={spec} items={items} hoveredIndex={live} onHoverChange={onHover}>
       <div className={FILL} style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <div style={{ height: "100%", aspectRatio: "1 / 1", maxWidth: "100%", position: "relative", ["--border" as string]: "var(--ring-track)" }}>
+        <div data-part="ring" style={{ height: "100%", aspectRatio: "1 / 1", maxWidth: "100%", position: "relative", ["--border" as string]: "var(--ring-track)" }}>
         <RingChart
           data={model.data}
           className="h-full w-full max-h-full"

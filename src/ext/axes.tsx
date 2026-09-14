@@ -104,7 +104,7 @@ export function YAxis({ numTicks = 5, format, yAxisId, title = "" }: YAxisProps)
   const ticks = niceTicks(yScale as never, numTicks);
   const step = ticks.length > 1 ? Math.abs(ticks[1] - ticks[0]) : undefined;
   return (
-    <g className="chart-y-axis" aria-hidden>
+    <g className="chart-y-axis" data-part="axis-y" aria-hidden>
       {ticks.map((t) => {
         const y = yScale(t);
         if (y == null || !Number.isFinite(y) || y < -1 || y > innerHeight + 1) return null;
@@ -146,7 +146,7 @@ export function XAxis({ labels, xIsDate, locale, granularity, spanMs, minGap = 5
   // Collapse repeated date labels (e.g. monthly data labelled by year).
   const dedup = shown.filter((p, i) => i === 0 || p.label !== shown[i - 1].label);
   return (
-    <g className="chart-x-axis" aria-hidden>
+    <g className="chart-x-axis" data-part="axis-x" aria-hidden>
       {dedup.map((p, i) => {
         const anchor = p.x < 6 ? "start" : p.x > innerWidth - 6 ? "end" : "middle";
         return (
@@ -171,7 +171,7 @@ export function BarXAxis({ angle = 0, title = "" }: { angle?: 0 | 45 | 90; title
   // aşağı doğru yeri var (kenar boşluğu `tickOverhang` ile büyütülüyor).
   const maxChars = angle === 0 ? Math.max(3, Math.floor((barScale.step() || 60) / 6.2)) : 28;
   return (
-    <g className="chart-bar-x-axis" aria-hidden>
+    <g className="chart-bar-x-axis" data-part="axis-x" aria-hidden>
       {data.map((d, i) => {
         const label = barXAccessor(d);
         const x = (barScale(label) ?? 0) + bw / 2;
@@ -205,7 +205,7 @@ export function BarValueAxis({ numTicks = 5, format, title = "" }: BarValueAxisP
   const ticks = niceTicks(valueScale as never, numTicks);
   const step = ticks.length > 1 ? Math.abs(ticks[1] - ticks[0]) : undefined;
   return (
-    <g className="chart-bar-value-axis" aria-hidden>
+    <g className="chart-bar-value-axis" data-part="axis-x" aria-hidden>
       {ticks.map((t) => {
         const x = valueScale(t);
         if (x == null || !Number.isFinite(x) || x < -1 || x > innerWidth + 1) return null;

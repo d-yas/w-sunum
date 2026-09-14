@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ChevronDown, X } from "lucide-react";
 
 import { GRADIENT_LABELS, PATTERN_LABELS } from "@/decor";
@@ -218,7 +218,34 @@ export function KindPicker({ spec, onChange }: { spec: ChartSpec; onChange: (s: 
 
 /* ---------------- options ---------------- */
 
-export function OptionsPanel({ spec, onChange }: { spec: ChartSpec; onChange: (s: ChartSpec) => void }) {
+export function OptionsPanel({
+  spec,
+  onChange,
+  focus,
+}: {
+  spec: ChartSpec;
+  onChange: (s: ChartSpec) => void;
+  /** Sahnede bir parçaya tıklanınca açılıp vurgulanacak bölüm. */
+  focus?: { id: string; nonce: number } | null;
+}) {
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  // Kaydırmak tek başına gözden kaçıyor — on bölüm var ve hepsi birbirine
+  // benziyor; kısa bir vurgu hangi bölüme gelindiğini söylüyor.
+  useEffect(() => {
+    if (!focus) return;
+    const el = rootRef.current?.querySelector<HTMLElement>(`[data-section="${focus.id}"]`);
+    if (!el) return;
+    if (el.dataset.open === "false") el.querySelector<HTMLButtonElement>(".section-head")?.click();
+    el.scrollIntoView({ block: "start", behavior: "smooth" });
+    el.classList.remove("flash");
+    // Sınıfı yeniden eklemek için bir kare bekle, yoksa aynı animasyon
+    // ikinci tıklamada tetiklenmiyor.
+    requestAnimationFrame(() => el.classList.add("flash"));
+    const t = setTimeout(() => el.classList.remove("flash"), 1400);
+    return () => clearTimeout(t);
+  }, [focus]);
+
   const o = spec.options;
   const set = (patch: Partial<ChartOptions>) => onChange({ ...spec, options: { ...o, ...patch } });
   const setFmt = (patch: Partial<ChartOptions["format"]>) => set({ format: { ...o.format, ...patch } });
@@ -246,7 +273,7 @@ export function OptionsPanel({ spec, onChange }: { spec: ChartSpec; onChange: (s
   const noLegend = spec.kind === "heatmap" || spec.kind === "sankey" || spec.kind === "pictogram";
 
   return (
-    <div className="flex flex-col">
+    <div className="flex flex-col" ref={rootRef}>
       <Section id="metin" title="Metin">
         <Field label="Başlık">
           <input className="inp w-44" value={spec.title} onChange={(e) => onChange({ ...spec, title: e.target.value })} />

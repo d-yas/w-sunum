@@ -437,6 +437,84 @@ export function App() {
 
   const thumbs = useThumbnails(ws, renderStatic, busy);
 
+  /* ---------------- sahnede tıkla-seç ---------------- */
+
+  /**
+   * Karttaki bir parçaya tıklamak ilgili ayara götürüyor.
+   *
+   * Panelde on bölüm var ve hepsi birbirine benziyor; "başlık boyutunu
+   * nereden değiştiriyordum" sorusunun cevabı, başlığa tıklamak. Eşleştirme
+   * `data-part` özniteliğinden okunuyor — kartın DOM'u zaten dışa aktarılan
+   * DOM, ona durum eklemek istemiyoruz.
+   *
+   * Süsle sekmesinde devre dışı: orada işaretçiyi DecorStage sahipleniyor.
+   */
+  const inspect = tab !== "susle";
+  const [selPart, setSelPart] = useState<string | null>(null);
+  const [focusSection, setFocusSection] = useState<{ id: string; nonce: number } | null>(null);
+
+  const onStageClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!inspect) return;
+    const el = (e.target as HTMLElement | null)?.closest<HTMLElement>("[data-part]");
+    const part = el?.dataset.part;
+    if (!part) return;
+    const go = (id: string) => {
+      setTab("gorunum");
+      setFocusSection({ id, nonce: Date.now() });
+    };
+    setSelPart(part);
+    switch (part) {
+      case "title":
+      case "subtitle":
+      case "note":
+        go("metin");
+        break;
+      case "legend":
+        go("gosterge");
+        break;
+      case "axis-x":
+      case "axis-y":
+        go("eksenler");
+        break;
+      case "value":
+        go("etiketler");
+        break;
+      case "refline":
+      case "reflabel":
+        go("referans");
+        break;
+      case "bar": {
+        // Bir çubuğa tıklamak onu vurguluyor; Shift ekleyip çıkarıyor.
+        const cat = el?.dataset.category;
+        if (cat) {
+          const has = active.options.highlight.includes(cat);
+          const next = e.shiftKey
+            ? has
+              ? active.options.highlight.filter((h) => h !== cat)
+              : [...active.options.highlight, cat]
+            : has && active.options.highlight.length === 1
+              ? []
+              : [cat];
+          updateChart({ ...active, options: { ...active.options, highlight: next } });
+        }
+        go("vurgu");
+        break;
+      }
+      default:
+        go("tur");
+    }
+  };
+
+  // Seçim çerçevesi sekme değişince ya da Esc ile kalkar.
+  useEffect(() => setSelPart(null), [tab, ws.activeId]);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setSelPart(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
   /* ---------------- stage scale ---------------- */
 
   const pad = 48;
@@ -550,6 +628,12 @@ export function App() {
               }}
             >
               <div
+                // `inspect` sınıfı yalnız sahne sarmalayıcısında — ChartCard'ın
+                // kendisine asla: aynı DOM dışa aktarılıyor, hover çerçevesi
+                // PNG'ye sızmasın.
+                className={inspect ? "inspect" : undefined}
+                data-sel={selPart ?? undefined}
+                onClick={onStageClick}
                 style={{
                   position: "relative",
                   width: active.options.width * scale,
@@ -593,7 +677,7 @@ export function App() {
             {tab === "gorunum" && (
               <>
                 <KindPicker spec={active} onChange={updateChart} />
-                <OptionsPanel spec={active} onChange={updateChart} />
+                <OptionsPanel spec={active} onChange={updateChart} focus={focusSection} />
               </>
             )}
             {tab === "renk" && (

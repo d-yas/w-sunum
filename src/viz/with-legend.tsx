@@ -34,6 +34,8 @@ export function WithLegend({
   const fmt = (v: number) => formatNumber(v, o.format);
   const legend = show ? (
     <Legend
+      // Sahnede tıkla-seç bunu okuyor; dışa aktarım öznitelikleri koruyor.
+      data-part="legend"
       items={items}
       hoveredIndex={hoveredIndex}
       onHoverChange={onHoverChange}

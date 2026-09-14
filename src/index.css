@@ -288,6 +288,29 @@ textarea.inp { height: auto; padding: 6px 8px; resize: vertical; }
 .rng:focus::-webkit-slider-thumb { border-color: var(--ring); box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 25%, transparent); }
 .rng-val { width: 46px; text-align: right; font-size: 11px; font-variant-numeric: tabular-nums; color: var(--muted-foreground); flex-shrink: 0; }
 
+/* Tıkla-seç: sahnedeki kart parçaları. Bu sınıf yalnız sahne sarmalayıcısında
+   durur, ChartCard'ın kendisinde asla — aynı DOM dışa aktarıldığı için hover
+   çerçevesi PNG'ye sızardı. */
+.inspect [data-part] { cursor: pointer; }
+.inspect [data-part]:hover {
+  outline: 1px dashed color-mix(in oklab, var(--ring) 55%, transparent);
+  outline-offset: 2px;
+}
+/* SVG içindeki <g> outline almıyor; çubuk ve çizgi için kontur kullanılıyor. */
+.inspect [data-part="bar"]:hover { stroke: var(--ring); stroke-width: 1.5; }
+.inspect [data-part="refline"]:hover line { stroke-width: 2.5; }
+.inspect[data-sel="title"] [data-part="title"],
+.inspect[data-sel="subtitle"] [data-part="subtitle"],
+.inspect[data-sel="note"] [data-part="note"],
+.inspect[data-sel="legend"] [data-part="legend"],
+.inspect[data-sel="axis-x"] [data-part="axis-x"],
+.inspect[data-sel="axis-y"] [data-part="axis-y"],
+.inspect[data-sel="chart"] [data-part="chart"],
+.inspect[data-sel="ring"] [data-part="ring"] {
+  outline: 1px solid var(--ring);
+  outline-offset: 2px;
+}
+
 /* Vurgulanan kategori çipleri */
 .chip {
   display: inline-flex; align-items: center; gap: 4px; height: 21px; padding: 0 6px;
