@@ -284,6 +284,14 @@ textarea.inp { height: auto; padding: 6px 8px; resize: vertical; }
 .rng:focus::-webkit-slider-thumb { border-color: var(--ring); box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 25%, transparent); }
 .rng-val { width: 46px; text-align: right; font-size: 11px; font-variant-numeric: tabular-nums; color: var(--muted-foreground); flex-shrink: 0; }
 
+/* Vurgulanan kategori çipleri */
+.chip {
+  display: inline-flex; align-items: center; gap: 4px; height: 21px; padding: 0 6px;
+  border-radius: 999px; border: 1px solid var(--border); background: var(--muted);
+  font-size: 11px; color: var(--foreground); cursor: pointer; font-family: inherit;
+}
+.chip:hover { border-color: var(--destructive); color: var(--destructive); }
+
 /* Sol paneldeki grafik listesi */
 .chart-row {
   display: flex; align-items: center; gap: 8px; width: 100%; padding: 4px 6px; margin-bottom: 2px;

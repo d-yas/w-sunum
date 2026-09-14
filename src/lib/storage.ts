@@ -2,7 +2,7 @@ import { normalizeDecor, normalizeLayout } from "@/decor/model";
 
 import { normalizePalettes } from "./palettes";
 
-import { DEFAULT_OPTIONS, defaultWorkspace, type ChartSpec, type Workspace } from "./spec";
+import { DEFAULT_OPTIONS, defaultWorkspace, uid, type ChartOptions, type ChartSpec, type RefLine, type Workspace } from "./spec";
 import { DEFAULT_FORMAT } from "./format";
 
 const KEY = "data-gorsel.workspace.v1";
@@ -61,12 +61,70 @@ export function normalizeChart(input: unknown): ChartSpec {
         : fallback.data,
     paletteId: c.paletteId ?? "varsayilan",
     colors: Array.isArray(c.colors) ? c.colors.map(String) : [],
-    options: { ...DEFAULT_OPTIONS, ...(c.options ?? {}), format: { ...DEFAULT_FORMAT, ...(c.options?.format ?? {}) } },
+    options: normalizeOptions(c.options),
     // Added after v1 shipped — workspaces saved before the decoration pack
     // simply come back undecorated instead of failing to load.
     decor: normalizeDecor(c.decor),
     yerlesim: normalizeLayout(c.yerlesim),
   };
+}
+
+/**
+ * Kaydedilmiş ayarları bugünkü sözleşmeye çevir.
+ *
+ * `DEFAULT_OPTIONS` yayılımı yeni alanları kendiliğinden dolduruyor; burada
+ * yapılan iş bunun ötesinde üç şey: yeniden adlandırılan alanların göçü,
+ * elle kurcalanmış ya da eski bir sürümden gelen numaralandırmaların
+ * doğrulanması, ve dizi/nesne alanlarının biçiminin güvenceye alınması.
+ * Doğrulama gereksiz değil: bu dosyalar kullanıcı tarafından düzenlenebiliyor
+ * ve geçersiz bir `valueLabels` değeri grafiği çizim sırasında düşürür.
+ */
+export function normalizeOptions(raw: unknown): ChartOptions {
+  const legacy = (raw ?? {}) as Partial<ChartOptions> & { xLabel?: string; yLabel?: string };
+  const o: ChartOptions = {
+    ...DEFAULT_OPTIONS,
+    ...legacy,
+    format: { ...DEFAULT_FORMAT, ...(legacy.format ?? {}) },
+  };
+
+  // xLabel/yLabel → xTitle/yTitle: eskiden yalnız dağılım/balon grafiğine
+  // aitti, artık bütün kartezyen türlerde var.
+  if (!o.xTitle && typeof legacy.xLabel === "string") o.xTitle = legacy.xLabel;
+  if (!o.yTitle && typeof legacy.yLabel === "string") o.yTitle = legacy.yLabel;
+  delete (o as unknown as Record<string, unknown>).xLabel;
+  delete (o as unknown as Record<string, unknown>).yLabel;
+
+  o.barRadius = clamp(o.barRadius, 0, 24, DEFAULT_OPTIONS.barRadius);
+  o.valueLabelSize = clamp(o.valueLabelSize, 6, 32, DEFAULT_OPTIONS.valueLabelSize);
+  o.colorBy = pick(o.colorBy, ["series", "category"], "series");
+  o.sort = pick(o.sort, ["none", "asc", "desc"], "none");
+  o.valueLabels = pick(o.valueLabels, ["auto", "none", "inside", "outside"], "auto");
+  o.valueLabelPoints = pick(o.valueLabelPoints, ["all", "last"], "all");
+  o.xTickAngle = ([0, 45, 90] as unknown[]).includes(o.xTickAngle) ? o.xTickAngle : "auto";
+  o.highlight = Array.isArray(o.highlight) ? o.highlight.map(String) : [];
+  o.forecastFrom = typeof o.forecastFrom === "number" && Number.isFinite(o.forecastFrom) ? o.forecastFrom : null;
+  o.refLines = Array.isArray(o.refLines)
+    ? o.refLines
+        .filter((l): l is RefLine => !!l && Number.isFinite(Number((l as RefLine).value)))
+        .slice(0, 12)
+        .map((l) => ({
+          id: typeof l.id === "string" && l.id ? l.id : uid(),
+          value: Number(l.value),
+          label: String(l.label ?? "").slice(0, 60),
+          color: /^#[0-9a-fA-F]{6}$/.test(String(l.color)) ? String(l.color) : "",
+          dash: l.dash !== false,
+        }))
+    : [];
+  return o;
+}
+
+function clamp(v: unknown, min: number, max: number, def: number): number {
+  const n = Number(v);
+  return Number.isFinite(n) ? Math.max(min, Math.min(max, n)) : def;
+}
+
+function pick<T extends string>(v: unknown, allowed: readonly T[], def: T): T {
+  return allowed.includes(v as T) ? (v as T) : def;
 }
 
 export function downloadText(filename: string, text: string, mime = "application/json") {

@@ -51,6 +51,27 @@ export type MapScope = "world" | "europe" | "asia" | "africa" | "americas" | "tu
 export type MapMode = "choropleth" | "bubble";
 export type GlyphKind = "circle" | "square" | "diamond" | "triangle" | "star" | "cross" | "wye";
 
+/** Kategori eksenindeki etiket açısı; "auto" sığmayınca kendisi eğer. */
+export type TickAngle = "auto" | 0 | 45 | 90;
+/** Değer etiketi yerleşimi. "auto" = türün kendi geleneği. */
+export type ValueLabels = "auto" | "none" | "inside" | "outside";
+export type ColorBy = "series" | "category";
+export type SortOrder = "none" | "asc" | "desc";
+
+/**
+ * Değer eksenine çizilen yatay (yatay çubukta dikey) çizgi — hedef, eşik,
+ * ortalama. Dekor okundan farkı: kart uzayında değil **veri uzayında** durur,
+ * veri değişince yerini korur.
+ */
+export interface RefLine {
+  id: string;
+  value: number;
+  label: string;
+  /** Boş = temanın ikinci mürekkep rengi. */
+  color: string;
+  dash: boolean;
+}
+
 /**
  * Tablonun biçimi. Aynı biçimdeki türler arasında geçerken kullanıcının verisi
  * korunur; biçim değişince örnek veri yüklenir.
@@ -112,8 +133,6 @@ export interface ChartOptions {
   bubbleMax: number;
   trendLine: boolean;
   quadrants: boolean;
-  xLabel: string;
-  yLabel: string;
 
   /* --- ilişki: chord / network / arc --- */
   nodeLabels: boolean;
@@ -171,7 +190,34 @@ export interface ChartOptions {
   mapGraticule: boolean;
   mapBubbleMax: number;
 
-  /* --- dekor --- */
+  /* --- çubuklar ve vurgu (bar / barH / şelale / marimekko / ağaç haritası) --- */
+  /** Köşe yarıçapı (px). 0 = keskin. */
+  barRadius: number;
+  /** Tek serili bir grafikte rengi seriye mi kategoriye mi bağla. */
+  colorBy: ColorBy;
+  /** Vurgulanan kategori adları; gerisi soluklaşır. Boş = hepsi tam. */
+  highlight: string[];
+  /** Kategorileri değere göre sırala (tek seri, halka, huni, piktogram). */
+  sort: SortOrder;
+
+  /* --- eksenler --- */
+  xTitle: string;
+  yTitle: string;
+  xTickAngle: TickAngle;
+
+  /* --- değer etiketleri --- */
+  valueLabels: ValueLabels;
+  /** Çizgi/alanda her noktaya mı yalnız sona mı. */
+  valueLabelPoints: "all" | "last";
+  valueLabelSize: number;
+
+  /* --- açıklama katmanı --- */
+  refLines: RefLine[];
+  /** Bu satırdan sonrası kesikli çizilir (1 tabanlı; null = kapalı). */
+  forecastFrom: number | null;
+  /** Alan dolgusu tabana doğru saydamlaşsın mı. */
+  areaGradient: boolean;
+
   decorPattern: DecorPattern;
   decorPatternOpacity: number;
   decorBloom: DecorBloom;
@@ -329,8 +375,6 @@ export const DEFAULT_OPTIONS: ChartOptions = {
   bubbleMax: 46,
   trendLine: false,
   quadrants: false,
-  xLabel: "",
-  yLabel: "",
 
   nodeLabels: true,
   chordPad: 0.04,
@@ -378,6 +422,23 @@ export const DEFAULT_OPTIONS: ChartOptions = {
   mapLabels: false,
   mapGraticule: false,
   mapBubbleMax: 34,
+
+  barRadius: 8,
+  colorBy: "series",
+  highlight: [],
+  sort: "none",
+
+  xTitle: "",
+  yTitle: "",
+  xTickAngle: "auto",
+
+  valueLabels: "auto",
+  valueLabelPoints: "all",
+  valueLabelSize: 11,
+
+  refLines: [],
+  forecastFrom: null,
+  areaGradient: true,
 
   decorPattern: "none",
   decorPatternOpacity: 0.5,

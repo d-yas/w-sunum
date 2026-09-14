@@ -68,6 +68,10 @@ export interface BarProps {
   animationType?: BarAnimationType;
   /** Opacity when not hovered (when another bar is hovered). Default: 0.3 */
   fadedOpacity?: number;
+  /** Veri Görsel eki: bu kategoriler tam opak, gerisi `fadedOpacity`. Boş/atlanmış = hepsi tam. */
+  highlightCategories?: readonly string[];
+  /** Veri Görsel eki: rengi kategoriye göre seç (tek serili grafikte her çubuk ayrı renk). */
+  fillFor?: (category: string, index: number) => string;
   /** Stagger delay between bars in seconds. Auto-calculated if not provided. */
   staggerDelay?: number;
   /** Gap between stacked bars in pixels. Default: 0 */
@@ -92,6 +96,8 @@ interface BarInnerProps extends BarProps {
 }
 
 interface AnimatedBarProps {
+  /** Veri Görsel eki: sahnede tıkla-seç bu öznitelikten kategoriyi okuyor. */
+  category: string;
   x: number;
   y: number;
   width: number;
@@ -111,6 +117,7 @@ interface AnimatedBarProps {
 }
 
 function AnimatedBar({
+  category,
   x,
   y,
   width,
@@ -137,6 +144,8 @@ function AnimatedBar({
           opacity: isFaded ? fadedOpacity : 1,
           filter: "blur(0px)",
         }}
+        data-category={category}
+        data-part="bar"
         fill={fill}
         height={height}
         initial={{ opacity: 0, filter: "blur(2px)" }}
@@ -162,6 +171,8 @@ function AnimatedBar({
       <g opacity={isFaded ? fadedOpacity : 1} style={{ transition: "opacity 0.15s ease-in-out" }}>
         <motion.rect
           animate={{ scaleX: 1 }}
+          data-category={category}
+          data-part="bar"
           fill={fill}
           height={height}
           initial={{ scaleX: 0 }}
@@ -185,6 +196,8 @@ function AnimatedBar({
     >
       <motion.rect
         animate={{ width, height, x, y }}
+        data-category={category}
+        data-part="bar"
         fill={fill}
         initial={{ width, height: 0, x, y: innerHeight }}
         key={`grow-${index}-${revealEpoch}`}
@@ -204,6 +217,8 @@ const BarInner = memo(function BarInner({
   animate = true,
   animationType = "grow",
   fadedOpacity = 0.3,
+  highlightCategories,
+  fillFor,
   staggerDelay,
   stackGap = 0,
   groupGap = 4,
@@ -409,7 +424,13 @@ const BarInner = memo(function BarInner({
         }
 
         const isFaded =
-          (hoveredBarIndex !== null && hoveredBarIndex !== i) || isLegendDimmed;
+          (hoveredBarIndex !== null && hoveredBarIndex !== i) ||
+          isLegendDimmed ||
+          (highlightCategories != null &&
+            highlightCategories.length > 0 &&
+            !highlightCategories.includes(String(categoryValue)));
+
+        const barFill = fillFor?.(String(categoryValue), i) ?? fill;
 
         // Use categoryValue as key since it's the unique identifier from data
         const barKey = `bar-${dataKey}-${categoryValue}`;
@@ -427,8 +448,9 @@ const BarInner = memo(function BarInner({
             <AnimatedBar
               animationType={animationType}
               enterTransition={enterTransition}
+              category={String(categoryValue)}
               fadedOpacity={fadedOpacity}
-              fill={fill}
+              fill={barFill}
               height={barHeight}
               index={i}
               innerHeight={innerHeight}
@@ -449,7 +471,9 @@ const BarInner = memo(function BarInner({
         // Static bar after animation completes
         return (
           <rect
-            fill={fill}
+            data-category={String(categoryValue)}
+            data-part="bar"
+            fill={barFill}
             height={barHeight}
             key={barKey}
             opacity={isFaded ? fadedOpacity : 1}

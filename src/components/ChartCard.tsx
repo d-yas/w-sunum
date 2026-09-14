@@ -210,9 +210,12 @@ function countSeries(spec: ChartSpec): number {
       return 1;
     default:
       // Eğim grafiğinde çizgi satırdır, seri değil.
-      return spec.kind === "slope"
-        ? Math.max(1, spec.data.rows.filter((r) => (r[0] ?? "").trim()).length)
-        : Math.max(1, spec.data.columns.length - 1);
+      if (spec.kind === "slope") return Math.max(1, spec.data.rows.filter((r) => (r[0] ?? "").trim()).length);
+      // Renk kategoriye bağlıyken palet seri değil satır sayısınca açılmalı,
+      // yoksa dördüncü çubuktan sonra renkler başa dönüyor.
+      if (spec.options.colorBy === "category" && spec.data.columns.length === 2)
+        return Math.max(1, spec.data.rows.filter((r) => (r[0] ?? "").trim()).length);
+      return Math.max(1, spec.data.columns.length - 1);
   }
 }
 
@@ -361,7 +364,12 @@ function Bars({ spec, colors, isStatic }: Omit<BodyProps, "theme">) {
   const { options: o } = spec;
   const model = useMemo(() => toCartesian(spec), [spec]);
   const horizontal = spec.kind === "barH";
-  const items = model.series.map((s, i) => ({ label: s.name, value: s.total, color: colors[i] }));
+  // Tek serili bir grafikte renk kategoriye bağlanabiliyor; o zaman gösterge de
+  // serileri değil kategorileri listeler, yoksa tek bir kutuyla kalır.
+  const byCategory = o.colorBy === "category" && model.series.length === 1;
+  const items = byCategory
+    ? model.labels.map((label, i) => ({ label, value: Number(model.rows[i]?.[model.series[0].key] ?? 0), color: colors[i % colors.length] }))
+    : model.series.map((s, i) => ({ label: s.name, value: s.total, color: colors[i] }));
   const longest = model.labels.reduce((a, l) => Math.max(a, l.length), 0);
   const margin = horizontal
     ? { top: 8, right: 16, bottom: o.xAxis ? 30 : 8, left: Math.min(160, Math.max(56, longest * 7 + 16)) }
@@ -393,7 +401,17 @@ function Bars({ spec, colors, isStatic }: Omit<BodyProps, "theme">) {
           />
         )}
         {model.series.map((s, i) => (
-          <Bar key={s.key} dataKey={s.key} fill={colors[i]} />
+          <Bar
+            key={s.key}
+            dataKey={s.key}
+            fill={colors[i]}
+            // Bklit sayısal `lineCap`i olduğu gibi yarıçap sayar; bir çubuğun
+            // yarısını aşan yarıçap SVG'de kapsülü bozuyor, o yüzden kırpılır.
+            lineCap={Math.min(o.barRadius, (o.barWidth ?? 40) / 2)}
+            fadedOpacity={0.25}
+            highlightCategories={o.highlight}
+            fillFor={byCategory ? (_c, bi) => colors[bi % colors.length] : undefined}
+          />
         ))}
         {horizontal ? (
           <>

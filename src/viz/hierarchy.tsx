@@ -137,7 +137,7 @@ function TreemapBody({ width, height, root, model, o, colors, shadeOf, format }:
             const showValue = o.hierarchyValues && w > 44 && h > 34;
             return (
               <Group key={`l-${i}`} top={leaf.y0} left={leaf.x0}>
-                <rect width={w} height={h} rx={2} fill={fill} />
+                <rect width={w} height={h} rx={Math.min(o.barRadius / 2, 6, w / 2, h / 2)} fill={fill} />
                 {showLabel && (
                   <text x={6} y={15} fontSize={11.5} fontWeight={600} fill={ink}>
                     {ellipsize(leaf.data.name, 11.5, w - 12)}

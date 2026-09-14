@@ -51,8 +51,8 @@ export function XYViz({ spec, colors, isStatic }: VizProps) {
           const margin = {
             top: 10,
             right: 14,
-            bottom: (o.xAxis ? 26 : 8) + (o.xLabel ? 16 : 0),
-            left: (o.yAxis ? 46 : 8) + (o.yLabel ? 16 : 0),
+            bottom: (o.xAxis ? 26 : 8) + (o.xTitle ? 16 : 0),
+            left: (o.yAxis ? 46 : 8) + (o.yTitle ? 16 : 0),
           };
           const iw = width - margin.left - margin.right;
           const ih = height - margin.top - margin.bottom;
@@ -146,19 +146,19 @@ export function XYViz({ spec, colors, isStatic }: VizProps) {
                     {formatTick(t, o.format, xTicks.length > 1 ? Math.abs(xTicks[1] - xTicks[0]) : undefined)}
                   </text>
                 ))}
-              {o.xLabel && (
+              {o.xTitle && (
                 <text className={VIZ.strong} x={iw / 2} y={ih + margin.bottom - 2} textAnchor="middle" fontSize={11}>
-                  {o.xLabel}
+                  {o.xTitle}
                 </text>
               )}
-              {o.yLabel && (
+              {o.yTitle && (
                 <text
                   className={VIZ.strong}
                   transform={`translate(${-margin.left + 12} ${ih / 2}) rotate(-90)`}
                   textAnchor="middle"
                   fontSize={11}
                 >
-                  {o.yLabel}
+                  {o.yTitle}
                 </text>
               )}
               {o.trendLine && model.trend && (

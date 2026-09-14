@@ -85,7 +85,7 @@ export function WaterfallViz({ spec, colors, isStatic }: VizProps) {
                           strokeDasharray="3 3"
                         />
                       )}
-                      <rect x={cx - bw / 2} y={y0} width={bw} height={h} rx={2} fill={fill} />
+                      <rect x={cx - bw / 2} y={y0} width={bw} height={h} rx={Math.min(o.barRadius, bw / 2, h / 2)} fill={fill} />
                       <text
                         x={cx}
                         y={inside ? y0 + h / 2 : y0 - 5}
@@ -272,7 +272,7 @@ export function MarimekkoViz({ spec, colors, isStatic }: VizProps) {
                         const showLabel = o.mekkoLabels && h > 16 && w > 40;
                         return (
                           <g key={si}>
-                            <rect x={left} y={top} width={w} height={h} fill={fill} />
+                            <rect x={left} y={top} width={w} height={h} rx={Math.min(o.barRadius / 2, w / 2, h / 2)} fill={fill} />
                             {showLabel && (
                               <text
                                 x={left + w / 2}

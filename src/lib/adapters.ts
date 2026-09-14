@@ -3,7 +3,7 @@ import type { RingData } from "@/charts/ring-context";
 import type { SankeyData } from "@/charts/sankey/sankey-chart";
 import type { Locale } from "./format";
 import { parseDate, parseNumber } from "./parse";
-import type { ChartSpec, TableData } from "./spec";
+import type { ChartSpec, SortOrder, TableData } from "./spec";
 
 export interface Series {
   key: string;
@@ -22,6 +22,20 @@ export interface CartesianModel {
   spanMs: number;
 }
 
+/**
+ * Satırları değere göre sırala.
+ *
+ * Sıralama veri katmanında yapılıyor, çizim katmanında değil: eksen etiketleri,
+ * gösterge, değer etiketleri ve ipucu hepsi aynı sıradan okuyor, yani tek bir
+ * yerde sıralamak hepsini tutarlı tutuyor. Sıralanan yalnız tek serili
+ * grafikler; çok serilide "hangi seriye göre" sorusunun cevabı yok.
+ */
+export function sortRows<T>(rows: T[], order: SortOrder, valueOf: (row: T) => number): T[] {
+  if (order === "none") return rows;
+  const sign = order === "asc" ? 1 : -1;
+  return [...rows].sort((a, b) => sign * (valueOf(a) - valueOf(b)));
+}
+
 /** Series keys are positional so renamed columns never break lookups. */
 export function seriesKey(i: number): string {
   return `s${i}`;
@@ -30,7 +44,13 @@ export function seriesKey(i: number): string {
 export function toCartesian(spec: ChartSpec): CartesianModel {
   const { data, options } = spec;
   const locale = options.format.locale;
-  const rows = data.rows.filter((r) => (r[0] ?? "").trim() !== "" || r.slice(1).some((c) => (c ?? "").trim() !== ""));
+  const kept = data.rows.filter((r) => (r[0] ?? "").trim() !== "" || r.slice(1).some((c) => (c ?? "").trim() !== ""));
+  // Tek seri + kategorik eksen: sıralamak anlamlı. Tarih ekseninde zaman
+  // sırası verinin kendisi, ona dokunulmaz.
+  const rows =
+    data.columns.length === 2 && options.xMode !== "date"
+      ? sortRows(kept, options.sort, (r) => parseNumber(r[1], locale) ?? 0)
+      : kept;
   const labels = rows.map((r, i) => (r[0] ?? "").trim() || `#${i + 1}`);
 
   const parsedDates = labels.map((l) => parseDate(l));
@@ -224,9 +244,10 @@ export function toCategoryValue(spec: ChartSpec): CategoryModel {
     if (label === "" || value == null) continue;
     items.push({ label, value, target: parseNumber(r[2], locale) });
   }
-  const values = items.map((i) => i.value);
+  const sorted = sortRows(items, spec.options.sort, (i) => i.value);
+  const values = sorted.map((i) => i.value);
   return {
-    items,
+    items: sorted,
     total: values.reduce((a, v) => a + v, 0),
     max: values.length ? Math.max(...values) : 0,
     min: values.length ? Math.min(...values) : 0,

@@ -15,7 +15,8 @@
     "test:susle": "node scripts/decor-check.mjs",
     "test:yerlesim": "node scripts/layout-check.mjs",
     "test:arayuz": "node scripts/ui-check.mjs",
-    "test:kabuk": "node scripts/shell-check.mjs"
+    "test:kabuk": "node scripts/shell-check.mjs",
+    "test:secenek": "node scripts/options-check.mjs"
   },
   "dependencies": {
     "@base-ui/react": "1.7.0",

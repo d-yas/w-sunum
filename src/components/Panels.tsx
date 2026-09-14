@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, X } from "lucide-react";
 
 import { GRADIENT_LABELS, PATTERN_LABELS } from "@/decor";
 import { KIND_ICONS, PICTO_ICONS } from "@/lib/chart-icons";
@@ -213,6 +213,11 @@ export function OptionsPanel({ spec, onChange }: { spec: ChartSpec; onChange: (s
   const cartesian = spec.kind === "line" || spec.kind === "area" || spec.kind === "bar" || spec.kind === "barH";
   const timeLike = spec.kind === "line" || spec.kind === "area";
   const bars = spec.kind === "bar" || spec.kind === "barH";
+  const singleSeries = spec.data.columns.length === 2;
+  /** Köşe yarıçapını okuyan türler. */
+  const rounded = bars || spec.kind === "waterfall" || spec.kind === "marimekko" || spec.kind === "treemap";
+  /** Sıralaması anlamlı olanlar: tek serili kartezyen + kategori/değer türleri. */
+  const sortable = (bars && singleSeries) || spec.kind === "ring" || spec.kind === "funnel" || spec.kind === "pictogram";
   const hierarchy = dataShape(spec.kind) === "hierarchy";
   const xy = dataShape(spec.kind) === "xy";
   const relation = spec.kind === "chord" || spec.kind === "network" || spec.kind === "arc";
@@ -363,6 +368,70 @@ export function OptionsPanel({ spec, onChange }: { spec: ChartSpec; onChange: (s
           <Field label="Grup aralığı" hint="0 = bitişik, 0.9 = çok seyrek">
             <Num value={o.barGap} min={0} max={0.9} step={0.05} onChange={(v) => set({ barGap: v ?? 0.35 })} />
           </Field>
+          {singleSeries && (
+            <Field label="Renk" hint="Tek seride her kategori ayrı renk olabilir">
+              <Seg
+                value={o.colorBy}
+                options={[
+                  ["series", "Seri"],
+                  ["category", "Kategori"],
+                ]}
+                onChange={(v) => set({ colorBy: v })}
+              />
+            </Field>
+          )}
+        </Section>
+      )}
+
+      {rounded && (
+        <Section id="bicimlendirme" title="Biçim">
+          <Field label="Köşe yarıçapı" hint="0 = keskin köşe">
+            <Slider value={o.barRadius} min={0} max={24} step={1} onChange={(v) => set({ barRadius: v })} />
+          </Field>
+        </Section>
+      )}
+
+      {(sortable || bars) && (
+        <Section id="vurgu" title="Sıralama ve vurgu">
+          {sortable && (
+            <Field label="Sırala" hint="Değere göre; tarih ekseninde uygulanmaz">
+              <Seg
+                value={o.sort}
+                options={[
+                  ["none", "Yok"],
+                  ["desc", "Azalan"],
+                  ["asc", "Artan"],
+                ]}
+                onChange={(v) => set({ sort: v })}
+              />
+            </Field>
+          )}
+          {bars && (
+            <>
+              <Field label="Vurgulananlar" hint="Sahnede bir çubuğa tıklayarak da seçilir">
+                <span className="text-[11px] text-muted-foreground">
+                  {o.highlight.length === 0 ? "hepsi tam" : `${o.highlight.length} kategori`}
+                </span>
+              </Field>
+              {o.highlight.length > 0 && (
+                <div className="flex flex-wrap items-center gap-1 pb-1">
+                  {o.highlight.map((h) => (
+                    <button
+                      key={h}
+                      className="chip"
+                      title="Vurgudan çıkar"
+                      onClick={() => set({ highlight: o.highlight.filter((x) => x !== h) })}
+                    >
+                      {h} <X size={11} />
+                    </button>
+                  ))}
+                  <button className="btn btn-sm" onClick={() => set({ highlight: [] })}>
+                    Temizle
+                  </button>
+                </div>
+              )}
+            </>
+          )}
         </Section>
       )}
 
@@ -475,10 +544,10 @@ export function OptionsPanel({ spec, onChange }: { spec: ChartSpec; onChange: (s
             <Switch checked={o.quadrants} onChange={(v) => set({ quadrants: v })} />
           </Field>
           <Field label="X ekseni adı">
-            <input className="inp w-32" value={o.xLabel} onChange={(e) => set({ xLabel: e.target.value })} />
+            <input className="inp w-32" value={o.xTitle} onChange={(e) => set({ xTitle: e.target.value })} />
           </Field>
           <Field label="Y ekseni adı">
-            <input className="inp w-32" value={o.yLabel} onChange={(e) => set({ yLabel: e.target.value })} />
+            <input className="inp w-32" value={o.yTitle} onChange={(e) => set({ yTitle: e.target.value })} />
           </Field>
         </Section>
       )}
