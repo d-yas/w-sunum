@@ -13,9 +13,10 @@
  */
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 
-import type { Box, DecorItem, SlotKey } from "@/decor/model";
-import { SLOT_KEYS, SLOT_LABELS } from "@/decor/model";
+import type { Box, DecorItem, DecorSlot, SlotKey } from "@/decor/model";
+import { SLOT_KEYS, SLOT_LABELS, restack, restackEnd } from "@/decor/model";
 import { getAsset, newItem } from "@/decor/registry";
+import { num, type ZeminSlot } from "@/decor/types";
 import type { ChartSpec } from "@/lib/spec";
 
 type Corner = "nw" | "ne" | "sw" | "se";
@@ -62,6 +63,20 @@ export interface DecorStageProps {
   onChange: (s: ChartSpec) => void;
 }
 
+/**
+ * Pointer capture is a convenience, not a requirement: it keeps a fast drag
+ * alive when the cursor outruns the element. It throws when there is no live
+ * pointer for the id — a synthetic event, or a pointer already released — and
+ * a drag must not die because of that.
+ */
+function capture(e: ReactPointerEvent) {
+  try {
+    (e.target as Element).setPointerCapture(e.pointerId);
+  } catch {
+    /* pointer already gone; the window-level handlers still track the drag */
+  }
+}
+
 const rot = (x: number, y: number, deg: number) => {
   const a = (deg * Math.PI) / 180;
   const c = Math.cos(a);
@@ -77,6 +92,7 @@ export function DecorStage({ spec, scale, selectedId, onSelect, onChange }: Deco
 
   const items = spec.decor.nesneler;
   const free = spec.yerlesim.serbest;
+  const hiddenSlots = spec.yerlesim.gizli;
 
   const handles: Handle[] = [
     ...items
@@ -97,7 +113,8 @@ export function DecorStage({ spec, scale, selectedId, onSelect, onChange }: Deco
     ...(free
       ? SLOT_KEYS.flatMap((k) => {
           const b = spec.yerlesim.kutular[k];
-          return b ? [{ id: slotId(k), ...b, aci: 0, kilit: false, slot: k, square: false, min: 24, label: SLOT_LABELS[k] }] : [];
+          if (!b || hiddenSlots.includes(k)) return [];
+          return [{ id: slotId(k), ...b, aci: 0, kilit: false, slot: k, square: false, min: 24, label: SLOT_LABELS[k] }];
         })
       : []),
   ];
@@ -127,13 +144,28 @@ export function DecorStage({ spec, scale, selectedId, onSelect, onChange }: Deco
       const h = handles.find((b) => b.id === selectedId);
       if (!h) return;
 
-      if (!h.slot) {
+      if (h.slot) {
+        // Delete on a card part hides it rather than destroying anything: the
+        // title text stays in the spec, and the panel can put it back.
+        if (e.key === "Delete" || e.key === "Backspace") {
+          e.preventDefault();
+          onChange({ ...spec, yerlesim: { ...spec.yerlesim, gizli: [...hiddenSlots, h.slot] } });
+          onSelect(null);
+          return;
+        }
+      } else {
         const it = items.find((n) => n.id === selectedId);
         if (!it) return;
         if ((e.key === "Delete" || e.key === "Backspace") && !it.kilit) {
           e.preventDefault();
           setItems(items.filter((n) => n.id !== selectedId));
           onSelect(null);
+          return;
+        }
+        if (e.key === "[" || e.key === "]") {
+          e.preventDefault();
+          const dir = e.key === "]" ? 1 : -1;
+          setItems(e.shiftKey ? restackEnd(items, it.id, dir === 1 ? "on" : "arka") : restack(items, it.id, dir));
           return;
         }
         if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "d") {
@@ -172,18 +204,47 @@ export function DecorStage({ spec, scale, selectedId, onSelect, onChange }: Deco
     return [(e.clientX - r.left) / scale, (e.clientY - r.top) / scale] as const;
   };
 
+  /**
+   * Background assets fill the card, so there is no box to grab. The ones that
+   * declare an anchor get a dot at their centre instead, dragged in percent.
+   */
+  const anchors = (["isik", "doku", "cerceve"] as ZeminSlot[]).flatMap((key) => {
+    const slotData: DecorSlot | null = spec.decor.zemin[key];
+    if (!slotData) return [];
+    const def = getAsset(slotData.asset);
+    if (!def?.anchor) return [];
+    const px = def.anchor.x ? num({ ...Object.fromEntries((def.params ?? []).map((q) => [q.key, q.def])), ...slotData.params }, def.anchor.x, 50) : 50;
+    const py = def.anchor.y ? num({ ...Object.fromEntries((def.params ?? []).map((q) => [q.key, q.def])), ...slotData.params }, def.anchor.y, 50) : 50;
+    return [{ key, def, slotData, px, py }];
+  });
+
+  const dragAnchor = useRef<{ key: ZeminSlot } | null>(null);
+
+  const onAnchorMove = (e: ReactPointerEvent) => {
+    const a = dragAnchor.current;
+    if (!a) return;
+    const entry = anchors.find((x) => x.key === a.key);
+    if (!entry) return;
+    const [cx, cy] = toCard(e);
+    const next = { ...entry.slotData.params };
+    if (entry.def.anchor?.x) next[entry.def.anchor.x] = Math.round(Math.min(120, Math.max(-20, (cx / CW) * 100)));
+    if (entry.def.anchor?.y) next[entry.def.anchor.y] = Math.round(Math.min(120, Math.max(-20, (cy / CH) * 100)));
+    onChange({ ...spec, decor: { ...spec.decor, zemin: { ...spec.decor.zemin, [a.key]: { ...entry.slotData, params: next } } } });
+  };
+
   const begin = (e: ReactPointerEvent, id: string, mode: Mode) => {
     const h = handles.find((b) => b.id === id);
     if (!h || h.kilit) return;
     e.preventDefault();
     e.stopPropagation();
-    (e.target as Element).setPointerCapture(e.pointerId);
+    capture(e);
     const [px, py] = toCard(e);
     dragRef.current = { mode, id, start: { ...h }, px, py };
     onSelect(id);
   };
 
   const onMove = (e: ReactPointerEvent) => {
+    if (dragAnchor.current) return onAnchorMove(e);
     const d = dragRef.current;
     if (!d) return;
     const [px, py] = toCard(e);
@@ -241,6 +302,7 @@ export function DecorStage({ spec, scale, selectedId, onSelect, onChange }: Deco
   };
 
   const end = (e: ReactPointerEvent) => {
+    dragAnchor.current = null;
     if (!dragRef.current) return;
     try {
       (e.target as Element).releasePointerCapture(e.pointerId);
@@ -319,6 +381,20 @@ export function DecorStage({ spec, scale, selectedId, onSelect, onChange }: Deco
           </div>
         );
       })}
+      {anchors.map((a) => (
+        <div
+          key={a.key}
+          className="decor-anchor"
+          title={`${a.def.label} — merkezi sürükleyin`}
+          style={{ left: (a.px / 100) * CW * scale, top: (a.py / 100) * CH * scale }}
+          onPointerDown={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            capture(e);
+            dragAnchor.current = { key: a.key };
+          }}
+        />
+      ))}
       {guides.x.map((gx, i) => (
         <div key={`x${i}`} className="decor-guide" style={{ left: gx * scale, top: 0, width: 1, height: "100%" }} />
       ))}

@@ -73,6 +73,7 @@ export const LIGHTS: AssetDef[] = [
   },
   {
     id: "isik/kure",
+    anchor: { x: "x", y: "y" },
     size: { w: 300, h: 300 },
     label: "Yumuşak küre",
     family: "isik",
@@ -176,6 +177,7 @@ export const LIGHTS: AssetDef[] = [
   },
   {
     id: "isik/spot",
+    anchor: { x: "x" },
     size: { w: 280, h: 340 },
     label: "Spot konisi",
     family: "isik",
@@ -275,6 +277,7 @@ export const LIGHTS: AssetDef[] = [
   },
   {
     id: "isik/dalgalar",
+    anchor: { x: "x", y: "y" },
     size: { w: 340, h: 340 },
     label: "Halka dalgaları",
     family: "isik",
@@ -333,6 +336,7 @@ export const LIGHTS: AssetDef[] = [
   },
   {
     id: "isik/radyal",
+    anchor: { x: "x", y: "y" },
     size: { w: 300, h: 300 },
     label: "Radyal gradyan",
     family: "isik",

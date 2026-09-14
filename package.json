@@ -13,7 +13,8 @@
     "kontrol": "node scripts/cdp-check.mjs",
     "test:pptx": "node --experimental-strip-types scripts/pptx-test.mts",
     "test:susle": "node scripts/decor-check.mjs",
-    "test:yerlesim": "node scripts/layout-check.mjs"
+    "test:yerlesim": "node scripts/layout-check.mjs",
+    "test:arayuz": "node scripts/ui-check.mjs"
   },
   "dependencies": {
     "@base-ui/react": "1.7.0",

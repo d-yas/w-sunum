@@ -1,5 +1,7 @@
 import { emptyDecor, emptyLayout, type CardLayout, type DecorState } from "@/decor/model";
 
+import type { Palette } from "./palettes";
+
 import { DEFAULT_FORMAT, type DateGranularity, type NumberFormatSpec } from "./format";
 
 export type ChartKind = "line" | "area" | "bar" | "barH" | "ring" | "heatmap" | "sankey";
@@ -80,6 +82,8 @@ export interface Workspace {
   theme: Theme;
   activeId: string;
   charts: ChartSpec[];
+  /** User-defined palettes, offered alongside the built-in four. */
+  palettes: Palette[];
   export: { scale: 1 | 2 | 3 | 4; background: ExportBackground };
 }
 
@@ -259,6 +263,7 @@ export function defaultWorkspace(): Workspace {
     theme: "light",
     activeId: first.id,
     charts: [first],
+    palettes: [],
     export: { scale: 2, background: "theme" },
   };
 }

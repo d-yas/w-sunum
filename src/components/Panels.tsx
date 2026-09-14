@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-import { PALETTES, getPalette, seriesColor } from "@/lib/palettes";
+import { PALETTES, getPalette, isCustom, newPalette, seriesColor, type Palette } from "@/lib/palettes";
 import type { Locale } from "@/lib/format";
 import {
   KIND_LABELS,
@@ -401,14 +401,32 @@ export function ColorsPanel({
   spec,
   theme,
   seriesNames,
+  palettes,
+  onPalettes,
   onChange,
 }: {
   spec: ChartSpec;
   theme: Theme;
   seriesNames: string[];
+  palettes: Palette[];
+  onPalettes: (list: Palette[]) => void;
   onChange: (s: ChartSpec) => void;
 }) {
-  const palette = getPalette(spec.paletteId);
+  const palette = getPalette(spec.paletteId, palettes);
+  const editing = isCustom(spec.paletteId, palettes) ? palette : null;
+
+  const savePalette = (next: Palette) => onPalettes(palettes.map((p) => (p.id === next.id ? next : p)));
+  const addPalette = () => {
+    // Seeded from whatever is selected, so a custom palette starts as a copy
+    // you can nudge rather than eight empty swatches.
+    const fresh = newPalette(palette, palettes.length + 1);
+    onPalettes([...palettes, fresh]);
+    onChange({ ...spec, paletteId: fresh.id, colors: [] });
+  };
+  const deletePalette = (id: string) => {
+    onPalettes(palettes.filter((p) => p.id !== id));
+    if (spec.paletteId === id) onChange({ ...spec, paletteId: "varsayilan", colors: [] });
+  };
   const setColor = (i: number, hex: string | null) => {
     const colors = [...spec.colors];
     while (colors.length <= i) colors.push("");
@@ -421,7 +439,7 @@ export function ColorsPanel({
     <div className="flex flex-col">
       <Section title="Palet">
         <div className="flex flex-col gap-1.5">
-          {PALETTES.map((p) => (
+          {[...PALETTES, ...palettes].map((p) => (
             <button
               key={p.id}
               type="button"
@@ -433,14 +451,83 @@ export function ColorsPanel({
             >
               <span className="text-[12px] text-foreground">{p.name}</span>
               <span className="flex gap-1">
-                {(theme === "dark" ? p.dark : p.light).map((c, i) => (
+                {(theme === "dark" ? p.dark : p.light).slice(0, 10).map((c, i) => (
                   <span key={i} className="inline-block h-3.5 w-3.5 rounded-sm" style={{ background: c }} />
                 ))}
               </span>
             </button>
           ))}
         </div>
-        <p className="mt-2 text-[11px] text-muted-foreground">{palette.note}</p>
+        <div className="mt-2 flex gap-1.5">
+          <button className="btn btn-sm" type="button" onClick={addPalette} title="Seçili paletin kopyasından yeni bir palet aç">
+            + Palet ekle
+          </button>
+          {editing && (
+            <button className="btn btn-sm btn-danger" type="button" onClick={() => deletePalette(editing.id)}>
+              Paleti sil
+            </button>
+          )}
+        </div>
+        {editing ? (
+          <div className="mt-2 flex flex-col gap-1.5 rounded-md border border-border p-2">
+            <Field label="Ad">
+              <input
+                className="inp w-[150px]"
+                value={editing.name}
+                maxLength={60}
+                onChange={(e) => savePalette({ ...editing, name: e.target.value })}
+              />
+            </Field>
+            <div className="flex flex-wrap items-center gap-1.5">
+              {editing.light.map((c, i) => (
+                <span key={i} className="relative inline-flex">
+                  <input
+                    className="swatch"
+                    type="color"
+                    value={c}
+                    title={`${i + 1}. renk`}
+                    onChange={(e) => {
+                      const light = [...editing.light];
+                      light[i] = e.target.value;
+                      // One list serves both themes; a custom palette is a
+                      // brand choice, not a light/dark pair to maintain.
+                      savePalette({ ...editing, light, dark: light });
+                    }}
+                  />
+                </span>
+              ))}
+              <button
+                className="icon-btn"
+                type="button"
+                title="Renk ekle"
+                onClick={() => {
+                  const light = [...editing.light, editing.light[editing.light.length - 1] ?? "#2a78d6"];
+                  savePalette({ ...editing, light, dark: light });
+                }}
+                disabled={editing.light.length >= 16}
+              >
+                +
+              </button>
+              <button
+                className="icon-btn"
+                type="button"
+                title="Son rengi çıkar"
+                onClick={() => {
+                  const light = editing.light.slice(0, -1);
+                  savePalette({ ...editing, light, dark: light });
+                }}
+                disabled={editing.light.length <= 1}
+              >
+                −
+              </button>
+            </div>
+            <p className="text-[11px] text-muted-foreground">
+              Sıra önemli: seriler bu sırayla boyanır. Süsleme de ilk rengi kullanır.
+            </p>
+          </div>
+        ) : (
+          <p className="mt-2 text-[11px] text-muted-foreground">{palette.note}</p>
+        )}
       </Section>
 
       <Section title="Seri renkleri">

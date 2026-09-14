@@ -41,8 +41,56 @@ export const PALETTES: Palette[] = [
   },
 ];
 
-export function getPalette(id: string): Palette {
-  return PALETTES.find((p) => p.id === id) ?? PALETTES[0];
+/**
+ * Look a palette up by id, user-defined ones first.
+ *
+ * The custom list is threaded in rather than kept in a module variable: the
+ * offscreen export renders a card outside the React tree, and a card that
+ * silently lost its palette there would export in the wrong colours.
+ */
+export function getPalette(id: string, custom: Palette[] = []): Palette {
+  return custom.find((p) => p.id === id) ?? PALETTES.find((p) => p.id === id) ?? PALETTES[0];
+}
+
+const HEX = /^#[0-9a-fA-F]{6}$/;
+
+/** A new user palette seeded from an existing one, so editing starts somewhere. */
+export function newPalette(from: Palette, index: number): Palette {
+  return {
+    id: `ozel-${Math.random().toString(36).slice(2, 8)}`,
+    name: `Özel palet ${index}`,
+    note: "Kendi paletiniz.",
+    // One list for both themes: a hand-picked brand palette is the same
+    // palette in the dark, and a second set to maintain is a burden nobody
+    // asked for. Per-series overrides still work as before.
+    light: [...from.light],
+    dark: [...from.light],
+  };
+}
+
+export function isCustom(id: string, custom: Palette[]): boolean {
+  return custom.some((p) => p.id === id);
+}
+
+/** Drop anything a hand-edited JSON could have broken. */
+export function normalizePalettes(input: unknown): Palette[] {
+  if (!Array.isArray(input)) return [];
+  const out: Palette[] = [];
+  for (const raw of input) {
+    if (!raw || typeof raw !== "object") continue;
+    const p = raw as Partial<Palette>;
+    const light = Array.isArray(p.light) ? p.light.filter((c) => typeof c === "string" && HEX.test(c)) : [];
+    if (typeof p.id !== "string" || !p.id || light.length === 0) continue;
+    const dark = Array.isArray(p.dark) ? p.dark.filter((c) => typeof c === "string" && HEX.test(c)) : [];
+    out.push({
+      id: p.id,
+      name: typeof p.name === "string" && p.name ? p.name.slice(0, 60) : "Özel palet",
+      note: typeof p.note === "string" ? p.note.slice(0, 200) : "",
+      light: light.slice(0, 16),
+      dark: (dark.length ? dark : light).slice(0, 16),
+    });
+  }
+  return out.slice(0, 24);
 }
 
 /** Resolve the colour of series `i` — custom override first, then palette. */

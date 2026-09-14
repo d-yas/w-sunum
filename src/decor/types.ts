@@ -100,6 +100,12 @@ export interface AssetDef {
   tone?: "seri" | "murekkep";
   /** Asset reads ctx.color2 as a real second colour, so the panel offers one. */
   twoTone?: boolean;
+  /**
+   * Names the 0–100 parameters that hold this asset's position, which lets the
+   * stage offer a draggable dot for them. A background light covers the whole
+   * card, so it has no box to grab — this is how you move its centre.
+   */
+  anchor?: { x?: string; y?: string };
   render(ctx: AssetCtx): ReactNode;
 }
 

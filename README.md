@@ -17,8 +17,13 @@ Paylaşmak için yalnız bu dosyayı gönderin.
 4. **Görünüm**: başlık, alt başlık, dipnot, kart boyutu (16:9 hazır oranlar),
    eksenler, ızgara, gösterge konumu, sayı biçimi (1.250,5 / 1,250.5, ondalık,
    ön ek/son ek, kısaltma).
-5. **Renkler**: dört palet (varsayılan palet renk körlüğü için doğrulanmış)
-   ve seri başına özel renk.
+5. **Renkler**: dört hazır palet (varsayılan palet renk körlüğü için
+   doğrulanmış) ve seri başına özel renk. `+ Palet ekle` seçili paletin
+   kopyasından **kendi paletinizi** açar: adını yazın, renkleri tek tek
+   değiştirin, `+`/`−` ile renk sayısını ayarlayın. Özel palet çalışma
+   alanıyla birlikte kaydedilir ve açık/koyu temada aynı kalır — kurumsal
+   renk bir marka kararıdır, bakımı gereken ikinci bir set değil. Sıra
+   önemlidir: seriler bu sırayla boyanır ve süsleme ilk rengi kullanır.
 6. **Süsle**: doku, ışık ve çerçeve zemin olarak seçilir (üçü aynı anda
    durabilir); ışık, ok, ikon, işaret ve balonlar galeriden tıklanıp karta düşer,
    sahnede sürüklenir, köşeden boyutlandırılır, üstteki tutamaçtan
@@ -31,12 +36,23 @@ Paylaşmak için yalnız bu dosyayı gönderin.
    **Galeri**'den eklenince yalnız kendi kutusunu aydınlatır ve diğer
    nesneler gibi taşınıp boyutlandırılır.
 
+   Katman sırası tek bir yığındır: liste slaytla aynı sırada durur (üstteki
+   en önde) ve grafik, "ön" ile "arka" arasında yer alır. `[` ve `]` seçili
+   nesneyi bir basamak aşağı/yukarı taşır, grafiği geçerken katmanı
+   kendiliğinden değiştirir; `Shift` ile en alta/en üste gider.
+
    Aynı sekmedeki **Serbest yerleşim** anahtarı kartın kendi parçalarını —
    başlık bloğu, grafik ve dipnot — da sürüklenebilir yapar. Açıldığı anda
    kutular öğelerin o anki yerlerinden ölçülür, yani görüntü değişmez;
    sonrasında kesik kırmızı çerçeveli kutulardan tutup taşır, köşeden
    boyutlandırırsınız. `Kutuları sıfırla` kartın kendi akışına geri döner.
-   (Kart parçaları döndürülmez: dönmüş bir eksen etiketi okunmaz.)
+   Seçili bir kart parçasına `Del` basmak onu karttan kaldırır — metni
+   silmez, gizler; listedeki göz düğmesi geri getirir. (Kart parçaları
+   döndürülmez: dönmüş bir eksen etiketi okunmaz.)
+
+   Zemin ışıklarının merkezi de sürüklenebilir: kartı tamamen kapladıkları
+   için tutulacak bir kutuları yok, onun yerine sahnede bir nişan noktası
+   çıkar (Yumuşak küre, Radyal gradyan, Halka dalgaları, Spot konisi).
 7. **Dışa aktar**: `PNG indir` (1×–4×), `Panoya kopyala` (PowerPoint'e Ctrl+V),
    `SVG indir`, tema ya da şeffaf arka plan. **PowerPoint**: `Slayt olarak indir`
    tek grafiği, `Tüm grafikler` çalışma alanındaki her grafiği birer 16:9 slayt
@@ -59,6 +75,7 @@ pnpm test:parse   # sayı / tarih / CSV ayrıştırma birim testleri (Node, bağ
 pnpm kontrol      # node scripts/cdp-check.mjs [kind] [theme] [sekme] — headless Chrome duman testi
 pnpm test:susle   # süslemeler dışa aktarımda hayatta kalıyor mu — piksel ölçer
 pnpm test:yerlesim # serbest yerleşim ve hover anahtarı — gerçek fare olaylarıyla
+pnpm test:arayuz  # Del ile kaldırma, katman kısayolu, özel palet, ışık tutamacı
 ```
 
 `pnpm test:susle` her varlık ailesinden bir örneği boş bir kartın köşesine
@@ -70,7 +87,13 @@ betik 1 ile çıkar.
 `pnpm test:yerlesim` serbest yerleşimi açıp kartı piksel piksel karşılaştırır
 (açmak görüntüyü değiştirmemeli), grafik kutusunu gerçek fare olaylarıyla
 sürükleyip boyutlandırır ve hover anahtarının ipucunu gerçekten kaldırdığını
-doğrular. İkisi de `scripts/cdp.mjs` içindeki ortak sürücüyü kullanır.
+doğrular. `pnpm test:arayuz` panelin dört davranışını gerçek tıklamalarla sürer. Üçü de
+`scripts/cdp.mjs` içindeki ortak sürücüyü kullanır.
+
+> Özel palet testi boşuna değil: ilk sürümde palet ekrana geçiyor ama dışa
+> aktarıma geçmiyordu. `renderStatic`'in memo bağımlılık listesinde
+> `ws.palettes` yoktu, yani ekran dışı kart kapanışın kurulduğu andaki
+> paletle donuyordu.
 
 `pnpm kontrol` derlenmiş dosyayı headless Chrome'da açar, konsol hatalarını
 yazar, ekran görüntüsü alır ve PNG dışa aktarımını çalıştırır

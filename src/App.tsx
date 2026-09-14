@@ -94,7 +94,7 @@ export function App() {
       const root = createRoot(host);
       try {
         root.render(
-          <ChartCard spec={spec} theme={ws.theme} static transparent={ws.export.background === "transparent"} />
+          <ChartCard spec={spec} theme={ws.theme} palettes={ws.palettes} static transparent={ws.export.background === "transparent"} />
         );
         // ParentSize measures on the next frame; then wait until every
         // Motion/WAAPI animation in the card has finished (max 3 s).
@@ -118,7 +118,10 @@ export function App() {
         host.remove();
       }
     },
-    [active, ws.theme, ws.export.background]
+    // ws.palettes belongs here: without it the memoised closure keeps the
+    // palette list it was created with, and editing a custom palette would
+    // export the old colours while the stage showed the new ones.
+    [active, ws.theme, ws.export.background, ws.palettes]
   );
 
   const withBusy = async (label: string, job: () => Promise<string>) => {
@@ -345,9 +348,25 @@ export function App() {
               </div>
             )}
             {tab === "gorunum" && <OptionsPanel spec={active} onChange={updateChart} />}
-            {tab === "renk" && <ColorsPanel spec={active} theme={ws.theme} seriesNames={seriesNames} onChange={updateChart} />}
+            {tab === "renk" && (
+              <ColorsPanel
+                spec={active}
+                theme={ws.theme}
+                seriesNames={seriesNames}
+                palettes={ws.palettes}
+                onPalettes={(palettes) => setWs((w) => ({ ...w, palettes }))}
+                onChange={updateChart}
+              />
+            )}
             {tab === "susle" && (
-              <DecorPanel spec={active} theme={ws.theme} selectedId={decorSel} onSelect={setDecorSel} onChange={updateChart} />
+              <DecorPanel
+                spec={active}
+                theme={ws.theme}
+                palettes={ws.palettes}
+                selectedId={decorSel}
+                onSelect={setDecorSel}
+                onChange={updateChart}
+              />
             )}
             {tab === "disa" && (
               <ExportPanel
@@ -416,6 +435,7 @@ export function App() {
                 <ChartCard
                   spec={active}
                   theme={ws.theme}
+                  palettes={ws.palettes}
                   transparent={ws.export.background === "transparent"}
                   // The decor panel measures this card to seed free-layout boxes.
                   className="stage-card"

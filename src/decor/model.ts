@@ -71,10 +71,16 @@ export interface CardLayout {
    * the stage can drag.
    */
   kutular: Partial<Record<SlotKey, Box>>;
+  /**
+   * Parts the user deleted from the card. Hidden, not destroyed: the title
+   * text is still in the spec, so bringing it back is one click and nothing
+   * the user typed is lost.
+   */
+  gizli: SlotKey[];
 }
 
 export function emptyLayout(): CardLayout {
-  return { serbest: false, kutular: {} };
+  return { serbest: false, kutular: {}, gizli: [] };
 }
 
 export function normalizeLayout(input: unknown): CardLayout {
@@ -92,7 +98,8 @@ export function normalizeLayout(input: unknown): CardLayout {
       h: clamp(b.h, 16, 5000, 100),
     };
   }
-  return { serbest: l.serbest === true, kutular };
+  const gizli = Array.isArray(l.gizli) ? SLOT_KEYS.filter((k) => (l.gizli as string[]).includes(k)) : [];
+  return { serbest: l.serbest === true, kutular, gizli };
 }
 
 export function emptyDecor(): DecorState {
@@ -159,6 +166,53 @@ export function normalizeDecor(input: unknown): DecorState {
       })
       .filter((x): x is DecorItem => x !== null),
   };
+}
+
+/* ------------------------------------------------------------------ */
+/* Stacking order                                                       */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The visual stack, bottom to top: everything behind the chart, then the chart
+ * itself, then everything in front. Presenting it as one list is the point —
+ * "behind or in front" and "which of the two in front is on top" are the same
+ * question to whoever is looking at the slide, even though the data splits
+ * them into a layer flag and a list order.
+ */
+export function decorStack(items: DecorItem[]): { stack: DecorItem[]; boundary: number } {
+  const arka = items.filter((n) => n.katman === "arka");
+  const on = items.filter((n) => n.katman === "on");
+  return { stack: [...arka, ...on], boundary: arka.length };
+}
+
+/**
+ * Move one item a single step through that stack. Stepping across the chart
+ * flips the layer instead of swapping neighbours, so repeating one key walks
+ * an item from the very back to the very front without reaching for a second
+ * control.
+ */
+export function restack(items: DecorItem[], id: string, dir: -1 | 1): DecorItem[] {
+  const { stack, boundary } = decorStack(items);
+  const i = stack.findIndex((n) => n.id === id);
+  if (i < 0) return items;
+  const crossing = (i === boundary - 1 && dir === 1) || (i === boundary && dir === -1);
+  if (crossing) {
+    return stack.map((n) => (n.id === id ? { ...n, katman: n.katman === "arka" ? "on" : "arka" } : n));
+  }
+  const j = i + dir;
+  if (j < 0 || j >= stack.length) return items;
+  const next = [...stack];
+  [next[i], next[j]] = [next[j], next[i]];
+  return next;
+}
+
+/** Send an item all the way to one end of the stack. */
+export function restackEnd(items: DecorItem[], id: string, end: "arka" | "on"): DecorItem[] {
+  const target = items.find((n) => n.id === id);
+  if (!target) return items;
+  const rest = items.filter((n) => n.id !== id);
+  const moved: DecorItem = { ...target, katman: end };
+  return end === "arka" ? [moved, ...rest] : [...rest, moved];
 }
 
 /** True when a card carries nothing — lets the panel and the layer skip work. */

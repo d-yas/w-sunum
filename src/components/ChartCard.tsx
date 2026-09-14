@@ -29,13 +29,15 @@ import { ChartTooltip, TooltipContent } from "@/charts/tooltip";
 import { BarValueAxis, BarXAxis, XAxis, YAxis } from "@/ext/axes";
 import { toCartesian, toHeatmap, toRing, toSankey, type CartesianModel } from "@/lib/adapters";
 import { formatDateLong, formatNumber, type NumberFormatSpec } from "@/lib/format";
-import { getPalette, seriesColor } from "@/lib/palettes";
+import { getPalette, seriesColor, type Palette } from "@/lib/palettes";
 import type { SlotKey } from "@/decor/model";
 import type { ChartSpec, Theme } from "@/lib/spec";
 
 export interface ChartCardProps {
   spec: ChartSpec;
   theme: Theme;
+  /** User-defined palettes; the built-in four need no help. */
+  palettes?: Palette[];
   /** Export mode: no animation, no reveal clip, no hover. */
   static?: boolean;
   transparent?: boolean;
@@ -59,11 +61,11 @@ const CURVES = {
  * component with the same pixel size.
  */
 export const ChartCard = forwardRef<HTMLDivElement, ChartCardProps>(function ChartCard(
-  { spec, theme, static: isStatic = false, transparent = false, style, className },
+  { spec, theme, palettes = [], static: isStatic = false, transparent = false, style, className },
   ref
 ) {
   const { options: o } = spec;
-  const palette = getPalette(spec.paletteId);
+  const palette = getPalette(spec.paletteId, palettes);
   const seriesCount = useMemo(() => countSeries(spec), [spec]);
   const colors = useMemo(
     () => Array.from({ length: Math.max(seriesCount, 8) }, (_, i) => seriesColor(i, spec.colors, palette, theme)),
@@ -95,6 +97,7 @@ export const ChartCard = forwardRef<HTMLDivElement, ChartCardProps>(function Cha
    * no border, so its padding box and its border box are the same rectangle,
    * and left:0 lands on the card's own edge.
    */
+  const hiddenSlot = (key: SlotKey) => spec.yerlesim.serbest && spec.yerlesim.gizli.includes(key);
   const slot = (key: SlotKey, flow: CSSProperties): CSSProperties => {
     const box = spec.yerlesim.serbest ? spec.yerlesim.kutular[key] : undefined;
     if (!box) return flow;
@@ -126,7 +129,7 @@ export const ChartCard = forwardRef<HTMLDivElement, ChartCardProps>(function Cha
       }}
     >
       <DecorLayer {...decorProps} phase="arka" />
-      {(spec.title || spec.subtitle) && (
+      {(spec.title || spec.subtitle) && !hiddenSlot("baslik") && (
         <header data-slot="baslik" style={slot("baslik", { position: "relative", zIndex: 1, marginBottom: o.chartInset + 4 })}>
           {spec.title && (
             <div className="slide-title" style={{ fontSize: o.titleSize }}>
@@ -140,6 +143,7 @@ export const ChartCard = forwardRef<HTMLDivElement, ChartCardProps>(function Cha
           )}
         </header>
       )}
+      {!hiddenSlot("grafik") && (
       <div data-slot="grafik" style={slot("grafik", { position: "relative", zIndex: 1, flex: 1, minHeight: 0, display: "flex", flexDirection: "column" })}>
         {isStatic && spec.kind !== "sankey" ? (
           <MotionConfig reducedMotion="always">
@@ -149,8 +153,9 @@ export const ChartCard = forwardRef<HTMLDivElement, ChartCardProps>(function Cha
           body
         )}
       </div>
+      )}
       <DecorLayer {...decorProps} phase="on" />
-      {spec.note && (
+      {spec.note && !hiddenSlot("dipnot") && (
         <footer
           className="slide-note"
           data-slot="dipnot"

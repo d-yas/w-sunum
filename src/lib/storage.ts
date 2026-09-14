@@ -1,5 +1,7 @@
 import { normalizeDecor, normalizeLayout } from "@/decor/model";
 
+import { normalizePalettes } from "./palettes";
+
 import { DEFAULT_OPTIONS, defaultWorkspace, type ChartSpec, type Workspace } from "./spec";
 import { DEFAULT_FORMAT } from "./format";
 
@@ -35,6 +37,7 @@ export function normalizeWorkspace(input: unknown): Workspace {
     theme: ws.theme === "dark" ? "dark" : "light",
     activeId,
     charts,
+    palettes: normalizePalettes(ws.palettes),
     export: {
       scale: ([1, 2, 3, 4] as const).includes(ws.export?.scale as 1) ? (ws.export!.scale as 1 | 2 | 3 | 4) : 2,
       background: ws.export?.background === "transparent" ? "transparent" : "theme",

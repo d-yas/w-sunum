@@ -309,6 +309,16 @@ textarea.inp { height: auto; padding: 6px 8px; resize: vertical; }
   border: 1px solid var(--ring); box-sizing: border-box;
 }
 .decor-rotate { border-radius: 999px; }
+/* The draggable centre of a full-card light: crosshair, not a box, because
+   there is no box — the asset covers the whole card. */
+.decor-anchor {
+  position: absolute; height: 16px; width: 16px; margin: -8px 0 0 -8px; border-radius: 999px;
+  border: 2px solid var(--ring); background: color-mix(in oklab, var(--card) 70%, transparent);
+  box-shadow: 0 0 0 1px rgba(0,0,0,.25); cursor: move;
+}
+.decor-anchor::after {
+  content: ""; position: absolute; inset: 4px; border-radius: 999px; background: var(--ring);
+}
 .decor-guide { position: absolute; background: var(--destructive); pointer-events: none; }
 
 /* Data grid */

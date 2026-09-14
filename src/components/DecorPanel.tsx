@@ -9,10 +9,22 @@
 import { useId, useMemo, useState } from "react";
 
 import { DecorLayer } from "@/decor/DecorLayer";
-import { SLOT_KEYS, SLOT_LABELS, emptyDecor, type Box, type DecorItem, type DecorSlot, type DecorState, type SlotKey } from "@/decor/model";
+import {
+  SLOT_KEYS,
+  SLOT_LABELS,
+  decorStack,
+  emptyDecor,
+  restack,
+  restackEnd,
+  type Box,
+  type DecorItem,
+  type DecorSlot,
+  type DecorState,
+  type SlotKey,
+} from "@/decor/model";
 import { NESNE_FAMILIES, ZEMIN_SLOTS, assetsOf, getAsset, newItem, newSlot } from "@/decor/registry";
 import { FAMILY_LABELS, defaults, type AssetDef, type DecorFamily, type ParamDef, type ParamValues } from "@/decor/types";
-import { getPalette, seriesColor } from "@/lib/palettes";
+import { getPalette, seriesColor, type Palette } from "@/lib/palettes";
 import type { ChartSpec, Theme } from "@/lib/spec";
 
 import { Field, Section, Seg, Switch } from "./Panels";
@@ -170,12 +182,14 @@ function measureSlots(width: number): Partial<Record<SlotKey, Box>> {
 export function DecorPanel({
   spec,
   theme,
+  palettes,
   selectedId,
   onSelect,
   onChange,
 }: {
   spec: ChartSpec;
   theme: Theme;
+  palettes: Palette[];
   selectedId: string | null;
   onSelect: (id: string | null) => void;
   onChange: (s: ChartSpec) => void;
@@ -184,7 +198,7 @@ export function DecorPanel({
   const decor = spec.decor;
   const setDecor = (d: DecorState) => onChange({ ...spec, decor: d });
 
-  const palette = getPalette(spec.paletteId);
+  const palette = getPalette(spec.paletteId, palettes);
   const colors = useMemo(
     () => Array.from({ length: 8 }, (_, i) => seriesColor(i, spec.colors, palette, theme)),
     [spec.colors, palette, theme]
@@ -208,21 +222,16 @@ export function DecorPanel({
     if (selectedId === id) onSelect(null);
   };
 
-  const move = (id: string, dir: -1 | 1) => {
-    const list = [...decor.nesneler];
-    const i = list.findIndex((n) => n.id === id);
-    const j = i + dir;
-    if (i < 0 || j < 0 || j >= list.length) return;
-    [list[i], list[j]] = [list[j], list[i]];
-    setDecor({ ...decor, nesneler: list });
-  };
+  const { stack } = decorStack(decor.nesneler);
+  const order = (id: string, dir: -1 | 1) => setDecor({ ...decor, nesneler: restack(decor.nesneler, id, dir) });
+  const orderEnd = (id: string, end: "arka" | "on") => setDecor({ ...decor, nesneler: restackEnd(decor.nesneler, id, end) });
 
   const layout = spec.yerlesim;
   const setFree = (on: boolean) => {
     // Seed from where the parts already are, so switching on changes nothing
     // visually — it only makes them grabbable.
     const kutular = on && Object.keys(layout.kutular).length === 0 ? measureSlots(spec.options.width) : layout.kutular;
-    onChange({ ...spec, yerlesim: { serbest: on, kutular } });
+    onChange({ ...spec, yerlesim: { ...layout, serbest: on, kutular } });
   };
 
   return (
@@ -234,18 +243,29 @@ export function DecorPanel({
         </Field>
         {layout.serbest && (
           <>
-            <div className="flex flex-wrap gap-1.5 pt-1">
-              {SLOT_KEYS.filter((k) => layout.kutular[k]).map((k) => (
-                <button
-                  key={k}
-                  type="button"
-                  className="btn btn-sm"
-                  aria-pressed={selectedId === `slot:${k}`}
-                  onClick={() => onSelect(`slot:${k}`)}
-                >
-                  {SLOT_LABELS[k]}
-                </button>
-              ))}
+            <div className="flex flex-col gap-0.5 pt-1">
+              {SLOT_KEYS.filter((k) => layout.kutular[k]).map((k) => {
+                const hidden = layout.gizli.includes(k);
+                return (
+                  <div key={k} className="decor-row" aria-selected={selectedId === `slot:${k}`} onClick={() => onSelect(`slot:${k}`)}>
+                    <span className="grow" style={hidden ? { opacity: 0.45, textDecoration: "line-through" } : undefined}>
+                      {SLOT_LABELS[k]}
+                    </span>
+                    <button
+                      className="icon-btn"
+                      type="button"
+                      title={hidden ? "Karta geri getir" : "Karttan kaldır (Del)"}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const gizli = hidden ? layout.gizli.filter((g) => g !== k) : [...layout.gizli, k];
+                        onChange({ ...spec, yerlesim: { ...layout, gizli } });
+                      }}
+                    >
+                      {hidden ? "◻" : "◉"}
+                    </button>
+                  </div>
+                );
+              })}
             </div>
             <button
               className="btn btn-sm mt-2 self-start"
@@ -254,9 +274,11 @@ export function DecorPanel({
                 // Drop back to flow layout for one frame and measure *that*.
                 // Measuring while the boxes are applied would just hand back
                 // the boxes we already have.
-                onChange({ ...spec, yerlesim: { serbest: false, kutular: {} } });
+                onChange({ ...spec, yerlesim: { serbest: false, kutular: {}, gizli: [] } });
                 requestAnimationFrame(() =>
-                  requestAnimationFrame(() => onChange({ ...spec, yerlesim: { serbest: true, kutular: measureSlots(spec.options.width) } }))
+                  requestAnimationFrame(() =>
+                    onChange({ ...spec, yerlesim: { serbest: true, kutular: measureSlots(spec.options.width), gizli: [] } })
+                  )
                 );
               }}
               title="Kutuları kartın kendi akışına göre yeniden hesapla"
@@ -310,23 +332,24 @@ export function DecorPanel({
           <p className="text-[12px] text-muted-foreground">Henüz nesne yok.</p>
         ) : (
           <div className="flex flex-col gap-0.5">
-            {decor.nesneler.map((n, i) => {
+            {/* Top of the list is top of the slide: the list reads the way the
+                card looks, not in storage order. */}
+            {[...stack].reverse().map((n, revIndex) => {
               const def = getAsset(n.asset);
+              const i = stack.length - 1 - revIndex;
               return (
                 <div key={n.id} className="decor-row" aria-selected={n.id === selectedId} onClick={() => onSelect(n.id)} role="option">
-                  <span className="grow">
-                    {def?.label ?? n.asset}
-                    <span className="ml-1 text-[10px] text-muted-foreground">{n.katman === "arka" ? "arka" : ""}</span>
-                  </span>
-                  <button className="icon-btn" type="button" title="Yukarı" onClick={(e) => (e.stopPropagation(), move(n.id, -1))} disabled={i === 0}>
+                  <span className="grow">{def?.label ?? n.asset}</span>
+                  <span className="text-[10px] text-muted-foreground">{n.katman === "arka" ? "arka" : "ön"}</span>
+                  <button className="icon-btn" type="button" title="Bir üste (])" onClick={(e) => (e.stopPropagation(), order(n.id, 1))} disabled={i === stack.length - 1}>
                     ↑
                   </button>
                   <button
                     className="icon-btn"
                     type="button"
-                    title="Aşağı"
-                    onClick={(e) => (e.stopPropagation(), move(n.id, 1))}
-                    disabled={i === decor.nesneler.length - 1}
+                    title="Bir alta ([)"
+                    onClick={(e) => (e.stopPropagation(), order(n.id, -1))}
+                    disabled={i === 0}
                   >
                     ↓
                   </button>
@@ -336,12 +359,15 @@ export function DecorPanel({
                   <button className="icon-btn" type="button" title={n.kilit ? "Kilidi aç" : "Kilitle"} onClick={(e) => (e.stopPropagation(), setItem(n.id, { kilit: !n.kilit }))}>
                     {n.kilit ? "🔒" : "🔓"}
                   </button>
-                  <button className="icon-btn" type="button" title="Sil" onClick={(e) => (e.stopPropagation(), removeItem(n.id))}>
+                  <button className="icon-btn" type="button" title="Sil (Del)" onClick={(e) => (e.stopPropagation(), removeItem(n.id))}>
                     ✕
                   </button>
                 </div>
               );
             })}
+            <p className="mt-1 text-[11px] text-muted-foreground">
+              Liste slaytla aynı sırada: üstteki en önde. Grafik, "ön" ile "arka" arasındadır.
+            </p>
           </div>
         )}
         {decor.nesneler.length > 0 && (
@@ -368,15 +394,26 @@ export function DecorPanel({
           <Field label="Açı">
             <Slider value={selected.aci} min={-180} max={180} step={1} onChange={(aci) => setItem(selected.id, { aci })} />
           </Field>
-          <Field label="Katman">
-            <Seg
-              value={selected.katman}
-              options={[
-                ["arka", "Grafiğin arkası"],
-                ["on", "Önü"],
-              ]}
-              onChange={(katman) => setItem(selected.id, { katman })}
-            />
+          <Field label="Sıra" hint="Grafik, arka ve ön yığınların arasındadır. Klavye: [ ve ]">
+            <div className="flex gap-1">
+              <button className="btn btn-sm" type="button" title="En arkaya" onClick={() => orderEnd(selected.id, "arka")}>
+                ⤓
+              </button>
+              <button className="btn btn-sm" type="button" title="Bir alta ([)" onClick={() => order(selected.id, -1)}>
+                ↓
+              </button>
+              <button className="btn btn-sm" type="button" title="Bir üste (])" onClick={() => order(selected.id, 1)}>
+                ↑
+              </button>
+              <button className="btn btn-sm" type="button" title="En öne" onClick={() => orderEnd(selected.id, "on")}>
+                ⤒
+              </button>
+            </div>
+          </Field>
+          <Field label="Yığındaki yeri">
+            <span className="text-[11px] text-muted-foreground">
+              {stack.findIndex((n) => n.id === selected.id) + 1}/{stack.length} · grafiğin {selected.katman === "arka" ? "arkasında" : "önünde"}
+            </span>
           </Field>
           <Field label="Aynala">
             <Switch checked={selected.aynala} onChange={(aynala) => setItem(selected.id, { aynala })} />
