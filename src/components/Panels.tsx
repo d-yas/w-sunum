@@ -9,6 +9,7 @@ import { SCOPE_LABELS } from "@/lib/geo";
 import { sectionOpen, setSectionOpen } from "@/lib/ui-prefs";
 
 import { KindGrid } from "./KindGrid";
+import { RefLineList } from "./RefLineList";
 import {
   KIND_LABELS,
   adaptDataForKind,
@@ -874,6 +875,15 @@ export function OptionsPanel({ spec, onChange }: { spec: ChartSpec; onChange: (s
           <Field label="Yazı boyutu">
             <Slider value={o.valueLabelSize} min={7} max={24} step={1} onChange={(v) => set({ valueLabelSize: v })} />
           </Field>
+        </Section>
+      )}
+
+      {cartesian && (
+        <Section id="referans" title="Referans çizgileri">
+          <p className="pb-1 text-[11px] leading-snug text-muted-foreground">
+            Hedef, eşik ya da ortalama. Dekor okundan farkı: bunlar veri uzayında durur, tablo değişince yerini korur.
+          </p>
+          <RefLineList lines={o.refLines} onChange={(refLines) => set({ refLines })} />
         </Section>
       )}
 

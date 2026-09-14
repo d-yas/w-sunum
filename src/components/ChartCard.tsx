@@ -27,6 +27,7 @@ import { StaticChartPreviewProvider } from "@/charts/static-chart-preview-contex
 import { ChartTooltip, TooltipContent } from "@/charts/tooltip";
 import { AccentBar, CardDecor } from "@/decor";
 import { BarValueAxis, BarXAxis, XAxis, YAxis, resolveAngle, tickOverhang } from "@/ext/axes";
+import { ReferenceLines } from "@/ext/reference-lines";
 import { HeatmapValueLabels, RingValueLabels } from "@/ext/ring-value-labels";
 import { BarValueLabels, PointValueLabels } from "@/ext/value-labels";
 import { toCartesian, toHeatmap, toRing, toSankey, type CartesianModel } from "@/lib/adapters";
@@ -342,6 +343,7 @@ function CartesianTime({ spec, colors, isStatic }: Omit<BodyProps, "theme">) {
             title={o.xTitle}
           />
         )}
+        <ReferenceLines lines={o.refLines} format={o.format} />
         {pointMode !== "none" && (
           <PointValueLabels
             series={model.series.map((s) => ({ key: s.key }))}
@@ -477,6 +479,7 @@ function Bars({ spec, colors, isStatic }: Omit<BodyProps, "theme">) {
             fillFor={byCategory ? (_c, bi) => colors[bi % colors.length] : undefined}
           />
         ))}
+        <ReferenceLines lines={o.refLines} format={o.format} />
         {mode !== "none" && (
           <BarValueLabels
             series={model.series.map((s, i) => ({ key: s.key, color: byCategory ? colors[0] : colors[i] }))}

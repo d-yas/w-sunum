@@ -122,6 +122,22 @@ try {
   const loudFall = await markup("waterfall", { valueLabels: "auto" });
   report(count(quietFall) === 0 && count(loudFall) > 0, "selale-susturma", `none ${count(quietFall)} · auto ${count(loudFall)}`);
 
+  /* --- 11. referans çizgisi veri uzayında --- */
+  const ref = await markup("bar", {
+    yAxis: true,
+    yMax: 50,
+    refLines: [{ id: "r1", value: 25, label: "Hedef", color: "#ff0066", dash: true }],
+  });
+  // Pencere geniş: dışa aktarım her düğüme uzun bir inline `style` yazıyor,
+  // <g> ile içindeki <line> arasına yüzlerce karakter giriyor.
+  const line = ref.match(/data-part="refline"[\s\S]{0,2500}/);
+  const y1 = line ? line[0].match(/y1="([\d.]+)"/) : null;
+  const dashed = line ? /stroke-dasharray:\s*4px,?\s*4px/.test(line[0]) || /stroke-dasharray="4 4"/.test(line[0]) : false;
+  // yMax 50, çizgi 25 → çizim alanının tam ortası.
+  const plotH = 540 - 32 * 2 - 12 - 30 - 40;
+  const mid = y1 ? Math.abs(Number(y1[1]) - plotH / 2) < plotH * 0.12 : false;
+  report(!!line && mid && ref.includes("Hedef"), "referans-cizgisi", `y1=${y1?.[1] ?? "yok"} (beklenen ~${Math.round(plotH / 2)}) · kesik=${dashed}`);
+
   const errs = problems();
   console.log("console:", errs.length ? "\n  " + errs.join("\n  ") : "(clean)");
   if (errs.length) failures++;
