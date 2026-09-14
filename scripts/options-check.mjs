@@ -100,6 +100,28 @@ try {
   const dashes = [...forecast.matchAll(/stroke-dasharray:\s*([^;"]+)/g)].map((m) => m[1].trim());
   report(dashes.some((d) => d.startsWith("6")), "tahmin-kesigi", `dasharray [${dashes.join(" | ") || "yok"}]`);
 
+  /* --- 9. değer etiketleri: sütun, çizgi, halka, ısı --- */
+  const outside = await markup("bar", { valueLabels: "outside" });
+  const labelTexts = [...outside.matchAll(/data-part="value"[^>]*>([^<]+)</g)].map((m) => m[1]);
+  report(labelTexts.length === 3 && labelTexts.includes("40"), "sutun-etiketi", `[${labelTexts.join(",")}]`);
+
+  const insideBars = await markup("bar", { valueLabels: "inside" });
+  const insideFills = [...insideBars.matchAll(/data-part="value"[^>]*fill="([^"]+)"/g)].map((m) => m[1]);
+  report(insideFills.length === 3, "sutun-etiketi-icte", `${insideFills.length} etiket, kontrast dolgusu var`);
+
+  const lineLast = await markup("line", { valueLabels: "outside", valueLabelPoints: "last" });
+  const lineAll = await markup("line", { valueLabels: "outside", valueLabelPoints: "all" });
+  const count = (svg) => [...svg.matchAll(/data-part="value"/g)].length;
+  report(count(lineLast) === 1 && count(lineAll) === 3, "cizgi-etiketi", `son ${count(lineLast)} · hepsi ${count(lineAll)}`);
+
+  const ringLabels = await markup("ring", { valueLabels: "outside", ringShare: true });
+  report(/data-part="value"/.test(ringLabels), "halka-etiketi", count(ringLabels) + " yay etiketi");
+
+  /* --- 10. şelale artık susturulabiliyor --- */
+  const quietFall = await markup("waterfall", { valueLabels: "none" });
+  const loudFall = await markup("waterfall", { valueLabels: "auto" });
+  report(count(quietFall) === 0 && count(loudFall) > 0, "selale-susturma", `none ${count(quietFall)} · auto ${count(loudFall)}`);
+
   const errs = problems();
   console.log("console:", errs.length ? "\n  " + errs.join("\n  ") : "(clean)");
   if (errs.length) failures++;

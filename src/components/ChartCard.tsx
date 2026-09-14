@@ -27,11 +27,13 @@ import { StaticChartPreviewProvider } from "@/charts/static-chart-preview-contex
 import { ChartTooltip, TooltipContent } from "@/charts/tooltip";
 import { AccentBar, CardDecor } from "@/decor";
 import { BarValueAxis, BarXAxis, XAxis, YAxis, resolveAngle, tickOverhang } from "@/ext/axes";
+import { HeatmapValueLabels, RingValueLabels } from "@/ext/ring-value-labels";
+import { BarValueLabels, PointValueLabels } from "@/ext/value-labels";
 import { toCartesian, toHeatmap, toRing, toSankey, type CartesianModel } from "@/lib/adapters";
 import { formatDateLong, formatNumber, type NumberFormatSpec } from "@/lib/format";
 import { getPalette, seriesColor, type Palette } from "@/lib/palettes";
 import type { SlotKey } from "@/decor/model";
-import { dataShape, type ChartSpec, type Theme } from "@/lib/spec";
+import { dataShape, type ChartSpec, type Theme, type ValueLabels } from "@/lib/spec";
 import { WaterfallViz, FunnelViz, MarimekkoViz } from "@/viz/columns";
 import { HierarchyViz } from "@/viz/hierarchy";
 import { MapViz } from "@/viz/map";
@@ -194,6 +196,20 @@ export const ChartCard = forwardRef<HTMLDivElement, ChartCardProps>(function Cha
 });
 
 /** Kaç renk gerekiyor — palet bu sayıya göre açılır. */
+/**
+ * "auto" değer etiketi ayarını türün kendi geleneğine çevir.
+ *
+ * Şelale ve piktogram sayıyı hep yazıyordu, diğerleri hiç yazmıyordu. `auto`
+ * o davranışı koruyor; kullanıcı `none` diyerek şelaleyi de susturabiliyor,
+ * `outside`/`inside` diyerek sütunu da konuşturabiliyor. Varsayılanın hiçbir
+ * kartın görünümünü değiştirmemesi kasıtlı.
+ */
+function labelMode(spec: ChartSpec): Exclude<ValueLabels, "auto"> {
+  const v = spec.options.valueLabels;
+  if (v !== "auto") return v;
+  return spec.kind === "waterfall" || spec.kind === "pictogram" ? "outside" : "none";
+}
+
 function countSeries(spec: ChartSpec): number {
   switch (dataShape(spec.kind)) {
     case "categoryValue":
@@ -292,8 +308,9 @@ function CartesianTime({ spec, colors, isStatic }: Omit<BodyProps, "theme">) {
   // yüzden eğmeye gerek yok; eğik yazı yalnız kategorik eksende iş görüyor.
   const slotGuess = Math.max(12, (o.width - o.padding * 2 - 80) / Math.max(1, model.labels.length));
   const angle = formatAsDate ? 0 : resolveAngle(o.xTickAngle, slotGuess, longest);
+  const pointMode = labelMode(spec);
   const margin = {
-    top: 12,
+    top: 12 + (pointMode === "none" ? 0 : o.valueLabelSize + 6),
     right: 16,
     bottom: (o.xAxis ? 30 + tickOverhang(angle, longest) : 8) + (o.xTitle ? 16 : 0),
     left: (o.yAxis ? leftMargin(model, o) : 8) + (o.yTitle ? 16 : 0),
@@ -323,6 +340,14 @@ function CartesianTime({ spec, colors, isStatic }: Omit<BodyProps, "theme">) {
             spanMs={model.spanMs}
             angle={angle}
             title={o.xTitle}
+          />
+        )}
+        {pointMode !== "none" && (
+          <PointValueLabels
+            series={model.series.map((s) => ({ key: s.key }))}
+            which={o.valueLabelPoints}
+            format={o.format}
+            size={o.valueLabelSize}
           />
         )}
         {model.series.map((s, i) => (
@@ -391,6 +416,7 @@ function Bars({ spec, colors, isStatic }: Omit<BodyProps, "theme">) {
   // sonra boşluk ona göre büyütülüyor.
   const slotGuess = Math.max(12, (o.width - o.padding * 2 - 80) / Math.max(1, model.labels.length));
   const angle = horizontal ? 0 : resolveAngle(o.xTickAngle, slotGuess, longest);
+  const mode = labelMode(spec);
   const xBand = o.xAxis ? 30 + tickOverhang(angle, longest) : 8;
   const margin = horizontal
     ? {
@@ -405,6 +431,12 @@ function Bars({ spec, colors, isStatic }: Omit<BodyProps, "theme">) {
         bottom: xBand + (o.xTitle ? 16 : 0),
         left: (o.yAxis ? leftMargin(model, o) : 8) + (o.yTitle ? 16 : 0),
       };
+  // Dışarıdaki etiket çubuğun tepesinin üstüne yazılıyor; üst kenar boşluğu
+  // büyümezse en yüksek çubuğun etiketi çizim alanının dışında kalıyor.
+  if (mode === "outside") {
+    if (horizontal) margin.right += o.valueLabelSize * 2.6;
+    else margin.top += o.valueLabelSize + 6;
+  }
 
   return (
     <WithLegend spec={spec} items={items}>
@@ -445,6 +477,16 @@ function Bars({ spec, colors, isStatic }: Omit<BodyProps, "theme">) {
             fillFor={byCategory ? (_c, bi) => colors[bi % colors.length] : undefined}
           />
         ))}
+        {mode !== "none" && (
+          <BarValueLabels
+            series={model.series.map((s, i) => ({ key: s.key, color: byCategory ? colors[0] : colors[i] }))}
+            mode={mode}
+            format={o.format}
+            size={o.valueLabelSize}
+            stackGap={o.stacked ? 2 : 0}
+            highlight={o.highlight}
+          />
+        )}
         {horizontal ? (
           <>
             <BarYAxis />
@@ -509,6 +551,7 @@ function Rings({ spec, colors, isStatic }: Omit<BodyProps, "theme">) {
           {model.data.map((d, i) => (
             <Ring key={`${d.label}-${i}`} index={i} color={d.color} animate={!isStatic && o.animate} />
           ))}
+          {labelMode(spec) !== "none" && <RingValueLabels format={o.format} share={o.ringShare} size={o.valueLabelSize} />}
           {o.ringCenter && (
             // Plain text instead of NumberFlow: its shadow DOM would not survive
             // the PNG serialisation, and a slide never needs the number to roll.
@@ -592,6 +635,7 @@ function Heat({ spec, colors, isStatic }: BodyProps) {
         <HeatmapYAxis labelFormat="initial" />
         <HeatmapXAxis />
         <HeatmapCells />
+        {labelMode(spec) !== "none" && <HeatmapValueLabels format={o.format} size={o.valueLabelSize} />}
         {!isStatic && o.hover && <HeatmapTooltip formatLabel={(count) => label(count)} />}
       </HeatmapChart>
       {o.heatmapLegend && (

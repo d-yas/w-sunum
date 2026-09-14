@@ -104,12 +104,13 @@ export function PictogramViz({ spec, colors }: VizProps) {
                 </span>
               )}
             </div>
+            {o.valueLabels !== "none" && (
             <div
               style={{
                 marginLeft: "auto",
                 flex: "0 0 auto",
                 width: valueWidth,
-                fontSize: 12,
+                fontSize: o.valueLabelSize + 1,
                 fontWeight: 700,
                 fontVariantNumeric: "tabular-nums",
                 color: "var(--ink-primary)",
@@ -118,6 +119,7 @@ export function PictogramViz({ spec, colors }: VizProps) {
             >
               {formatNumber(row.value, o.format)}
             </div>
+            )}
           </div>
         );
       })}

@@ -72,7 +72,10 @@ export function WaterfallViz({ spec, colors, isStatic }: VizProps) {
                   const h = Math.max(1, y1 - y0);
                   const fill = s.kind === "total" ? total : s.kind === "increase" ? up : down;
                   const label = formatNumber(s.value, o.format);
-                  const inside = h > 22 && bw > 34;
+                  // "auto" şelalenin eski davranışı (hep yaz); "none" ilk kez
+                  // susturuyor, "inside"/"outside" yerleşimi zorluyor.
+                  const show = o.valueLabels !== "none";
+                  const inside = o.valueLabels === "inside" || (o.valueLabels !== "outside" && h > 22 && bw > 34);
                   return (
                     <g key={i}>
                       {o.waterfallConnectors && i > 0 && (
@@ -86,12 +89,14 @@ export function WaterfallViz({ spec, colors, isStatic }: VizProps) {
                         />
                       )}
                       <rect x={cx - bw / 2} y={y0} width={bw} height={h} rx={Math.min(o.barRadius, bw / 2, h / 2)} fill={fill} />
+                      {show && (
                       <text
+                        data-part="value"
                         x={cx}
                         y={inside ? y0 + h / 2 : y0 - 5}
                         textAnchor="middle"
                         dy={inside ? "0.34em" : undefined}
-                        fontSize={11}
+                        fontSize={o.valueLabelSize}
                         fontWeight={600}
                         className={inside ? undefined : VIZ.value}
                         fill={inside ? contrastText(fill) : undefined}
@@ -99,6 +104,7 @@ export function WaterfallViz({ spec, colors, isStatic }: VizProps) {
                       >
                         {label}
                       </text>
+                      )}
                     </g>
                   );
                 })}

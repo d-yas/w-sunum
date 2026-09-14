@@ -23,9 +23,20 @@ import {
 
 /* ---------------- primitives ---------------- */
 
-export function Field({ label, children, hint }: { label: string; children: ReactNode; hint?: string }) {
+export function Field({
+  label,
+  children,
+  hint,
+  stack = false,
+}: {
+  label: string;
+  children: ReactNode;
+  hint?: string;
+  /** Denetim satıra sığmıyorsa etiketi üste al. */
+  stack?: boolean;
+}) {
   return (
-    <label className="field" title={hint}>
+    <label className={stack ? "field field-stack" : "field"} title={hint}>
       <span>{label}</span>
       {children}
     </label>
@@ -216,6 +227,14 @@ export function OptionsPanel({ spec, onChange }: { spec: ChartSpec; onChange: (s
   const singleSeries = spec.data.columns.length === 2;
   /** Köşe yarıçapını okuyan türler. */
   const rounded = bars || spec.kind === "waterfall" || spec.kind === "marimekko" || spec.kind === "treemap";
+  /** Değer etiketi okuyan türler. */
+  const labelled =
+    bars ||
+    timeLike ||
+    spec.kind === "ring" ||
+    spec.kind === "heatmap" ||
+    spec.kind === "waterfall" ||
+    spec.kind === "pictogram";
   /** Sıralaması anlamlı olanlar: tek serili kartezyen + kategori/değer türleri. */
   const sortable = (bars && singleSeries) || spec.kind === "ring" || spec.kind === "funnel" || spec.kind === "pictogram";
   const hierarchy = dataShape(spec.kind) === "hierarchy";
@@ -250,8 +269,8 @@ export function OptionsPanel({ spec, onChange }: { spec: ChartSpec; onChange: (s
             <Num value={o.height} min={150} max={4000} step={10} onChange={(v) => set({ height: v ?? 540 })} width={68} />
           </div>
         </Field>
-        <Field label="Hazır oranlar">
-          <div className="flex flex-wrap justify-end gap-1">
+        <Field label="Hazır oranlar" stack>
+          <div className="flex flex-wrap gap-1">
             {(
               [
                 ["16:9", 960, 540],
@@ -333,7 +352,7 @@ export function OptionsPanel({ spec, onChange }: { spec: ChartSpec; onChange: (s
             <input className="inp w-[132px]" value={o.yTitle} onChange={(e) => set({ yTitle: e.target.value })} />
           </Field>
           {spec.kind !== "barH" && (
-            <Field label="Etiket açısı" hint="Oto: sığmayınca kendisi eğer">
+            <Field label="Etiket açısı" hint="Oto: sığmayınca kendisi eğer" stack>
               <Seg
                 value={String(o.xTickAngle) as "auto" | "0" | "45" | "90"}
                 options={[
@@ -807,6 +826,54 @@ export function OptionsPanel({ spec, onChange }: { spec: ChartSpec; onChange: (s
             Ülke sütununa Türkçe ad ("Almanya"), İngilizce ad ("Germany"), ISO kodu ("DE") ya da sayısal kod ("276")
             yazabilirsiniz. Eşleşmeyenler grafiğin altında listelenir.
           </p>
+        </Section>
+      )}
+
+      {labelled && (
+        <Section id="etiketler" title="Değer etiketleri">
+          <Field
+            label="Yaz"
+            stack
+            hint={
+              spec.kind === "waterfall" || spec.kind === "pictogram"
+                ? "Oto = bu türde açık"
+                : "Oto = bu türde kapalı"
+            }
+          >
+            <Seg
+              value={o.valueLabels}
+              options={
+                bars || spec.kind === "waterfall"
+                  ? [
+                      ["auto", "Oto"],
+                      ["none", "Yok"],
+                      ["outside", "Dışta"],
+                      ["inside", "İçte"],
+                    ]
+                  : [
+                      ["auto", "Oto"],
+                      ["none", "Yok"],
+                      ["outside", "Göster"],
+                    ]
+              }
+              onChange={(v) => set({ valueLabels: v })}
+            />
+          </Field>
+          {timeLike && o.valueLabels !== "none" && (
+            <Field label="Noktalar" hint="Kalabalık seride yalnız son nokta daha okunur">
+              <Seg
+                value={o.valueLabelPoints}
+                options={[
+                  ["all", "Hepsi"],
+                  ["last", "Yalnız son"],
+                ]}
+                onChange={(v) => set({ valueLabelPoints: v })}
+              />
+            </Field>
+          )}
+          <Field label="Yazı boyutu">
+            <Slider value={o.valueLabelSize} min={7} max={24} step={1} onChange={(v) => set({ valueLabelSize: v })} />
+          </Field>
         </Section>
       )}
 
