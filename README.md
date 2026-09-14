@@ -8,8 +8,13 @@ Paylaşmak için yalnız bu dosyayı gönderin.
 
 ## Kullanım (son kullanıcı)
 
+Pencere üç sütun: **solda** grafik listesi ve veri tablosu, **ortada** kart,
+**sağda** o kartın ayarları. Kart üzerindeki bir parçaya tıklamak sağ panelde
+onun ayarına götürür — başlığa tıklayın, Metin bölümü açılır ve vurgulanır.
+
 1. `veri-gorsel.html` dosyasını Chrome ya da Edge ile açın (çift tık yeter).
-2. Sol üstten grafik türünü seçin. Türler beş grupta toplanır:
+2. Sağ panelin başındaki **Değiştir** ile grafik türünü seçin. Türler beş
+   grupta toplanır:
    - **Karşılaştırma** — Sütun, Yatay çubuk, Marimekko, Şelale, Huni
    - **Zaman ve eğilim** — Çizgi, Alan, Eğim, Isı takvimi
    - **Pay ve bileşim** — Halka, Gösterge, Ağaç haritası, Güneş patlaması,
@@ -20,12 +25,37 @@ Paylaşmak için yalnız bu dosyayı gönderin.
    Aynı tablo biçimini paylaşan türler arasında geçerken veriniz korunur
    (örneğin Sankey → Akor → Ağ → Yay, ya da Sütun → Radar → Marimekko);
    biçim değişince örnek veri gelir.
-3. **Veri** sekmesinde tabloyu doldurun. Excel'den kopyalayıp doğrudan
-   hücreye yapıştırabilirsiniz (çok satırlı yapıştırma tabloyu genişletir);
-   `Yapıştır` düğmesi tüm tabloyu değiştirir; CSV/JSON yükleme ve indirme var.
+3. **Sol alttaki tabloyu** doldurun. Excel'den kopyalayıp doğrudan hücreye
+   yapıştırabilirsiniz (çok satırlı yapıştırma tabloyu genişletir); `Yapıştır`
+   düğmesi tüm tabloyu değiştirir; CSV/JSON yükleme ve indirme var. Liste ile
+   tablo arasındaki çizgiyi sürükleyerek ikisinin payını değiştirebilirsiniz.
+
+   Sol üstteki listede her grafiğin küçük resmi duruyor — resim gerçek dışa
+   aktarım çıktısı, yani listede gördüğünüz şey indireceğiniz şey. Ada çift
+   tıklayarak yeniden adlandırın, satır üzerindeki düğmelerle kopyalayın,
+   silin ya da `↑`/`↓` ile sırasını değiştirin.
 4. **Görünüm**: başlık, alt başlık, dipnot, kart boyutu (16:9 hazır oranlar),
-   eksenler, ızgara, gösterge konumu, sayı biçimi (1.250,5 / 1,250.5, ondalık,
-   ön ek/son ek, kısaltma).
+   gösterge konumu, sayı biçimi (1.250,5 / 1,250.5, ondalık, ön ek/son ek,
+   kısaltma). Tür-özel bölümler de burada:
+
+   - **Biçim** — çubuk köşe yarıçapı 0–24 px (0 = keskin). Sütun, yatay
+     çubuk, şelale, marimekko ve ağaç haritası aynı ayarı okur.
+   - **Eksenler** — ızgara, eksen açık/kapalı, değer adımı, **değer aralığı**
+     (alt–üst; boş bırakılan uç otomatik), **eksen adları**, **etiket açısı**
+     (oto/0°/45°/90°; "oto" sığmayınca kendisi eğer).
+   - **Değer etiketleri** — sütun, çizgi, alan, halka ve ısı takviminde
+     sayıyı markın üstüne yazar. `Oto` her türün kendi geleneği: şelale ve
+     piktogram yazar, diğerleri yazmaz. `Dışta`/`İçte` yerleşimi seçer;
+     içteki etiket zemine göre koyu ya da açık olur ve sığmıyorsa hiç
+     yazılmaz. Çizgide "yalnız son nokta" seçeneği var.
+   - **Sıralama ve vurgu** — kategorileri değere göre dizer; vurgulanan
+     kategoriler tam opak kalır, gerisi soluklaşır. Vurguyu panelden değil
+     **grafikte çubuğa tıklayarak** seçmek daha kolay (`Shift` ekler/çıkarır).
+   - **Referans çizgileri** — hedef, eşik ya da ortalama; değer, etiket, renk
+     ve kesikli/düz. Dekor okundan farkı: bunlar veri uzayında durur, tabloyu
+     değiştirince yerini korur.
+   - **Çizgi / Alan** — eğri türü, kalınlık, işaretçiler, dolgu gradyanı ve
+     **tahmin kesiği** (şu satırdan sonrası kesikli; 1 yazarsanız tüm çizgi).
 5. **Renkler**: dört hazır palet (varsayılan palet renk körlüğü için
    doğrulanmış) ve seri başına özel renk. `+ Palet ekle` seçili paletin
    kopyasından **kendi paletinizi** açar: adını yazın, renkleri tek tek
@@ -68,13 +98,36 @@ Paylaşmak için yalnız bu dosyayı gönderin.
    nesnelerden ayrı bir katman: bunlar kartın SVG'sine gömülür, elle
    taşınmaz. Renkler grafiğin kendi paletinden gelir; hepsi PNG ve
    PowerPoint çıktısına da geçer.
-7. **Dışa aktar**: `PNG indir` (1×–4×), `Panoya kopyala` (PowerPoint'e Ctrl+V),
-   `SVG indir`, tema ya da şeffaf arka plan. **PowerPoint**: `Slayt olarak indir`
-   tek grafiği, `Tüm grafikler` çalışma alanındaki her grafiği birer 16:9 slayt
-   olarak .pptx dosyasına yazar; açıp slaytları kendi sununuza sürükleyin.
+7. **Dışa aktar** dört kat:
+   - **PNG** — 1×–4×, tema ya da şeffaf arka plan; indir, panoya kopyala
+     (PowerPoint'e doğrudan Ctrl+V) ya da tüm grafikleri tek zip olarak indir.
+   - **SVG** — kartın tamamı vektör: başlık, gösterge, eksen ve değer
+     etiketleri, süsleme dâhil. İndirin, panoya kopyalayıp Illustrator ya da
+     Figma'ya yapıştırın, veya hepsini zip olarak alın.
+   - **PowerPoint** — tek slayt ya da her grafik bir slayt, 16:9 .pptx.
+   - **Çalışma alanı** — bütün grafikler, veriler ve paletler tek JSON'da.
 
 Çalışma alanı tarayıcının yerel deposunda kendiliğinden saklanır. Başka bir
 makineye taşımak için `Kaydet (JSON)` / `Yükle` kullanın.
+
+### Kısayollar
+
+| Tuş | İş |
+|---|---|
+| `Ctrl+Z` | Geri al |
+| `Ctrl+Shift+Z` / `Ctrl+Y` | Yinele |
+| `Ctrl+S` | Çalışma alanını JSON olarak kaydet |
+| `Ctrl+Shift+S` | PNG indir |
+| `Esc` | Seçimi bırak |
+
+Geri al yalnız **işi** kapsar: grafikler ve paletler. Tema, yakınlaştırma ve
+açık sekme pencerenin hâli, geri almaya girmez. Yazmak tek adım sayılır —
+başlığı harf harf geri almanız gerekmez. Metin kutularının içinde de
+uygulamanın geri alması çalışır; tek istisna `Yapıştır` kutusu, orada çok
+satırlı metni elle düzenlemek tarayıcının kendi davranışını gerektiriyor.
+
+Süsle sekmesinin kendi kısayolları var (`[`, `]`, `Del`, `Ctrl+D`, ok tuşları);
+yukarıdaki listeyle çakışmazlar.
 
 Açık/koyu tema sağ üstte. `index.html?kind=ring&theme=dark` gibi bir adres o
 türde yeni bir grafikle açar.
@@ -91,6 +144,9 @@ pnpm kontrol      # node scripts/cdp-check.mjs [kind] [theme] [sekme] — headle
 pnpm test:susle   # süslemeler dışa aktarımda hayatta kalıyor mu — piksel ölçer
 pnpm test:yerlesim # serbest yerleşim ve hover anahtarı — gerçek fare olaylarıyla
 pnpm test:arayuz  # Del ile kaldırma, katman kısayolu, özel palet, ışık tutamacı
+pnpm test:kabuk   # üç sütun, küçük resimler, liste eylemleri, geri al, tıkla-seç
+pnpm test:secenek # ayarlar çizime ulaşıyor mu — köşe, vurgu, aralık, etiket, referans
+pnpm test:svg     # kart SVG'si eksiksiz mi — başlık, gösterge, portal eksenleri
 node scripts/gen-country-codes.mjs   # src/lib/country-codes.ts üretir (world-atlas + Node ICU)
 ```
 
@@ -111,10 +167,24 @@ doğrular. `pnpm test:arayuz` panelin dört davranışını gerçek tıklamalarl
 > `ws.palettes` yoktu, yani ekran dışı kart kapanışın kurulduğu andaki
 > paletle donuyordu.
 
+`pnpm test:secenek` ve `pnpm test:svg` çizim katmanını **dışa aktarımın ara
+SVG'sinden** okur, ekran görüntüsünden değil: kullanıcıya giden şey o. İkisi de
+sınıf değil öznitelik arar (`data-part="bar"`, `data-part="value"`) — dışa
+aktarım hesaplanmış stili gömerken `class`ı siliyor.
+
+`pnpm test:kabuk` üç sütunun genişliklerini ölçer, küçük resimlerin
+üretildiğini bekler, listedeki yeniden adlandırma / kopyala / sırala
+düğmelerini tıklar, `Ctrl+Z` ile bir grafiği geri alıp `Ctrl+Y` ile geri
+getirir ve karttaki başlığa tıklayınca sağ panelin doğru bölüme gittiğini
+doğrular.
+
 `pnpm kontrol` derlenmiş dosyayı headless Chrome'da açar, konsol hatalarını
 yazar, ekran görüntüsü alır ve PNG dışa aktarımını çalıştırır
-(`scripts/out/`). İsteğe bağlı üçüncü argüman sol paneldeki sekmeyi açar
-(1 Veri, 2 Görünüm, 3 Renkler, 4 Süsle, 5 Dışa aktar). `DUMP_MARKUP=1` dışa aktarımın ara SVG'sini,
+(`scripts/out/`). İsteğe bağlı üçüncü argüman sağ paneldeki sekmeyi açar —
+adıyla (`gorunum`, `renk`, `susle`, `disa`) ya da sırasıyla (1–4). Betikler
+sekmeyi indeksle değil `data-tab` özniteliğiyle buluyor: sekme kümesi bir kez
+değişti ve indeksle yazılmış dört betik birden kırıldı. `DUMP_MARKUP=1` dışa
+aktarımın ara SVG'sini,
 `EVAL_FILE=dosya.js` ise o dosyadaki ifadeyi sayfada çalıştırıp sonucunu
 yazar. pnpm 11'de esbuild'in kurulum betiği `pnpm-workspace.yaml` içindeki
 `allowBuilds` ile onaylıdır; `pnpm approve-builds` gerekmez.
@@ -123,7 +193,16 @@ yazar. pnpm 11'de esbuild'in kurulum betiği `pnpm-workspace.yaml` içindeki
 
 - `src/charts/` — **Bklit** kaynağı, coretex-hub'daki kopyadan alındı
   (üç hata düzeltmesi dâhil: yatay yığılı bar genişliği, giriş animasyonu,
-  Sankey kaynak düğüm etiketi). Elden geldiğince dokunulmaz.
+  Sankey kaynak düğüm etiketi). Elden geldiğince dokunulmaz; bugüne kadarki
+  dört ek şunlar:
+  - `bar.tsx` — `highlightCategories` ve `fillFor` propları, `isFaded`e bir OR
+    terimi, ve dört rect biçiminin hepsine `data-part="bar" data-category`
+    (tıkla-seç bunu okuyor).
+  - `bar-chart.tsx` — `valueDomain` prop'u. Alt sınır 0'a kilitli: `Bar`
+    çubuğu `innerHeight`tan büyütüyor, negatif tabanın karşılığı yok.
+  - `area-chart.tsx` + `time-series-chart-shell.tsx` — `yDomain` /
+    `yDomainOverride`. `nice`tan **sonra** uygulanıyor, yoksa kullanıcının
+    yazdığı 95 sessizce 100 olurdu.
 - `src/viz/` — Bklit'te karşılığı olmayan, **Flourish şablonlarına denk gelen**
   grafikler; visx ilkelleri üzerine ayrıca yazıldı, `src/charts/` hiç
   değişmedi. Kart, palet, sayı biçimi ve dışa aktarım yolu ortaktır.
@@ -148,9 +227,41 @@ yazar. pnpm 11'de esbuild'in kurulum betiği `pnpm-workspace.yaml` içindeki
   tarayıcının kendi `Intl.DisplayNames`'inden gelir, tabloya gömülü değildir;
   `src/lib/country-codes.ts` yalnız ISO numeric → alpha-2 eşlemesini tutar ve
   `scripts/gen-country-codes.mjs` ile üretilir.
-- `src/ext/axes.tsx` — Bklit eksen sayı etiketi çizmez; bu katman aynı chart
-  context'ini okuyarak `<text>` ekler. `displayName` değerleri Bklit'in
-  clip-dışı listesindeki adlardır (`XAxis`, `YAxis`, `BarXAxis`).
+- `src/ext/` — **Bklit'e eklenen çizim katmanları.** Hepsi aynı kalıp: Bklit'in
+  chart context'ini okuyup `<text>`/`<line>` çizerler, Bklit'in kendisine
+  dokunmazlar.
+  - `axes.tsx` — sayı etiketleri, eksen adları, eğik etiketler. `displayName`
+    değerleri Bklit'in clip-dışı listesindeki adlardır (`XAxis`, `YAxis`,
+    `BarXAxis`).
+  - `value-labels.tsx`, `ring-value-labels.tsx` — mark üstündeki sayılar.
+  - `reference-lines.tsx` — hedef/eşik çizgileri.
+
+  Yeni katmanlar `displayName` numarası yerine **`__isPostOverlay = true`**
+  kullanıyor: Bklit'in çocuk sınıflandırıcısı (`chart-child-passthrough.ts`)
+  bunu gören bileşeni en son ve açılış klipinin dışında çiziyor. Klibin içinde
+  kalsalar etiketler çubukla birlikte aşağıdan süzülür, animasyon bitene kadar
+  yarısı görünmez olurdu.
+- `src/lib/export-svg.ts` — kartı tek SVG'ye çeviren yürüyücü. Özel durum
+  tutmaz, üç kural uygular: bir `<svg>`yi klonlayıp kart uzayına taşır; yalnız
+  metin içeren bir elemanın her görsel satırını bir `<text>` yapar
+  (`Range.getClientRects` ile — tek `<text>` iki satırlık başlığı tek satıra
+  indiriyordu); metinsiz, dolgulu küçük bir kutuyu `<rect>` yazar. Bu üçü
+  başlığı, göstergeyi, yatay çubuğun portal etiketlerini, ısı takviminin
+  eksenlerini, halka merkezini ve piktogram satırlarını aynı yolla kapsıyor.
+  Özel durum listesi tutmanın maliyeti şuydu: kart her yeni parça
+  kazandığında dışa aktarım sessizce eksik kalıyordu.
+- `src/lib/history.ts` — geri al/yinele. Saf bir yığın; React durumu değil, o
+  yüzden düğmelerin etkin/etkisiz hâli bir sayaçla yenileniyor. Yalnız grafik
+  ve paletleri kapsar.
+- `src/lib/thumbnails.ts` — sol listedeki küçük resimler, gerçek dışa aktarım
+  hattından geçmiş 0,25× PNG'ler. Canlı `ChartCard` değil, çünkü
+  `area-chart.tsx` klip yolu kimliğini sabit yazıyor
+  (`chart-area-grow-clip`): sayfada ikinci bir canlı AreaChart olsa `url(#…)`
+  ilk eşleşmeye bağlanır ve sahnedeki grafik küçük resmin genişliğinde
+  kırpılırdı.
+- `src/lib/ui-prefs.ts` — panel bölümlerinin açık/kapalı hâli ve sol listenin
+  yüksekliği. Çalışma alanı JSON'unun **dışında**: bunlar işin parçası değil, o
+  makinedeki pencere hâli, taşınmaları anlamsız.
 - `src/lib/adapters.ts` — tablo → her grafiğin veri biçimi. Çizgi/alan
   grafikte kategorik x, içeride eşit aralıklı sanal tarihe eşlenir; etiketler
   kullanıcının yazdığı gibi kalır.
@@ -192,8 +303,17 @@ yazar. pnpm 11'de esbuild'in kurulum betiği `pnpm-workspace.yaml` içindeki
 - Dışa aktarım statik bir kopya çizer: giriş animasyonu sıfır süreli
   (`enterTransition`), ayrıca karttaki tüm WAAPI animasyonları bitene kadar
   (en çok 3 s) beklenir. Sankey dâhil her tür bitmiş hâliyle alınır.
-- SVG indirme çizim alanını ve süslemeyi içerir; başlık ve gösterge HTML
-  olduğu için dışarıda kalır. PNG ve PPTX ise kartın tamamını verir.
+- Bklit çubuklarında değer ekseni 0'ın altına inemez (`yMin` en az 0), yani
+  negatif değerli sütun grafiği çizilemez: `Bar` çubuğu çizim alanının
+  tabanından yukarı büyütüyor, negatif bir tabanın karşılığı yok. Şelale
+  grafiği azalan kalemleri gösterebilir, çünkü kendi ölçeğini kuruyor.
+- Geri al metin kutularının içinde de uygulama düzeyinde çalışır ve
+  tarayıcının kendi geri almasını bastırır; tek istisna `Yapıştır` kutusu
+  (`textarea`). Gerekçe: buradaki inputlar kontrollü, React değeri her tuşta
+  yeniden yazdığı için tarayıcı yığını zaten güvenilmez.
+- Küçük resimler grafik başına bir ekran dışı çizim demek; on grafikli bir
+  çalışma alanında ilk açılışta hepsi sırayla üretilirken liste birkaç saniye
+  ikonla durur.
 - Süsleme katmanları `z-index` ile sıralanır ve kartın kendi içeriği
   `z-index: 1`'e sabitlenmiştir. Bu şart: sahnedeki kartta `scale()` dönüşümü
   sessizce bir yığın bağlamı kurar, ekran dışı dışa aktarım kartında kurmaz —
