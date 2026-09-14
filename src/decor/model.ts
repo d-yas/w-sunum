@@ -42,6 +42,59 @@ export interface DecorState {
   nesneler: DecorItem[];
 }
 
+/* ------------------------------------------------------------------ */
+/* Free layout — the card's own parts, moved by hand                    */
+/* ------------------------------------------------------------------ */
+
+export interface Box {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+/** The three movable parts of a card. Title and subtitle travel together. */
+export type SlotKey = "baslik" | "grafik" | "dipnot";
+export const SLOT_KEYS: SlotKey[] = ["baslik", "grafik", "dipnot"];
+export const SLOT_LABELS: Record<SlotKey, string> = {
+  baslik: "Başlık bloğu",
+  grafik: "Grafik",
+  dipnot: "Dipnot",
+};
+
+export interface CardLayout {
+  /** Off means the card lays itself out, exactly as it always did. */
+  serbest: boolean;
+  /**
+   * Card-space boxes, the same coordinates decoration uses: measured from the
+   * card's outer edge, padding included. One coordinate system for everything
+   * the stage can drag.
+   */
+  kutular: Partial<Record<SlotKey, Box>>;
+}
+
+export function emptyLayout(): CardLayout {
+  return { serbest: false, kutular: {} };
+}
+
+export function normalizeLayout(input: unknown): CardLayout {
+  if (!input || typeof input !== "object") return emptyLayout();
+  const l = input as Partial<CardLayout>;
+  const src = (l.kutular ?? {}) as Record<string, unknown>;
+  const kutular: Partial<Record<SlotKey, Box>> = {};
+  for (const key of SLOT_KEYS) {
+    const b = src[key] as Partial<Box> | undefined;
+    if (!b || typeof b !== "object") continue;
+    kutular[key] = {
+      x: clamp(b.x, -5000, 5000, 0),
+      y: clamp(b.y, -5000, 5000, 0),
+      w: clamp(b.w, 16, 5000, 100),
+      h: clamp(b.h, 16, 5000, 100),
+    };
+  }
+  return { serbest: l.serbest === true, kutular };
+}
+
 export function emptyDecor(): DecorState {
   return { zemin: { doku: null, isik: null, cerceve: null }, nesneler: [] };
 }

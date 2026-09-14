@@ -9,7 +9,7 @@
 import { useId, useMemo, useState } from "react";
 
 import { DecorLayer } from "@/decor/DecorLayer";
-import { emptyDecor, type DecorItem, type DecorSlot, type DecorState } from "@/decor/model";
+import { SLOT_KEYS, SLOT_LABELS, emptyDecor, type Box, type DecorItem, type DecorSlot, type DecorState, type SlotKey } from "@/decor/model";
 import { NESNE_FAMILIES, ZEMIN_SLOTS, assetsOf, getAsset, newItem, newSlot } from "@/decor/registry";
 import { FAMILY_LABELS, defaults, type AssetDef, type DecorFamily, type ParamDef, type ParamValues } from "@/decor/types";
 import { getPalette, seriesColor } from "@/lib/palettes";
@@ -134,6 +134,37 @@ function fitted(def: AssetDef, slot: DecorSlot, boxW: number, boxH: number): Dec
   };
 }
 
+/**
+ * Read the card's own parts off the live stage card.
+ *
+ * Measured rather than computed: the header's height depends on the font, the
+ * chart's on the legend position, and guessing would make the layout jump the
+ * moment free layout is switched on. Rects are divided by the stage zoom,
+ * which the card itself reveals — its rendered width over its true width.
+ */
+function measureSlots(width: number): Partial<Record<SlotKey, Box>> {
+  const card = document.querySelector<HTMLElement>(".stage-card");
+  if (!card) return {};
+  const cardRect = card.getBoundingClientRect();
+  const k = cardRect.width / width || 1;
+  const out: Partial<Record<SlotKey, Box>> = {};
+  for (const key of SLOT_KEYS) {
+    const el = card.querySelector<HTMLElement>(`[data-slot="${key}"]`);
+    if (!el) continue;
+    const r = el.getBoundingClientRect();
+    // Two decimals, not whole pixels: the flow layout lands on fractions, and
+    // rounding them would nudge every part when free layout is switched on.
+    const fix = (n: number) => Math.round(n * 100) / 100;
+    out[key] = {
+      x: fix((r.left - cardRect.left) / k),
+      y: fix((r.top - cardRect.top) / k),
+      w: fix(r.width / k),
+      h: fix(r.height / k),
+    };
+  }
+  return out;
+}
+
 /* ---------------- the panel ---------------- */
 
 export function DecorPanel({
@@ -186,8 +217,56 @@ export function DecorPanel({
     setDecor({ ...decor, nesneler: list });
   };
 
+  const layout = spec.yerlesim;
+  const setFree = (on: boolean) => {
+    // Seed from where the parts already are, so switching on changes nothing
+    // visually — it only makes them grabbable.
+    const kutular = on && Object.keys(layout.kutular).length === 0 ? measureSlots(spec.options.width) : layout.kutular;
+    onChange({ ...spec, yerlesim: { serbest: on, kutular } });
+  };
+
   return (
     <div className="flex flex-col">
+      {/* ---- free layout ---- */}
+      <Section title="Yerleşim">
+        <Field label="Serbest yerleşim" hint="Başlık, grafik ve dipnot da sürüklenip boyutlandırılabilir olur.">
+          <Switch checked={layout.serbest} onChange={setFree} />
+        </Field>
+        {layout.serbest && (
+          <>
+            <div className="flex flex-wrap gap-1.5 pt-1">
+              {SLOT_KEYS.filter((k) => layout.kutular[k]).map((k) => (
+                <button
+                  key={k}
+                  type="button"
+                  className="btn btn-sm"
+                  aria-pressed={selectedId === `slot:${k}`}
+                  onClick={() => onSelect(`slot:${k}`)}
+                >
+                  {SLOT_LABELS[k]}
+                </button>
+              ))}
+            </div>
+            <button
+              className="btn btn-sm mt-2 self-start"
+              type="button"
+              onClick={() => {
+                // Drop back to flow layout for one frame and measure *that*.
+                // Measuring while the boxes are applied would just hand back
+                // the boxes we already have.
+                onChange({ ...spec, yerlesim: { serbest: false, kutular: {} } });
+                requestAnimationFrame(() =>
+                  requestAnimationFrame(() => onChange({ ...spec, yerlesim: { serbest: true, kutular: measureSlots(spec.options.width) } }))
+                );
+              }}
+              title="Kutuları kartın kendi akışına göre yeniden hesapla"
+            >
+              Kutuları sıfırla
+            </button>
+          </>
+        )}
+      </Section>
+
       {/* ---- background slots ---- */}
       <Section title="Zemin">
         {ZEMIN_SLOTS.map(({ slot, family: fam, label }) => (

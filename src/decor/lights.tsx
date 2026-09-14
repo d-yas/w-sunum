@@ -1,6 +1,11 @@
 /**
  * Light and gradient washes.
  *
+ * Each one works two ways: dropped into the background slot it washes the
+ * whole card, and placed from the gallery it lights only its own box. Nothing
+ * special makes that work — every asset already draws into whatever box it is
+ * handed, so a placed light is the same code with smaller w/h.
+ *
  * Every bloom here is built from radial gradient stops, never from a blur.
  * That is deliberate: the PNG export serialises the card into a
  * <foreignObject> and rasterises it through an <img>, and CSS blur and
@@ -44,6 +49,7 @@ function Cover({ uid, w, h }: { uid: string; w: number; h: number }) {
 export const LIGHTS: AssetDef[] = [
   {
     id: "isik/kose",
+    size: { w: 360, h: 260 },
     label: "Köşe ışığı",
     family: "isik",
     kind: "zemin",
@@ -67,6 +73,7 @@ export const LIGHTS: AssetDef[] = [
   },
   {
     id: "isik/kure",
+    size: { w: 300, h: 300 },
     label: "Yumuşak küre",
     family: "isik",
     kind: "zemin",
@@ -97,6 +104,7 @@ export const LIGHTS: AssetDef[] = [
   },
   {
     id: "isik/ikiz",
+    size: { w: 380, h: 280 },
     label: "İkiz leke",
     family: "isik",
     kind: "zemin",
@@ -129,6 +137,7 @@ export const LIGHTS: AssetDef[] = [
   },
   {
     id: "isik/mesh",
+    size: { w: 400, h: 300 },
     label: "Mesh",
     family: "isik",
     kind: "zemin",
@@ -167,6 +176,7 @@ export const LIGHTS: AssetDef[] = [
   },
   {
     id: "isik/spot",
+    size: { w: 280, h: 340 },
     label: "Spot konisi",
     family: "isik",
     kind: "zemin",
@@ -201,6 +211,7 @@ export const LIGHTS: AssetDef[] = [
   },
   {
     id: "isik/vinyet",
+    size: { w: 360, h: 260 },
     label: "Vinyet",
     family: "isik",
     kind: "zemin",
@@ -228,6 +239,7 @@ export const LIGHTS: AssetDef[] = [
   },
   {
     id: "isik/ufuk",
+    size: { w: 400, h: 200 },
     label: "Ufuk parlaması",
     family: "isik",
     kind: "zemin",
@@ -263,6 +275,7 @@ export const LIGHTS: AssetDef[] = [
   },
   {
     id: "isik/dalgalar",
+    size: { w: 340, h: 340 },
     label: "Halka dalgaları",
     family: "isik",
     kind: "zemin",
@@ -290,6 +303,7 @@ export const LIGHTS: AssetDef[] = [
   },
   {
     id: "isik/dogrusal",
+    size: { w: 360, h: 240 },
     label: "Doğrusal gradyan",
     family: "isik",
     kind: "zemin",
@@ -319,6 +333,7 @@ export const LIGHTS: AssetDef[] = [
   },
   {
     id: "isik/radyal",
+    size: { w: 300, h: 300 },
     label: "Radyal gradyan",
     family: "isik",
     kind: "zemin",
@@ -352,6 +367,7 @@ export const LIGHTS: AssetDef[] = [
   },
   {
     id: "isik/duotone",
+    size: { w: 360, h: 240 },
     label: "Duotone",
     family: "isik",
     kind: "zemin",
@@ -382,6 +398,7 @@ export const LIGHTS: AssetDef[] = [
   },
   {
     id: "isik/bant",
+    size: { w: 360, h: 240 },
     label: "Bantlı gradyan",
     family: "isik",
     kind: "zemin",

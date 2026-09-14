@@ -32,8 +32,12 @@ export const ZEMIN_SLOTS: { slot: ZeminSlot; family: DecorFamily; label: string 
   { slot: "cerceve", family: "cerceve", label: "Çerçeve" },
 ];
 
-/** Families you place by hand, in the order the gallery shows them. */
-export const NESNE_FAMILIES: DecorFamily[] = ["ok", "ikon", "isaret", "balon"];
+/**
+ * Families you place by hand, in the order the gallery shows them. Lights are
+ * in both lists on purpose: as a background slot they wash the card, and as a
+ * placed object they glow over one region.
+ */
+export const NESNE_FAMILIES: DecorFamily[] = ["isik", "ok", "ikon", "isaret", "balon"];
 
 export function newSlot(assetId: string): DecorSlot | null {
   const def = getAsset(assetId);
@@ -61,6 +65,9 @@ export function newItem(assetId: string, cardW: number, cardH: number): DecorIte
   counter += 1;
   return {
     ...slot,
+    // A placed light almost always belongs behind the chart; everything else
+    // is an annotation and belongs in front.
+    katman: def.family === "isik" ? "arka" : "on",
     id: `d${Date.now().toString(36)}${counter.toString(36)}`,
     x: Math.round((cardW - w) / 2),
     y: Math.round((cardH - h) / 2),
@@ -68,7 +75,6 @@ export function newItem(assetId: string, cardW: number, cardH: number): DecorIte
     h,
     aci: 0,
     aynala: false,
-    katman: "on",
     gizli: false,
     kilit: false,
   };

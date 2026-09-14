@@ -12,7 +12,8 @@
     "test:parse": "node --experimental-strip-types --no-warnings scripts/parse-test.mjs",
     "kontrol": "node scripts/cdp-check.mjs",
     "test:pptx": "node --experimental-strip-types scripts/pptx-test.mts",
-    "test:susle": "node scripts/decor-check.mjs"
+    "test:susle": "node scripts/decor-check.mjs",
+    "test:yerlesim": "node scripts/layout-check.mjs"
   },
   "dependencies": {
     "@base-ui/react": "1.7.0",

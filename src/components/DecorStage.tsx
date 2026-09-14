@@ -1,5 +1,6 @@
 /**
- * Direct manipulation for placed decoration.
+ * Direct manipulation for everything the card can hold: placed decoration,
+ * and — once free layout is on — the card's own title block, chart and note.
  *
  * Deliberately *outside* the card. ChartCard's contract is that it renders the
  * exact DOM that gets rasterised, so selection outlines and drag handles must
@@ -12,7 +13,8 @@
  */
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 
-import type { DecorItem } from "@/decor/model";
+import type { Box, DecorItem, SlotKey } from "@/decor/model";
+import { SLOT_KEYS, SLOT_LABELS } from "@/decor/model";
 import { getAsset, newItem } from "@/decor/registry";
 import type { ChartSpec } from "@/lib/spec";
 
@@ -21,18 +23,35 @@ type Mode = { kind: "tasi" } | { kind: "boyut"; corner: Corner } | { kind: "dond
 
 const CORNERS: Corner[] = ["nw", "ne", "sw", "se"];
 const SIGN: Record<Corner, [number, number]> = { nw: [-1, -1], ne: [1, -1], sw: [-1, 1], se: [1, 1] };
-const MIN = 8;
 /** How close, in card px, a drag has to get before it snaps to a guide. */
 const SNAP = 5;
+
+/** Slot ids are namespaced so one id space covers decoration and card parts. */
+const slotId = (k: SlotKey) => `slot:${k}`;
+const asSlot = (id: string): SlotKey | null => (id.startsWith("slot:") ? (id.slice(5) as SlotKey) : null);
+
+/** What the overlay can drag: a decoration item or one of the card's own parts. */
+interface Handle {
+  id: string;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  aci: number;
+  kilit: boolean;
+  /** Card parts do not rotate, mirror or delete — only move and resize. */
+  slot: SlotKey | null;
+  square: boolean;
+  min: number;
+  label: string;
+}
 
 interface Drag {
   mode: Mode;
   id: string;
-  start: DecorItem;
-  /** Pointer position in card space when the drag began. */
+  start: Handle;
   px: number;
   py: number;
-  shift: boolean;
 }
 
 export interface DecorStageProps {
@@ -57,8 +76,44 @@ export function DecorStage({ spec, scale, selectedId, onSelect, onChange }: Deco
   const { width: CW, height: CH } = spec.options;
 
   const items = spec.decor.nesneler;
+  const free = spec.yerlesim.serbest;
+
+  const handles: Handle[] = [
+    ...items
+      .filter((n) => !n.gizli)
+      .map((n) => ({
+        id: n.id,
+        x: n.x,
+        y: n.y,
+        w: n.w,
+        h: n.h,
+        aci: n.aci,
+        kilit: n.kilit,
+        slot: null,
+        square: getAsset(n.asset)?.square === true,
+        min: 8,
+        label: getAsset(n.asset)?.label ?? n.asset,
+      })),
+    ...(free
+      ? SLOT_KEYS.flatMap((k) => {
+          const b = spec.yerlesim.kutular[k];
+          return b ? [{ id: slotId(k), ...b, aci: 0, kilit: false, slot: k, square: false, min: 24, label: SLOT_LABELS[k] }] : [];
+        })
+      : []),
+  ];
+
   const setItems = (next: DecorItem[]) => onChange({ ...spec, decor: { ...spec.decor, nesneler: next } });
-  const patch = (id: string, p: Partial<DecorItem>) => setItems(items.map((n) => (n.id === id ? { ...n, ...p } : n)));
+
+  const patch = (id: string, p: Partial<Box> & { aci?: number }) => {
+    const key = asSlot(id);
+    if (key) {
+      const cur = spec.yerlesim.kutular[key];
+      if (!cur) return;
+      onChange({ ...spec, yerlesim: { ...spec.yerlesim, kutular: { ...spec.yerlesim.kutular, [key]: { ...cur, ...p } } } });
+      return;
+    }
+    setItems(items.map((n) => (n.id === id ? { ...n, ...p } : n)));
+  };
 
   /* ---------------- keyboard ---------------- */
 
@@ -69,23 +124,29 @@ export function DecorStage({ spec, scale, selectedId, onSelect, onChange }: Deco
       if (el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT" || el.isContentEditable)) return;
       if (e.key === "Escape") return onSelect(null);
       if (!selectedId) return;
-      const it = items.find((n) => n.id === selectedId);
-      if (!it) return;
-      if ((e.key === "Delete" || e.key === "Backspace") && !it.kilit) {
-        e.preventDefault();
-        setItems(items.filter((n) => n.id !== selectedId));
-        onSelect(null);
-        return;
+      const h = handles.find((b) => b.id === selectedId);
+      if (!h) return;
+
+      if (!h.slot) {
+        const it = items.find((n) => n.id === selectedId);
+        if (!it) return;
+        if ((e.key === "Delete" || e.key === "Backspace") && !it.kilit) {
+          e.preventDefault();
+          setItems(items.filter((n) => n.id !== selectedId));
+          onSelect(null);
+          return;
+        }
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "d") {
+          e.preventDefault();
+          const copy = newItem(it.asset, CW, CH);
+          if (!copy) return;
+          const clone: DecorItem = { ...it, id: copy.id, x: it.x + 16, y: it.y + 16 };
+          setItems([...items, clone]);
+          onSelect(clone.id);
+          return;
+        }
       }
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "d") {
-        e.preventDefault();
-        const copy = newItem(it.asset, CW, CH);
-        if (!copy) return;
-        const clone: DecorItem = { ...it, id: copy.id, x: it.x + 16, y: it.y + 16 };
-        setItems([...items, clone]);
-        onSelect(clone.id);
-        return;
-      }
+
       const step = e.shiftKey ? 10 : 1;
       const nudge: Record<string, [number, number]> = {
         ArrowLeft: [-step, 0],
@@ -94,9 +155,9 @@ export function DecorStage({ spec, scale, selectedId, onSelect, onChange }: Deco
         ArrowDown: [0, step],
       };
       const d = nudge[e.key];
-      if (d && !it.kilit) {
+      if (d && !h.kilit) {
         e.preventDefault();
-        patch(it.id, { x: it.x + d[0], y: it.y + d[1] });
+        patch(h.id, { x: h.x + d[0], y: h.y + d[1] });
       }
     };
     window.addEventListener("keydown", onKey);
@@ -112,13 +173,13 @@ export function DecorStage({ spec, scale, selectedId, onSelect, onChange }: Deco
   };
 
   const begin = (e: ReactPointerEvent, id: string, mode: Mode) => {
-    const it = items.find((n) => n.id === id);
-    if (!it || it.kilit) return;
+    const h = handles.find((b) => b.id === id);
+    if (!h || h.kilit) return;
     e.preventDefault();
     e.stopPropagation();
     (e.target as Element).setPointerCapture(e.pointerId);
     const [px, py] = toCard(e);
-    dragRef.current = { mode, id, start: { ...it }, px, py, shift: e.shiftKey };
+    dragRef.current = { mode, id, start: { ...h }, px, py };
     onSelect(id);
   };
 
@@ -127,8 +188,7 @@ export function DecorStage({ spec, scale, selectedId, onSelect, onChange }: Deco
     if (!d) return;
     const [px, py] = toCard(e);
     const s = d.start;
-    const def = getAsset(s.asset);
-    const keepRatio = e.shiftKey || def?.square === true;
+    const keepRatio = e.shiftKey || s.square;
 
     if (d.mode.kind === "tasi") {
       let nx = s.x + (px - d.px);
@@ -164,8 +224,8 @@ export function DecorStage({ spec, scale, selectedId, onSelect, onChange }: Deco
     const AX = cx + ax;
     const AY = cy + ay;
     const [qx, qy] = rot(px - AX, py - AY, -s.aci);
-    let nw = Math.max(MIN, sx * qx);
-    let nh = Math.max(MIN, sy * qy);
+    let nw = Math.max(s.min, sx * qx);
+    let nh = Math.max(s.min, sy * qy);
     if (keepRatio) {
       const ratio = s.h / s.w || 1;
       if (nw * ratio > nh) nh = nw * ratio;
@@ -202,26 +262,27 @@ export function DecorStage({ spec, scale, selectedId, onSelect, onChange }: Deco
         if (e.target === hostRef.current) onSelect(null);
       }}
     >
-      {items.map((it) => {
-        if (it.gizli) return null;
-        const sel = it.id === selectedId;
+      {handles.map((h) => {
+        const sel = h.id === selectedId;
         return (
           <div
-            key={it.id}
+            key={h.id}
             className="decor-box"
             data-selected={sel ? "true" : undefined}
-            data-locked={it.kilit ? "true" : undefined}
+            data-locked={h.kilit ? "true" : undefined}
+            data-slot={h.slot ?? undefined}
+            title={h.label}
             style={{
-              left: it.x * scale,
-              top: it.y * scale,
-              width: it.w * scale,
-              height: it.h * scale,
-              transform: it.aci ? `rotate(${it.aci}deg)` : undefined,
+              left: h.x * scale,
+              top: h.y * scale,
+              width: h.w * scale,
+              height: h.h * scale,
+              transform: h.aci ? `rotate(${h.aci}deg)` : undefined,
               transformOrigin: "center",
             }}
-            onPointerDown={(e) => (it.kilit ? onSelect(it.id) : begin(e, it.id, { kind: "tasi" }))}
+            onPointerDown={(e) => (h.kilit ? onSelect(h.id) : begin(e, h.id, { kind: "tasi" }))}
           >
-            {sel && !it.kilit && (
+            {sel && !h.kilit && (
               <>
                 {CORNERS.map((c) => {
                   const [sx, sy] = SIGN[c];
@@ -236,17 +297,23 @@ export function DecorStage({ spec, scale, selectedId, onSelect, onChange }: Deco
                         bottom: sy > 0 ? -5 : undefined,
                         cursor: c === "nw" || c === "se" ? "nwse-resize" : "nesw-resize",
                       }}
-                      onPointerDown={(e) => begin(e, it.id, { kind: "boyut", corner: c })}
+                      onPointerDown={(e) => begin(e, h.id, { kind: "boyut", corner: c })}
                     />
                   );
                 })}
-                <div
-                  className="decor-handle decor-rotate"
-                  style={{ left: "50%", top: -22, marginLeft: -5, cursor: "grab" }}
-                  onPointerDown={(e) => begin(e, it.id, { kind: "dondur" })}
-                  title="Döndür (Shift = 15°)"
-                />
-                <div style={{ position: "absolute", left: "50%", top: -13, width: 1, height: 13, background: "var(--ring)", marginLeft: -0.5 }} />
+                {/* Card parts stay upright: a rotated title is a different feature
+                    and a rotated chart would fight its own axis labels. */}
+                {!h.slot && (
+                  <>
+                    <div
+                      className="decor-handle decor-rotate"
+                      style={{ left: "50%", top: -22, marginLeft: -5, cursor: "grab" }}
+                      onPointerDown={(e) => begin(e, h.id, { kind: "dondur" })}
+                      title="Döndür (Shift = 15°)"
+                    />
+                    <div style={{ position: "absolute", left: "50%", top: -13, width: 1, height: 13, background: "var(--ring)", marginLeft: -0.5 }} />
+                  </>
+                )}
               </>
             )}
           </div>

@@ -417,6 +417,8 @@ export function App() {
                   spec={active}
                   theme={ws.theme}
                   transparent={ws.export.background === "transparent"}
+                  // The decor panel measures this card to seed free-layout boxes.
+                  className="stage-card"
                   style={{ transform: `scale(${scale})`, transformOrigin: "top left" }}
                 />
                 {tab === "susle" && (

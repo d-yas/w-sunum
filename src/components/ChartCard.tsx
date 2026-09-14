@@ -30,6 +30,7 @@ import { BarValueAxis, BarXAxis, XAxis, YAxis } from "@/ext/axes";
 import { toCartesian, toHeatmap, toRing, toSankey, type CartesianModel } from "@/lib/adapters";
 import { formatDateLong, formatNumber, type NumberFormatSpec } from "@/lib/format";
 import { getPalette, seriesColor } from "@/lib/palettes";
+import type { SlotKey } from "@/decor/model";
 import type { ChartSpec, Theme } from "@/lib/spec";
 
 export interface ChartCardProps {
@@ -85,6 +86,31 @@ export const ChartCard = forwardRef<HTMLDivElement, ChartCardProps>(function Cha
   const decorUid = `d${useId().replace(/:/g, "")}`;
   const decorProps = { decor: spec.decor, w: o.width, h: o.height, uid: decorUid, colors, theme } as const;
 
+  /**
+   * Free layout: a slot with a saved box becomes absolutely positioned, and
+   * everything else keeps the flow layout it always had.
+   *
+   * Boxes are in card space — measured from the card's outer edge, the same
+   * coordinates decoration uses. No padding correction is needed: the card has
+   * no border, so its padding box and its border box are the same rectangle,
+   * and left:0 lands on the card's own edge.
+   */
+  const slot = (key: SlotKey, flow: CSSProperties): CSSProperties => {
+    const box = spec.yerlesim.serbest ? spec.yerlesim.kutular[key] : undefined;
+    if (!box) return flow;
+    return {
+      ...flow,
+      position: "absolute",
+      left: box.x,
+      top: box.y,
+      width: box.w,
+      height: box.h,
+      flex: "none",
+      margin: 0,
+      overflow: "hidden",
+    };
+  };
+
   return (
     <div
       ref={ref}
@@ -101,7 +127,7 @@ export const ChartCard = forwardRef<HTMLDivElement, ChartCardProps>(function Cha
     >
       <DecorLayer {...decorProps} phase="arka" />
       {(spec.title || spec.subtitle) && (
-        <header style={{ position: "relative", zIndex: 1, marginBottom: o.chartInset + 4 }}>
+        <header data-slot="baslik" style={slot("baslik", { position: "relative", zIndex: 1, marginBottom: o.chartInset + 4 })}>
           {spec.title && (
             <div className="slide-title" style={{ fontSize: o.titleSize }}>
               {spec.title}
@@ -114,7 +140,7 @@ export const ChartCard = forwardRef<HTMLDivElement, ChartCardProps>(function Cha
           )}
         </header>
       )}
-      <div style={{ position: "relative", zIndex: 1, flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
+      <div data-slot="grafik" style={slot("grafik", { position: "relative", zIndex: 1, flex: 1, minHeight: 0, display: "flex", flexDirection: "column" })}>
         {isStatic && spec.kind !== "sankey" ? (
           <MotionConfig reducedMotion="always">
             <StaticChartPreviewProvider>{body}</StaticChartPreviewProvider>
@@ -125,7 +151,11 @@ export const ChartCard = forwardRef<HTMLDivElement, ChartCardProps>(function Cha
       </div>
       <DecorLayer {...decorProps} phase="on" />
       {spec.note && (
-        <footer className="slide-note" style={{ position: "relative", zIndex: 1, fontSize: Math.max(10, Math.round(o.titleSize * 0.5)), marginTop: o.chartInset }}>
+        <footer
+          className="slide-note"
+          data-slot="dipnot"
+          style={slot("dipnot", { position: "relative", zIndex: 1, fontSize: Math.max(10, Math.round(o.titleSize * 0.5)), marginTop: o.chartInset })}
+        >
           {spec.note}
         </footer>
       )}
@@ -290,7 +320,7 @@ function CartesianTime({ spec, colors, isStatic }: Omit<BodyProps, "theme">) {
             animate={!isStatic && o.animate}
           />
         ))}
-        {!isStatic && (
+        {!isStatic && o.hover && (
           <ChartTooltip
             showDatePill={false}
             content={({ point }) => (
@@ -368,7 +398,7 @@ function Bars({ spec, colors, isStatic }: Omit<BodyProps, "theme">) {
             {o.xAxis && <BarXAxis />}
           </>
         )}
-        {!isStatic && (
+        {!isStatic && o.hover && (
           <ChartTooltip
             showDatePill={false}
             content={({ point }) => (
@@ -395,9 +425,14 @@ function Rings({ spec, colors, isStatic }: Omit<BodyProps, "theme">) {
   const model = useMemo(() => toRing(spec, colors), [spec, colors]);
   const [hovered, setHovered] = useState<number | null>(null);
   const items = model.data.map((d) => ({ label: d.label, value: d.value, color: d.color ?? colors[0], maxValue: d.maxValue }));
+  // With hover off the ring keeps its own state but never reports it, so the
+  // centre label stays on the total and no segment dims.
+  const hoverOn = !isStatic && o.hover;
+  const live = hoverOn ? hovered : null;
+  const onHover = hoverOn ? setHovered : undefined;
 
   return (
-    <WithLegend spec={spec} items={items} hoveredIndex={hovered} onHoverChange={setHovered}>
+    <WithLegend spec={spec} items={items} hoveredIndex={live} onHoverChange={onHover}>
       <div className={FILL} style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
         <div style={{ height: "100%", aspectRatio: "1 / 1", maxWidth: "100%", position: "relative", ["--border" as string]: "var(--ring-track)" }}>
         <RingChart
@@ -408,8 +443,8 @@ function Rings({ spec, colors, isStatic }: Omit<BodyProps, "theme">) {
           baseInnerRadius={Math.max(28, 90 - model.data.length * 6)}
           animationDuration={isStatic || !o.animate ? 0 : 1100}
           enterTransition={isStatic ? INSTANT : undefined}
-          hoveredIndex={hovered}
-          onHoverChange={setHovered}
+          hoveredIndex={live}
+          onHoverChange={onHover}
           startAngle={0}
           endAngle={Math.PI * 2}
         >
@@ -499,7 +534,7 @@ function Heat({ spec, colors, isStatic }: BodyProps) {
         <HeatmapYAxis labelFormat="initial" />
         <HeatmapXAxis />
         <HeatmapCells />
-        {!isStatic && <HeatmapTooltip formatLabel={(count) => label(count)} />}
+        {!isStatic && o.hover && <HeatmapTooltip formatLabel={(count) => label(count)} />}
       </HeatmapChart>
       {o.heatmapLegend && (
         <div style={{ display: "flex", justifyContent: "flex-end" }}>
@@ -545,7 +580,7 @@ function Flow({ spec, colors, isStatic }: Omit<BodyProps, "theme">) {
       >
         <SankeyLink getNodeColor={nodeColor} />
         <SankeyNode getNodeColor={nodeColor} showValueLabels={o.sankeyValueLabels} valueUnit={o.sankeyUnit || undefined} />
-        {!isStatic && <SankeyTooltip formatValue={(v) => formatNumber(v, o.format)} />}
+        {!isStatic && o.hover && <SankeyTooltip formatValue={(v) => formatNumber(v, o.format)} />}
       </SankeyChart>
     </div>
   );

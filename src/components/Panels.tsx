@@ -231,6 +231,12 @@ export function OptionsPanel({ spec, onChange }: { spec: ChartSpec; onChange: (s
         <Field label="Animasyon" hint="Yalnız ekranda; PNG her zaman bitmiş hâli alır.">
           <Switch checked={o.animate} onChange={(v) => set({ animate: v })} />
         </Field>
+        <Field
+          label="Fare üstünde vurgu"
+          hint="Bklit'in ipucu kutusu ve vurgulama davranışı. Kapalıyken kart sabit durur — süsleme yerleştirirken işi kolaylaştırır."
+        >
+          <Switch checked={o.hover} onChange={(v) => set({ hover: v })} />
+        </Field>
       </Section>
 
       {spec.kind !== "heatmap" && spec.kind !== "sankey" && (

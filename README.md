@@ -20,12 +20,23 @@ Paylaşmak için yalnız bu dosyayı gönderin.
 5. **Renkler**: dört palet (varsayılan palet renk körlüğü için doğrulanmış)
    ve seri başına özel renk.
 6. **Süsle**: doku, ışık ve çerçeve zemin olarak seçilir (üçü aynı anda
-   durabilir); ok, ikon, işaret ve balonlar galeriden tıklanıp karta düşer,
+   durabilir); ışık, ok, ikon, işaret ve balonlar galeriden tıklanıp karta düşer,
    sahnede sürüklenir, köşeden boyutlandırılır, üstteki tutamaçtan
    döndürülür. Renkleri varsayılan olarak grafiğin paletinden gelir.
    Kısayollar: `Shift` eksene/orana/15°'ye kilitler, ok tuşları 1 px
    (`Shift` ile 10 px) kaydırır, `Del` siler, `Ctrl+D` çoğaltır, `Esc`
    seçimi bırakır. Süslemeler PNG, PPTX ve SVG çıktılarına girer.
+
+   Işıklar iki yerde birden: **Zemin**'den seçilince tüm kartı yıkar,
+   **Galeri**'den eklenince yalnız kendi kutusunu aydınlatır ve diğer
+   nesneler gibi taşınıp boyutlandırılır.
+
+   Aynı sekmedeki **Serbest yerleşim** anahtarı kartın kendi parçalarını —
+   başlık bloğu, grafik ve dipnot — da sürüklenebilir yapar. Açıldığı anda
+   kutular öğelerin o anki yerlerinden ölçülür, yani görüntü değişmez;
+   sonrasında kesik kırmızı çerçeveli kutulardan tutup taşır, köşeden
+   boyutlandırırsınız. `Kutuları sıfırla` kartın kendi akışına geri döner.
+   (Kart parçaları döndürülmez: dönmüş bir eksen etiketi okunmaz.)
 7. **Dışa aktar**: `PNG indir` (1×–4×), `Panoya kopyala` (PowerPoint'e Ctrl+V),
    `SVG indir`, tema ya da şeffaf arka plan. **PowerPoint**: `Slayt olarak indir`
    tek grafiği, `Tüm grafikler` çalışma alanındaki her grafiği birer 16:9 slayt
@@ -47,6 +58,7 @@ pnpm typecheck
 pnpm test:parse   # sayı / tarih / CSV ayrıştırma birim testleri (Node, bağımlılık yok)
 pnpm kontrol      # node scripts/cdp-check.mjs [kind] [theme] [sekme] — headless Chrome duman testi
 pnpm test:susle   # süslemeler dışa aktarımda hayatta kalıyor mu — piksel ölçer
+pnpm test:yerlesim # serbest yerleşim ve hover anahtarı — gerçek fare olaylarıyla
 ```
 
 `pnpm test:susle` her varlık ailesinden bir örneği boş bir kartın köşesine
@@ -54,6 +66,11 @@ koyar, PNG'ye aktarır ve o köşedeki pikseli geri okur — `mask`, `feTurbulen
 ve `pattern` `<foreignObject>` hattında sessizce düşebildiği için tek güvenilir
 kontrol bu. SVG indirmeyi de gerçek düğmesinden sürer. Bir varlık kaybolursa
 betik 1 ile çıkar.
+
+`pnpm test:yerlesim` serbest yerleşimi açıp kartı piksel piksel karşılaştırır
+(açmak görüntüyü değiştirmemeli), grafik kutusunu gerçek fare olaylarıyla
+sürükleyip boyutlandırır ve hover anahtarının ipucunu gerçekten kaldırdığını
+doğrular. İkisi de `scripts/cdp.mjs` içindeki ortak sürücüyü kullanır.
 
 `pnpm kontrol` derlenmiş dosyayı headless Chrome'da açar, konsol hatalarını
 yazar, ekran görüntüsü alır ve PNG dışa aktarımını çalıştırır
@@ -89,6 +106,14 @@ yazar. pnpm 11'de esbuild'in kurulum betiği `pnpm-workspace.yaml` içindeki
   kutusunun **gerçek piksel boyutunda** çizer — sabit bir viewBox'ı esnetmez,
   bu yüzden 400×60 bir ok ile 90×90 bir ikon aynı kalitede çıkar. Hiçbir
   varlık dosya değil, hepsi koddan üretilir.
+- Serbest yerleşim `ChartSpec.yerlesim` içinde: üç kutu (`baslik`, `grafik`,
+  `dipnot`) kart uzayında, süslemeyle **aynı koordinat sisteminde**. Kutu
+  varsa o öğe mutlak konumlanır, yoksa kart eskisi gibi kendi akışını kurar.
+  Kutular hesaplanmaz, canlı karttan ölçülür — başlığın yüksekliği yazı
+  tipine, grafiğinki gösterge konumuna bağlı, tahmin etmek zıplamaya yol açar.
+- `src/components/DecorStage.tsx` — sahnedeki tutamaç katmanı. Süsleme
+  nesneleri ve kart parçaları tek bir tutamaç listesinde birleşir; kart
+  parçalarının kimliği `slot:` önekiyle ayrılır.
 - `src/components/ChartCard.tsx` — slayt kartı. Sahnede ve ekran dışı dışa
   aktarımda aynı bileşen, aynı piksel boyutu.
 - Token'lar `src/index.css` içinde: açık palet `:root`, koyu palet

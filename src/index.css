@@ -298,6 +298,11 @@ textarea.inp { height: auto; padding: 6px 8px; resize: vertical; }
 .decor-box { position: absolute; box-sizing: border-box; cursor: move; }
 .decor-box[data-locked="true"] { cursor: default; }
 .decor-box[data-selected="true"] { outline: 1px solid var(--ring); outline-offset: 0; }
+/* The card's own parts read differently from decoration: dashed and amber, so
+   it is obvious you are about to move the chart rather than a sticker. */
+.decor-box[data-slot] { outline: 1px dashed color-mix(in oklab, var(--destructive) 45%, transparent); }
+.decor-box[data-slot][data-selected="true"] { outline: 1px solid var(--destructive); }
+.decor-box[data-slot] > .decor-handle { border-color: var(--destructive); }
 .decor-box:hover:not([data-selected="true"]) { outline: 1px dashed color-mix(in oklab, var(--ring) 60%, transparent); }
 .decor-handle {
   position: absolute; height: 9px; width: 9px; border-radius: 2px; background: var(--card);

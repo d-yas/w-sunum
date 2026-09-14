@@ -1,4 +1,4 @@
-import { emptyDecor, type DecorState } from "@/decor/model";
+import { emptyDecor, emptyLayout, type CardLayout, type DecorState } from "@/decor/model";
 
 import { DEFAULT_FORMAT, type DateGranularity, type NumberFormatSpec } from "./format";
 
@@ -47,6 +47,8 @@ export interface ChartOptions {
   sankeyValueLabels: boolean;
   format: NumberFormatSpec;
   animate: boolean;
+  /** Tooltips and hover highlighting on the live card. Exports never hover. */
+  hover: boolean;
   width: number;
   height: number;
   padding: number;
@@ -67,6 +69,8 @@ export interface ChartSpec {
   options: ChartOptions;
   /** Textures, lights, frames and placed objects — see src/decor. */
   decor: DecorState;
+  /** Hand-placed boxes for the card's own title, chart and note. */
+  yerlesim: CardLayout;
 }
 
 export type ExportBackground = "theme" | "transparent";
@@ -122,6 +126,7 @@ export const DEFAULT_OPTIONS: ChartOptions = {
   sankeyValueLabels: true,
   format: DEFAULT_FORMAT,
   animate: true,
+  hover: true,
   width: 960,
   height: 540,
   padding: 32,
@@ -237,6 +242,7 @@ export function newChart(kind: ChartKind, index = 1): ChartSpec {
     paletteId: "varsayilan",
     colors: [],
     decor: emptyDecor(),
+    yerlesim: emptyLayout(),
     options: {
       ...DEFAULT_OPTIONS,
       legendPosition: kind === "ring" ? "right" : DEFAULT_OPTIONS.legendPosition,
