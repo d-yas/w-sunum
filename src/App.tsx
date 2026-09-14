@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 
 import { ChartCard } from "@/components/ChartCard";
+import { DecorPanel } from "@/components/DecorPanel";
+import { DecorStage } from "@/components/DecorStage";
 import { DataGrid } from "@/components/DataGrid";
 import { ColorsPanel, ExportPanel, KindPicker, OptionsPanel } from "@/components/Panels";
 import { copyBlobToClipboard, serializeElement, snapshotElement } from "@/lib/export-png";
@@ -9,7 +11,7 @@ import { buildPptx, type PptxSlide } from "@/lib/pptx";
 import { KIND_LABELS, newChart, type ChartKind, type ChartSpec, type Workspace } from "@/lib/spec";
 import { downloadBlob, downloadText, loadWorkspace, normalizeWorkspace, safeFilename, saveWorkspace } from "@/lib/storage";
 
-type Tab = "veri" | "gorunum" | "renk" | "disa";
+type Tab = "veri" | "gorunum" | "renk" | "susle" | "disa";
 
 export function App() {
   const [ws, setWs] = useState<Workspace>(() => initialWorkspace());
@@ -17,10 +19,14 @@ export function App() {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [zoom, setZoom] = useState<"fit" | 1>("fit");
+  const [decorSel, setDecorSel] = useState<string | null>(null);
   const stageRef = useRef<HTMLDivElement>(null);
   const [stageSize, setStageSize] = useState({ w: 800, h: 600 });
 
   const active = ws.charts.find((c) => c.id === ws.activeId) ?? ws.charts[0];
+
+  // A decoration selection belongs to one card; switching charts drops it.
+  useEffect(() => setDecorSel(null), [ws.activeId]);
 
   useEffect(() => {
     document.documentElement.dataset.theme = ws.theme;
@@ -155,15 +161,15 @@ export function App() {
     withBusy("SVG hazırlanıyor", async () => {
       let out = "";
       await renderStatic(async (node) => {
-        const svg = node.querySelector("svg");
+        // Not `querySelector("svg")` — since the decoration pack, the first
+        // <svg> in the card is the background layer. The chart is the one
+        // without a data-decor marker.
+        const svg = node.querySelector<SVGSVGElement>("svg:not([data-decor])");
         if (!svg) throw new Error("Bu grafikte SVG bulunamadı.");
-        const clone = svg.cloneNode(true) as SVGSVGElement;
-        inlineSvgStyles(svg, clone);
-        clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
-        const text = new XMLSerializer().serializeToString(clone);
+        const text = new XMLSerializer().serializeToString(buildCardSvg(node, svg, active.options.width, active.options.height));
         const name = `${safeFilename(active.title || active.name)}.svg`;
         downloadText(name, text, "image/svg+xml");
-        out = `İndirildi: ${name}. Not: SVG yalnız çizim alanını içerir (başlık ve gösterge hariç).`;
+        out = `İndirildi: ${name}. Not: SVG çizim alanını ve süslemeyi içerir; başlık ve gösterge HTML olduğu için dışarıda kalır.`;
       });
       return out;
     });
@@ -323,6 +329,7 @@ export function App() {
                 ["veri", "Veri"],
                 ["gorunum", "Görünüm"],
                 ["renk", "Renkler"],
+                ["susle", "Süsle"],
                 ["disa", "Dışa aktar"],
               ] as [Tab, string][]
             ).map(([t, l]) => (
@@ -339,6 +346,9 @@ export function App() {
             )}
             {tab === "gorunum" && <OptionsPanel spec={active} onChange={updateChart} />}
             {tab === "renk" && <ColorsPanel spec={active} theme={ws.theme} seriesNames={seriesNames} onChange={updateChart} />}
+            {tab === "susle" && (
+              <DecorPanel spec={active} theme={ws.theme} selectedId={decorSel} onSelect={setDecorSel} onChange={updateChart} />
+            )}
             {tab === "disa" && (
               <ExportPanel
                 scale={ws.export.scale}
@@ -396,6 +406,7 @@ export function App() {
             >
               <div
                 style={{
+                  position: "relative",
                   width: active.options.width * scale,
                   height: active.options.height * scale,
                   boxShadow: "0 12px 40px rgba(0,0,0,.14), 0 1px 3px rgba(0,0,0,.08)",
@@ -408,6 +419,9 @@ export function App() {
                   transparent={ws.export.background === "transparent"}
                   style={{ transform: `scale(${scale})`, transformOrigin: "top left" }}
                 />
+                {tab === "susle" && (
+                  <DecorStage spec={active} scale={scale} selectedId={decorSel} onSelect={setDecorSel} onChange={updateChart} />
+                )}
               </div>
             </div>
           </div>
@@ -445,6 +459,40 @@ function cssColorToHex(color: string): string | null {
   if (!m) return null;
   if (m[4] != null && Number(m[4]) === 0) return null;
   return [m[1], m[2], m[3]].map((v) => Number(v).toString(16).padStart(2, "0").toUpperCase()).join("");
+}
+
+/**
+ * Compose one card-sized SVG: background decoration, the chart translated to
+ * where it actually sits in the card, then foreground decoration.
+ *
+ * The decoration layers are copied verbatim — every asset writes explicit
+ * presentation attributes, so unlike the chart they need no style inlining.
+ * Their <text> asks to inherit the font, which is why the root carries one.
+ */
+const SVG_NS = "http://www.w3.org/2000/svg";
+
+function buildCardSvg(card: HTMLElement, chart: SVGSVGElement, width: number, height: number): SVGSVGElement {
+  const out = document.createElementNS(SVG_NS, "svg");
+  out.setAttribute("xmlns", SVG_NS);
+  out.setAttribute("width", String(width));
+  out.setAttribute("height", String(height));
+  out.setAttribute("viewBox", `0 0 ${width} ${height}`);
+  out.setAttribute("font-family", getComputedStyle(card).fontFamily);
+
+  const cardBox = card.getBoundingClientRect();
+  const layers = (phase: string) => Array.from(card.querySelectorAll<SVGSVGElement>(`svg[data-decor="${phase}"]`));
+  for (const layer of layers("arka")) out.appendChild(layer.cloneNode(true));
+
+  const box = chart.getBoundingClientRect();
+  const g = document.createElementNS(SVG_NS, "g");
+  g.setAttribute("transform", `translate(${Math.round(box.left - cardBox.left)} ${Math.round(box.top - cardBox.top)})`);
+  const clone = chart.cloneNode(true) as SVGSVGElement;
+  inlineSvgStyles(chart, clone);
+  g.appendChild(clone);
+  out.appendChild(g);
+
+  for (const layer of layers("on")) out.appendChild(layer.cloneNode(true));
+  return out;
 }
 
 /** Copy computed presentation styles onto a detached SVG clone so it renders standalone. */

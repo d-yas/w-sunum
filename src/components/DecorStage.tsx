@@ -1,0 +1,290 @@
+/**
+ * Direct manipulation for placed decoration.
+ *
+ * Deliberately *outside* the card. ChartCard's contract is that it renders the
+ * exact DOM that gets rasterised, so selection outlines and drag handles must
+ * never live inside it. This overlay sits on the stage, over the scaled card
+ * box, and only while the Süsle tab is open — which is what keeps chart
+ * tooltips working everywhere else.
+ *
+ * All arithmetic is in card space; the stage's zoom is divided out on the way
+ * in and multiplied back on the way out.
+ */
+import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+
+import type { DecorItem } from "@/decor/model";
+import { getAsset, newItem } from "@/decor/registry";
+import type { ChartSpec } from "@/lib/spec";
+
+type Corner = "nw" | "ne" | "sw" | "se";
+type Mode = { kind: "tasi" } | { kind: "boyut"; corner: Corner } | { kind: "dondur" };
+
+const CORNERS: Corner[] = ["nw", "ne", "sw", "se"];
+const SIGN: Record<Corner, [number, number]> = { nw: [-1, -1], ne: [1, -1], sw: [-1, 1], se: [1, 1] };
+const MIN = 8;
+/** How close, in card px, a drag has to get before it snaps to a guide. */
+const SNAP = 5;
+
+interface Drag {
+  mode: Mode;
+  id: string;
+  start: DecorItem;
+  /** Pointer position in card space when the drag began. */
+  px: number;
+  py: number;
+  shift: boolean;
+}
+
+export interface DecorStageProps {
+  spec: ChartSpec;
+  scale: number;
+  selectedId: string | null;
+  onSelect: (id: string | null) => void;
+  onChange: (s: ChartSpec) => void;
+}
+
+const rot = (x: number, y: number, deg: number) => {
+  const a = (deg * Math.PI) / 180;
+  const c = Math.cos(a);
+  const s = Math.sin(a);
+  return [x * c - y * s, x * s + y * c] as const;
+};
+
+export function DecorStage({ spec, scale, selectedId, onSelect, onChange }: DecorStageProps) {
+  const hostRef = useRef<HTMLDivElement>(null);
+  const dragRef = useRef<Drag | null>(null);
+  const [guides, setGuides] = useState<{ x: number[]; y: number[] }>({ x: [], y: [] });
+  const { width: CW, height: CH } = spec.options;
+
+  const items = spec.decor.nesneler;
+  const setItems = (next: DecorItem[]) => onChange({ ...spec, decor: { ...spec.decor, nesneler: next } });
+  const patch = (id: string, p: Partial<DecorItem>) => setItems(items.map((n) => (n.id === id ? { ...n, ...p } : n)));
+
+  /* ---------------- keyboard ---------------- */
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const el = e.target as HTMLElement | null;
+      // Never steal keys from the panel's own inputs.
+      if (el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT" || el.isContentEditable)) return;
+      if (e.key === "Escape") return onSelect(null);
+      if (!selectedId) return;
+      const it = items.find((n) => n.id === selectedId);
+      if (!it) return;
+      if ((e.key === "Delete" || e.key === "Backspace") && !it.kilit) {
+        e.preventDefault();
+        setItems(items.filter((n) => n.id !== selectedId));
+        onSelect(null);
+        return;
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "d") {
+        e.preventDefault();
+        const copy = newItem(it.asset, CW, CH);
+        if (!copy) return;
+        const clone: DecorItem = { ...it, id: copy.id, x: it.x + 16, y: it.y + 16 };
+        setItems([...items, clone]);
+        onSelect(clone.id);
+        return;
+      }
+      const step = e.shiftKey ? 10 : 1;
+      const nudge: Record<string, [number, number]> = {
+        ArrowLeft: [-step, 0],
+        ArrowRight: [step, 0],
+        ArrowUp: [0, -step],
+        ArrowDown: [0, step],
+      };
+      const d = nudge[e.key];
+      if (d && !it.kilit) {
+        e.preventDefault();
+        patch(it.id, { x: it.x + d[0], y: it.y + d[1] });
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  });
+
+  /* ---------------- pointer ---------------- */
+
+  const toCard = (e: { clientX: number; clientY: number }) => {
+    const r = hostRef.current?.getBoundingClientRect();
+    if (!r) return [0, 0] as const;
+    return [(e.clientX - r.left) / scale, (e.clientY - r.top) / scale] as const;
+  };
+
+  const begin = (e: ReactPointerEvent, id: string, mode: Mode) => {
+    const it = items.find((n) => n.id === id);
+    if (!it || it.kilit) return;
+    e.preventDefault();
+    e.stopPropagation();
+    (e.target as Element).setPointerCapture(e.pointerId);
+    const [px, py] = toCard(e);
+    dragRef.current = { mode, id, start: { ...it }, px, py, shift: e.shiftKey };
+    onSelect(id);
+  };
+
+  const onMove = (e: ReactPointerEvent) => {
+    const d = dragRef.current;
+    if (!d) return;
+    const [px, py] = toCard(e);
+    const s = d.start;
+    const def = getAsset(s.asset);
+    const keepRatio = e.shiftKey || def?.square === true;
+
+    if (d.mode.kind === "tasi") {
+      let nx = s.x + (px - d.px);
+      let ny = s.y + (py - d.py);
+      if (e.shiftKey) {
+        // Axis lock: whichever direction moved further wins.
+        if (Math.abs(px - d.px) > Math.abs(py - d.py)) ny = s.y;
+        else nx = s.x;
+      }
+      const snapped = snap(nx, ny, s.w, s.h, CW, CH);
+      setGuides(snapped.guides);
+      patch(d.id, { x: snapped.x, y: snapped.y });
+      return;
+    }
+
+    if (d.mode.kind === "dondur") {
+      const cx = s.x + s.w / 2;
+      const cy = s.y + s.h / 2;
+      let deg = (Math.atan2(py - cy, px - cx) * 180) / Math.PI + 90;
+      if (e.shiftKey) deg = Math.round(deg / 15) * 15;
+      if (deg > 180) deg -= 360;
+      if (deg < -180) deg += 360;
+      patch(d.id, { aci: Math.round(deg * 10) / 10 });
+      return;
+    }
+
+    // Resize: hold the opposite corner still in card space, so the box grows
+    // along its own axes no matter how far it has been rotated.
+    const [sx, sy] = SIGN[d.mode.corner];
+    const cx = s.x + s.w / 2;
+    const cy = s.y + s.h / 2;
+    const [ax, ay] = rot((-sx * s.w) / 2, (-sy * s.h) / 2, s.aci);
+    const AX = cx + ax;
+    const AY = cy + ay;
+    const [qx, qy] = rot(px - AX, py - AY, -s.aci);
+    let nw = Math.max(MIN, sx * qx);
+    let nh = Math.max(MIN, sy * qy);
+    if (keepRatio) {
+      const ratio = s.h / s.w || 1;
+      if (nw * ratio > nh) nh = nw * ratio;
+      else nw = nh / ratio;
+    }
+    const [ox, oy] = rot((sx * nw) / 2, (sy * nh) / 2, s.aci);
+    patch(d.id, {
+      w: Math.round(nw),
+      h: Math.round(nh),
+      x: Math.round(AX + ox - nw / 2),
+      y: Math.round(AY + oy - nh / 2),
+    });
+  };
+
+  const end = (e: ReactPointerEvent) => {
+    if (!dragRef.current) return;
+    try {
+      (e.target as Element).releasePointerCapture(e.pointerId);
+    } catch {
+      /* pointer already gone */
+    }
+    dragRef.current = null;
+    setGuides({ x: [], y: [] });
+  };
+
+  return (
+    <div
+      ref={hostRef}
+      className="decor-overlay"
+      onPointerMove={onMove}
+      onPointerUp={end}
+      onPointerCancel={end}
+      onPointerDown={(e) => {
+        if (e.target === hostRef.current) onSelect(null);
+      }}
+    >
+      {items.map((it) => {
+        if (it.gizli) return null;
+        const sel = it.id === selectedId;
+        return (
+          <div
+            key={it.id}
+            className="decor-box"
+            data-selected={sel ? "true" : undefined}
+            data-locked={it.kilit ? "true" : undefined}
+            style={{
+              left: it.x * scale,
+              top: it.y * scale,
+              width: it.w * scale,
+              height: it.h * scale,
+              transform: it.aci ? `rotate(${it.aci}deg)` : undefined,
+              transformOrigin: "center",
+            }}
+            onPointerDown={(e) => (it.kilit ? onSelect(it.id) : begin(e, it.id, { kind: "tasi" }))}
+          >
+            {sel && !it.kilit && (
+              <>
+                {CORNERS.map((c) => {
+                  const [sx, sy] = SIGN[c];
+                  return (
+                    <div
+                      key={c}
+                      className="decor-handle"
+                      style={{
+                        left: sx < 0 ? -5 : undefined,
+                        right: sx > 0 ? -5 : undefined,
+                        top: sy < 0 ? -5 : undefined,
+                        bottom: sy > 0 ? -5 : undefined,
+                        cursor: c === "nw" || c === "se" ? "nwse-resize" : "nesw-resize",
+                      }}
+                      onPointerDown={(e) => begin(e, it.id, { kind: "boyut", corner: c })}
+                    />
+                  );
+                })}
+                <div
+                  className="decor-handle decor-rotate"
+                  style={{ left: "50%", top: -22, marginLeft: -5, cursor: "grab" }}
+                  onPointerDown={(e) => begin(e, it.id, { kind: "dondur" })}
+                  title="Döndür (Shift = 15°)"
+                />
+                <div style={{ position: "absolute", left: "50%", top: -13, width: 1, height: 13, background: "var(--ring)", marginLeft: -0.5 }} />
+              </>
+            )}
+          </div>
+        );
+      })}
+      {guides.x.map((gx, i) => (
+        <div key={`x${i}`} className="decor-guide" style={{ left: gx * scale, top: 0, width: 1, height: "100%" }} />
+      ))}
+      {guides.y.map((gy, i) => (
+        <div key={`y${i}`} className="decor-guide" style={{ top: gy * scale, left: 0, height: 1, width: "100%" }} />
+      ))}
+    </div>
+  );
+}
+
+/**
+ * Pull a moving box onto the card's edges, centre lines and thirds. Compares
+ * the box's own leading edge, centre and trailing edge against each guide, so
+ * a shape snaps by whichever part of it is closest.
+ */
+function snap(x: number, y: number, w: number, h: number, CW: number, CH: number) {
+  const linesX = [0, CW / 3, CW / 2, (CW * 2) / 3, CW];
+  const linesY = [0, CH / 3, CH / 2, (CH * 2) / 3, CH];
+  const hit = (v: number, size: number, lines: number[]) => {
+    let best: { delta: number; line: number } | null = null;
+    for (const anchor of [v, v + size / 2, v + size]) {
+      for (const line of lines) {
+        const delta = line - anchor;
+        if (Math.abs(delta) <= SNAP && (!best || Math.abs(delta) < Math.abs(best.delta))) best = { delta, line };
+      }
+    }
+    return best;
+  };
+  const bx = hit(x, w, linesX);
+  const by = hit(y, h, linesY);
+  return {
+    x: Math.round(bx ? x + bx.delta : x),
+    y: Math.round(by ? y + by.delta : y),
+    guides: { x: bx ? [bx.line] : [], y: by ? [by.line] : [] },
+  };
+}

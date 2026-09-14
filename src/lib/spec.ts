@@ -1,3 +1,5 @@
+import { emptyDecor, type DecorState } from "@/decor/model";
+
 import { DEFAULT_FORMAT, type DateGranularity, type NumberFormatSpec } from "./format";
 
 export type ChartKind = "line" | "area" | "bar" | "barH" | "ring" | "heatmap" | "sankey";
@@ -63,6 +65,8 @@ export interface ChartSpec {
   paletteId: string;
   colors: string[];
   options: ChartOptions;
+  /** Textures, lights, frames and placed objects — see src/decor. */
+  decor: DecorState;
 }
 
 export type ExportBackground = "theme" | "transparent";
@@ -232,6 +236,7 @@ export function newChart(kind: ChartKind, index = 1): ChartSpec {
     data: sampleData(kind),
     paletteId: "varsayilan",
     colors: [],
+    decor: emptyDecor(),
     options: {
       ...DEFAULT_OPTIONS,
       legendPosition: kind === "ring" ? "right" : DEFAULT_OPTIONS.legendPosition,

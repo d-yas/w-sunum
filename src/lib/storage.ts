@@ -1,3 +1,5 @@
+import { normalizeDecor } from "@/decor/model";
+
 import { DEFAULT_OPTIONS, defaultWorkspace, type ChartSpec, type Workspace } from "./spec";
 import { DEFAULT_FORMAT } from "./format";
 
@@ -57,6 +59,9 @@ export function normalizeChart(input: unknown): ChartSpec {
     paletteId: c.paletteId ?? "varsayilan",
     colors: Array.isArray(c.colors) ? c.colors.map(String) : [],
     options: { ...DEFAULT_OPTIONS, ...(c.options ?? {}), format: { ...DEFAULT_FORMAT, ...(c.options?.format ?? {}) } },
+    // Added after v1 shipped — workspaces saved before the decoration pack
+    // simply come back undecorated instead of failing to load.
+    decor: normalizeDecor(c.decor),
   };
 }
 

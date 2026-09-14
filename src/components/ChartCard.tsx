@@ -1,6 +1,8 @@
 import { curveLinear, curveMonotoneX, curveNatural, curveStepAfter } from "@visx/curve";
 import { MotionConfig } from "motion/react";
-import { forwardRef, useMemo, useState, type CSSProperties, type ReactNode } from "react";
+import { forwardRef, useId, useMemo, useState, type CSSProperties, type ReactNode } from "react";
+
+import { DecorLayer } from "@/decor/DecorLayer";
 
 import { Area } from "@/charts/area";
 import { AreaChart } from "@/charts/area-chart";
@@ -77,6 +79,12 @@ export const ChartCard = forwardRef<HTMLDivElement, ChartCardProps>(function Cha
     <ChartBody spec={spec} colors={colors} isStatic={isStatic} theme={theme} />
   );
 
+  // One prefix per rendered instance. The stage card and the offscreen export
+  // card are alive at the same time, and url(#id) resolves per *document*, so
+  // pattern and gradient ids must not collide between the two.
+  const decorUid = `d${useId().replace(/:/g, "")}`;
+  const decorProps = { decor: spec.decor, w: o.width, h: o.height, uid: decorUid, colors, theme } as const;
+
   return (
     <div
       ref={ref}
@@ -91,8 +99,9 @@ export const ChartCard = forwardRef<HTMLDivElement, ChartCardProps>(function Cha
         ...style,
       }}
     >
+      <DecorLayer {...decorProps} phase="arka" />
       {(spec.title || spec.subtitle) && (
-        <header style={{ marginBottom: o.chartInset + 4 }}>
+        <header style={{ position: "relative", zIndex: 1, marginBottom: o.chartInset + 4 }}>
           {spec.title && (
             <div className="slide-title" style={{ fontSize: o.titleSize }}>
               {spec.title}
@@ -105,7 +114,7 @@ export const ChartCard = forwardRef<HTMLDivElement, ChartCardProps>(function Cha
           )}
         </header>
       )}
-      <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
+      <div style={{ position: "relative", zIndex: 1, flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
         {isStatic && spec.kind !== "sankey" ? (
           <MotionConfig reducedMotion="always">
             <StaticChartPreviewProvider>{body}</StaticChartPreviewProvider>
@@ -114,8 +123,9 @@ export const ChartCard = forwardRef<HTMLDivElement, ChartCardProps>(function Cha
           body
         )}
       </div>
+      <DecorLayer {...decorProps} phase="on" />
       {spec.note && (
-        <footer className="slide-note" style={{ fontSize: Math.max(10, Math.round(o.titleSize * 0.5)), marginTop: o.chartInset }}>
+        <footer className="slide-note" style={{ position: "relative", zIndex: 1, fontSize: Math.max(10, Math.round(o.titleSize * 0.5)), marginTop: o.chartInset }}>
           {spec.note}
         </footer>
       )}

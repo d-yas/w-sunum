@@ -256,6 +256,56 @@ textarea.inp { height: auto; padding: 6px 8px; resize: vertical; }
 .swatch::-webkit-color-swatch-wrapper { padding: 0; }
 .swatch::-webkit-color-swatch { border: 0; border-radius: 5px; }
 
+/* Sliders — decoration parameters are all continuous, so the decor panel
+   needs a range control the rest of the studio never did. */
+.rng { flex: 1; min-width: 0; height: 18px; appearance: none; background: transparent; cursor: pointer; }
+.rng::-webkit-slider-runnable-track { height: 4px; border-radius: 999px; background: var(--input); }
+.rng::-webkit-slider-thumb {
+  appearance: none; margin-top: -5px; height: 14px; width: 14px; border-radius: 999px;
+  background: var(--card); border: 1px solid var(--muted-foreground); box-shadow: 0 1px 2px rgba(0,0,0,.2);
+}
+.rng:focus { outline: none; }
+.rng:focus::-webkit-slider-thumb { border-color: var(--ring); box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 25%, transparent); }
+.rng-val { width: 46px; text-align: right; font-size: 11px; font-variant-numeric: tabular-nums; color: var(--muted-foreground); flex-shrink: 0; }
+
+/* Decoration gallery */
+.decor-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.decor-cell {
+  display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 5px 3px 4px;
+  border-radius: 8px; border: 1px solid var(--border); background: var(--card); cursor: pointer;
+  font-size: 9px; line-height: 1.15; color: var(--muted-foreground); font-family: inherit; text-align: center;
+}
+.decor-cell:hover { background: var(--accent); border-color: var(--muted-foreground); }
+.decor-cell[aria-pressed="true"] { border-color: var(--foreground); color: var(--foreground); }
+.decor-cell svg { display: block; border-radius: 4px; background: var(--muted); }
+.decor-cell span { display: block; width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.decor-row {
+  display: flex; align-items: center; gap: 6px; padding: 4px 6px; border-radius: 6px; width: 100%;
+  border: 1px solid transparent; background: transparent; cursor: pointer; font-family: inherit; font-size: 12px;
+  color: var(--foreground); text-align: left;
+}
+.decor-row:hover { background: var(--accent); }
+.decor-row[aria-selected="true"] { border-color: var(--foreground); background: var(--accent); }
+.decor-row .grow { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.icon-btn {
+  height: 22px; width: 22px; flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 5px; border: 0; background: transparent; color: var(--muted-foreground); cursor: pointer; font-family: inherit; font-size: 12px;
+}
+.icon-btn:hover { background: var(--muted); color: var(--foreground); }
+
+/* Decoration editing overlay — lives on the stage, never inside the card */
+.decor-overlay { position: absolute; inset: 0; }
+.decor-box { position: absolute; box-sizing: border-box; cursor: move; }
+.decor-box[data-locked="true"] { cursor: default; }
+.decor-box[data-selected="true"] { outline: 1px solid var(--ring); outline-offset: 0; }
+.decor-box:hover:not([data-selected="true"]) { outline: 1px dashed color-mix(in oklab, var(--ring) 60%, transparent); }
+.decor-handle {
+  position: absolute; height: 9px; width: 9px; border-radius: 2px; background: var(--card);
+  border: 1px solid var(--ring); box-sizing: border-box;
+}
+.decor-rotate { border-radius: 999px; }
+.decor-guide { position: absolute; background: var(--destructive); pointer-events: none; }
+
 /* Data grid */
 .grid-wrap { overflow: auto; border: 1px solid var(--border); border-radius: 8px; background: var(--card); max-height: 100%; }
 .grid-table { border-collapse: separate; border-spacing: 0; width: max-content; min-width: 100%; font-size: 12px; }

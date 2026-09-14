@@ -19,7 +19,14 @@ Paylaşmak için yalnız bu dosyayı gönderin.
    ön ek/son ek, kısaltma).
 5. **Renkler**: dört palet (varsayılan palet renk körlüğü için doğrulanmış)
    ve seri başına özel renk.
-6. **Dışa aktar**: `PNG indir` (1×–4×), `Panoya kopyala` (PowerPoint'e Ctrl+V),
+6. **Süsle**: doku, ışık ve çerçeve zemin olarak seçilir (üçü aynı anda
+   durabilir); ok, ikon, işaret ve balonlar galeriden tıklanıp karta düşer,
+   sahnede sürüklenir, köşeden boyutlandırılır, üstteki tutamaçtan
+   döndürülür. Renkleri varsayılan olarak grafiğin paletinden gelir.
+   Kısayollar: `Shift` eksene/orana/15°'ye kilitler, ok tuşları 1 px
+   (`Shift` ile 10 px) kaydırır, `Del` siler, `Ctrl+D` çoğaltır, `Esc`
+   seçimi bırakır. Süslemeler PNG, PPTX ve SVG çıktılarına girer.
+7. **Dışa aktar**: `PNG indir` (1×–4×), `Panoya kopyala` (PowerPoint'e Ctrl+V),
    `SVG indir`, tema ya da şeffaf arka plan. **PowerPoint**: `Slayt olarak indir`
    tek grafiği, `Tüm grafikler` çalışma alanındaki her grafiği birer 16:9 slayt
    olarak .pptx dosyasına yazar; açıp slaytları kendi sununuza sürükleyin.
@@ -39,12 +46,19 @@ pnpm build        # dist/index.html + veri-gorsel.html — tek dosya
 pnpm typecheck
 pnpm test:parse   # sayı / tarih / CSV ayrıştırma birim testleri (Node, bağımlılık yok)
 pnpm kontrol      # node scripts/cdp-check.mjs [kind] [theme] [sekme] — headless Chrome duman testi
+pnpm test:susle   # süslemeler dışa aktarımda hayatta kalıyor mu — piksel ölçer
 ```
+
+`pnpm test:susle` her varlık ailesinden bir örneği boş bir kartın köşesine
+koyar, PNG'ye aktarır ve o köşedeki pikseli geri okur — `mask`, `feTurbulence`
+ve `pattern` `<foreignObject>` hattında sessizce düşebildiği için tek güvenilir
+kontrol bu. SVG indirmeyi de gerçek düğmesinden sürer. Bir varlık kaybolursa
+betik 1 ile çıkar.
 
 `pnpm kontrol` derlenmiş dosyayı headless Chrome'da açar, konsol hatalarını
 yazar, ekran görüntüsü alır ve PNG dışa aktarımını çalıştırır
 (`scripts/out/`). İsteğe bağlı üçüncü argüman sol paneldeki sekmeyi açar
-(1 Veri … 4 Dışa aktar). `DUMP_MARKUP=1` dışa aktarımın ara SVG'sini,
+(1 Veri, 2 Görünüm, 3 Renkler, 4 Süsle, 5 Dışa aktar). `DUMP_MARKUP=1` dışa aktarımın ara SVG'sini,
 `EVAL_FILE=dosya.js` ise o dosyadaki ifadeyi sayfada çalıştırıp sonucunu
 yazar. pnpm 11'de esbuild'in kurulum betiği `pnpm-workspace.yaml` içindeki
 `allowBuilds` ile onaylıdır; `pnpm approve-builds` gerekmez.
@@ -67,6 +81,14 @@ yazar. pnpm 11'de esbuild'in kurulum betiği `pnpm-workspace.yaml` içindeki
 - `src/lib/export-png.ts` — DOM klonu + hesaplanmış stil gömme +
   `<foreignObject>` → canvas → PNG. Kütüphane yok. `data:` URL kullanılır;
   `file://` üzerinde `blob:` URL canvas'ı kirletir (opak origin).
+- `src/decor/` — SVG süsleme paketi. `types.ts` sözleşme ve geometri
+  yardımcıları; `textures/lights/frames/arrows/icons/marks/balloons` varlık
+  aileleri; `registry.ts` tek arama noktası; `model.ts` kaydedilen biçim
+  (React'ten ve kayıttan bağımsız, bu yüzden `spec.ts` onu döngüsüz
+  import edebiliyor); `DecorLayer.tsx` kartın içinde çizer. Her varlık
+  kutusunun **gerçek piksel boyutunda** çizer — sabit bir viewBox'ı esnetmez,
+  bu yüzden 400×60 bir ok ile 90×90 bir ikon aynı kalitede çıkar. Hiçbir
+  varlık dosya değil, hepsi koddan üretilir.
 - `src/components/ChartCard.tsx` — slayt kartı. Sahnede ve ekran dışı dışa
   aktarımda aynı bileşen, aynı piksel boyutu.
 - Token'lar `src/index.css` içinde: açık palet `:root`, koyu palet
@@ -82,4 +104,10 @@ yazar. pnpm 11'de esbuild'in kurulum betiği `pnpm-workspace.yaml` içindeki
 - Dışa aktarım statik bir kopya çizer: giriş animasyonu sıfır süreli
   (`enterTransition`), ayrıca karttaki tüm WAAPI animasyonları bitene kadar
   (en çok 3 s) beklenir. Sankey dâhil her tür bitmiş hâliyle alınır.
-- SVG indirme yalnız çizim alanını içerir (başlık/gösterge HTML'dir).
+- SVG indirme çizim alanını ve süslemeyi içerir; başlık ve gösterge HTML
+  olduğu için dışarıda kalır. PNG ve PPTX ise kartın tamamını verir.
+- Süsleme katmanları `z-index` ile sıralanır ve kartın kendi içeriği
+  `z-index: 1`'e sabitlenmiştir. Bu şart: sahnedeki kartta `scale()` dönüşümü
+  sessizce bir yığın bağlamı kurar, ekran dışı dışa aktarım kartında kurmaz —
+  negatif `z-index` kullanan ilk sürüm ekranda doğru görünüp her PNG'de
+  kayboluyordu.
