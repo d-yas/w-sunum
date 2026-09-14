@@ -153,6 +153,10 @@ export interface TimeSeriesChartInnerProps {
   composedStackGap?: number;
   /** When set, drives the y-axis max instead of scanning `lines` (e.g. stacked bar totals). */
   yScaleDomainMax?: number;
+  /** Veri Görsel eki: y aralığını elle sabitle [alt, üst]; null olan uç
+   * otomatik kalır. `nice`tan **sonra** uygulanır — kullanıcının yazdığı 95'i
+   * 100'e yuvarlamak ayarı sessizce ezmek olurdu. */
+  yDomainOverride?: [number | null, number | null];
   /** Loading vs ready — drives chart phase until transition orchestration lands. */
   chartStatus?: ChartStatus;
   loadingLabel?: string;
@@ -198,6 +202,7 @@ const TimeSeriesChartCore = memo(function TimeSeriesChartCore({
   composedStackOffsets,
   composedStackGap,
   yScaleDomainMax,
+  yDomainOverride,
   chartStatus = DEFAULT_CHART_STATUS,
   loadingLabel,
   yDomainTween = true,
@@ -335,10 +340,14 @@ const TimeSeriesChartCore = memo(function TimeSeriesChartCore({
   );
 
   const yDomainTargetByAxis = useMemo(() => {
+    const override = (d: [number, number]): [number, number] => [
+      yDomainOverride?.[0] ?? d[0],
+      yDomainOverride?.[1] ?? d[1],
+    ];
     const base = computeYDomainsByAxis({
       lines,
       resolveDomain: (dataKeys) =>
-        resolveYDomain(xDomain ? visiblePlotData : data, dataKeys),
+        override(resolveYDomain(xDomain ? visiblePlotData : data, dataKeys)),
     });
     if (projectionConfigs.length === 0) {
       return base;
@@ -368,6 +377,7 @@ const TimeSeriesChartCore = memo(function TimeSeriesChartCore({
     resolveYDomain,
     visiblePlotData,
     xDomain,
+    yDomainOverride,
   ]);
 
   const animatedYDomainsByAxis = useAnimatedYDomains({

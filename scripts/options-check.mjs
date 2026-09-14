@@ -79,6 +79,27 @@ try {
   const order = [...desc.matchAll(/>(bir|iki|uc)</g)].map((m) => m[1]);
   report(order[0] === "iki" && order[order.length - 1] === "bir", "sirala", `sıra ${order.join(" ")}`);
 
+  /* --- 5. değer aralığı: y ekseni üst sınırı kullanıcının yazdığı sayı --- */
+  const capped = await markup("bar", { yAxis: true, yMax: 60, yTicks: 4 });
+  // Y eksen etiketi x="-10"da duruyor (axes.tsx); dışa aktarım öznitelikleri
+  // kebab-case'e çevirdiği için seçici `text-anchor` değil konuma bakıyor.
+  const yTexts = [...capped.matchAll(/<text x="-10"[^>]*>([\d.,]+)</g)].map((m) => m[1]);
+  // nice() yalnız üst sınır otomatikken uygulanır; 60 yazıldıysa 60 görünmeli.
+  report(yTexts.includes("60"), "deger-araligi", `y etiketleri [${yTexts.join(",")}]`);
+
+  /* --- 6. etiket açısı --- */
+  const rotated = await markup("bar", { xAxis: true, xTickAngle: 90 });
+  report(/rotate\(-90 /.test(rotated), "etiket-acisi", /rotate\(-90 /.test(rotated) ? "rotate(-90 …) var" : "dönme yok");
+
+  /* --- 7. eksen adları --- */
+  const titled = await markup("bar", { xAxis: true, yAxis: true, xTitle: "Çeyrek", yTitle: "Adet" });
+  report(titled.includes("Çeyrek") && titled.includes("Adet"), "eksen-adlari", "iki ad da SVG'de");
+
+  /* --- 8. çizgi grafiğinde tahmin kesiği --- */
+  const forecast = await markup("line", { forecastFrom: 2 });
+  const dashes = [...forecast.matchAll(/stroke-dasharray:\s*([^;"]+)/g)].map((m) => m[1].trim());
+  report(dashes.some((d) => d.startsWith("6")), "tahmin-kesigi", `dasharray [${dashes.join(" | ") || "yok"}]`);
+
   const errs = problems();
   console.log("console:", errs.length ? "\n  " + errs.join("\n  ") : "(clean)");
   if (errs.length) failures++;

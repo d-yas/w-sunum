@@ -26,7 +26,7 @@ import { SankeyChart, SankeyLink, SankeyNode, SankeyTooltip } from "@/charts/san
 import { StaticChartPreviewProvider } from "@/charts/static-chart-preview-context";
 import { ChartTooltip, TooltipContent } from "@/charts/tooltip";
 import { AccentBar, CardDecor } from "@/decor";
-import { BarValueAxis, BarXAxis, XAxis, YAxis } from "@/ext/axes";
+import { BarValueAxis, BarXAxis, XAxis, YAxis, resolveAngle, tickOverhang } from "@/ext/axes";
 import { toCartesian, toHeatmap, toRing, toSankey, type CartesianModel } from "@/lib/adapters";
 import { formatDateLong, formatNumber, type NumberFormatSpec } from "@/lib/format";
 import { getPalette, seriesColor, type Palette } from "@/lib/palettes";
@@ -287,11 +287,16 @@ function CartesianTime({ spec, colors, isStatic }: Omit<BodyProps, "theme">) {
   // Dates drive spacing whenever they parse; the axis shows the user's own
   // labels unless they explicitly asked for date formatting.
   const formatAsDate = model.xIsDate && o.xMode === "date";
+  const longest = model.labels.reduce((a, l) => Math.max(a, l.length), 0);
+  // Tarih ekseninde etiketler kendiliğinden seyreltiliyor (XAxis minGap), o
+  // yüzden eğmeye gerek yok; eğik yazı yalnız kategorik eksende iş görüyor.
+  const slotGuess = Math.max(12, (o.width - o.padding * 2 - 80) / Math.max(1, model.labels.length));
+  const angle = formatAsDate ? 0 : resolveAngle(o.xTickAngle, slotGuess, longest);
   const margin = {
     top: 12,
     right: 16,
-    bottom: o.xAxis ? 30 : 8,
-    left: o.yAxis ? leftMargin(model, o) : 8,
+    bottom: (o.xAxis ? 30 + tickOverhang(angle, longest) : 8) + (o.xTitle ? 16 : 0),
+    left: (o.yAxis ? leftMargin(model, o) : 8) + (o.yTitle ? 16 : 0),
   };
 
   return (
@@ -305,9 +310,10 @@ function CartesianTime({ spec, colors, isStatic }: Omit<BodyProps, "theme">) {
         animationDuration={isStatic || !o.animate ? 0 : 1100}
         enterTransition={isStatic ? INSTANT : undefined}
         revealSignature={`${spec.id}-${spec.kind}`}
+        yDomain={[o.yMin, o.yMax]}
       >
         {o.grid && <Grid horizontal vertical={o.gridVertical} numTicksRows={o.yTicks} numTicksColumns={Math.min(12, model.rows.length)} />}
-        {o.yAxis && <YAxis numTicks={o.yTicks} format={o.format} />}
+        {o.yAxis && <YAxis numTicks={o.yTicks} format={o.format} title={o.yTitle} />}
         {o.xAxis && (
           <XAxis
             labels={model.labels}
@@ -315,6 +321,8 @@ function CartesianTime({ spec, colors, isStatic }: Omit<BodyProps, "theme">) {
             locale={o.format.locale}
             granularity={o.dateGranularity}
             spanMs={model.spanMs}
+            angle={angle}
+            title={o.xTitle}
           />
         )}
         {model.series.map((s, i) => (
@@ -324,11 +332,17 @@ function CartesianTime({ spec, colors, isStatic }: Omit<BodyProps, "theme">) {
             stroke={colors[i]}
             fill={colors[i]}
             fillOpacity={isArea ? o.areaOpacity : 0}
-            gradientToOpacity={0}
+            // Gradyan açıkken dolgu tabana doğru saydamlaşır; kapalıyken düz
+            // bir renk olur. Bklit'te "bitiş opaklığı" tersten ifade edildiği
+            // için açık hâl 0, kapalı hâl dolgunun kendi opaklığı.
+            gradientToOpacity={o.areaGradient ? 0 : o.areaOpacity}
             strokeWidth={o.strokeWidth}
             curve={CURVES[o.curve]}
             showMarkers={o.showMarkers}
             animate={!isStatic && o.animate}
+            // Tahmin kesiği: kullanıcı 1 tabanlı satır numarası yazıyor,
+            // Bklit 0 tabanlı dizin bekliyor.
+            dashFromIndex={o.forecastFrom == null ? undefined : Math.max(0, o.forecastFrom - 1)}
           />
         ))}
         {!isStatic && o.hover && (
@@ -371,9 +385,26 @@ function Bars({ spec, colors, isStatic }: Omit<BodyProps, "theme">) {
     ? model.labels.map((label, i) => ({ label, value: Number(model.rows[i]?.[model.series[0].key] ?? 0), color: colors[i % colors.length] }))
     : model.series.map((s, i) => ({ label: s.name, value: s.total, color: colors[i] }));
   const longest = model.labels.reduce((a, l) => Math.max(a, l.length), 0);
+  // Etiket açısı kenar boşluğunu belirliyor, kenar boşluğu da bandı: ikisi
+  // birbirine bağlı. Döngüyü kesmek için açı bandın *kenar boşluğundan
+  // bağımsız* kaba tahminiyle çözülüyor (çizim genişliği eksi sol/sağ pay),
+  // sonra boşluk ona göre büyütülüyor.
+  const slotGuess = Math.max(12, (o.width - o.padding * 2 - 80) / Math.max(1, model.labels.length));
+  const angle = horizontal ? 0 : resolveAngle(o.xTickAngle, slotGuess, longest);
+  const xBand = o.xAxis ? 30 + tickOverhang(angle, longest) : 8;
   const margin = horizontal
-    ? { top: 8, right: 16, bottom: o.xAxis ? 30 : 8, left: Math.min(160, Math.max(56, longest * 7 + 16)) }
-    : { top: 12, right: 16, bottom: o.xAxis ? 30 : 8, left: o.yAxis ? leftMargin(model, o) : 8 };
+    ? {
+        top: 8,
+        right: 16,
+        bottom: (o.xAxis ? 30 : 8) + (o.xTitle ? 16 : 0),
+        left: Math.min(160, Math.max(56, longest * 7 + 16)) + (o.yTitle ? 16 : 0),
+      }
+    : {
+        top: 12,
+        right: 16,
+        bottom: xBand + (o.xTitle ? 16 : 0),
+        left: (o.yAxis ? leftMargin(model, o) : 8) + (o.yTitle ? 16 : 0),
+      };
 
   return (
     <WithLegend spec={spec} items={items}>
@@ -391,6 +422,7 @@ function Bars({ spec, colors, isStatic }: Omit<BodyProps, "theme">) {
         animationDuration={isStatic || !o.animate ? 0 : 1100}
         enterTransition={isStatic ? INSTANT : undefined}
         revealSignature={`${spec.id}-${spec.kind}-${o.stacked}`}
+        valueDomain={[o.yMin, o.yMax]}
       >
         {o.grid && (
           <Grid
@@ -416,12 +448,12 @@ function Bars({ spec, colors, isStatic }: Omit<BodyProps, "theme">) {
         {horizontal ? (
           <>
             <BarYAxis />
-            {o.xAxis && <BarValueAxis numTicks={o.yTicks} format={o.format} />}
+            {o.xAxis && <BarValueAxis numTicks={o.yTicks} format={o.format} title={o.xTitle} />}
           </>
         ) : (
           <>
-            {o.yAxis && <YAxis numTicks={o.yTicks} format={o.format} />}
-            {o.xAxis && <BarXAxis />}
+            {o.yAxis && <YAxis numTicks={o.yTicks} format={o.format} title={o.yTitle} />}
+            {o.xAxis && <BarXAxis angle={angle} title={o.xTitle} />}
           </>
         )}
         {!isStatic && o.hover && (

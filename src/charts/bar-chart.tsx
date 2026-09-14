@@ -85,6 +85,10 @@ export interface BarChartProps {
   stacked?: boolean;
   /** Gap between stacked bar segments in pixels. Default: 0 */
   stackGap?: number;
+  /** Veri Görsel eki: değer ekseni aralığı [alt, üst]; null = otomatik.
+   * Alt sınır 0'ın altına inemez — `Bar` çubuğu `innerHeight`tan büyütüyor,
+   * negatif tabanın karşılığı yok (bkz. README, Bilinen sınırlar). */
+  valueDomain?: [number | null, number | null];
   /** When set, tooltip Y positions snap to the top square center (shape variant). */
   squareSnap?: { squareGap: number; groupGap?: number; fit?: boolean };
   /** Child components (Bar, Grid, ChartTooltip, etc.). Optional — omit for a
@@ -158,6 +162,7 @@ interface ChartInnerProps {
   orientation: BarOrientation;
   stacked: boolean;
   stackGap: number;
+  valueDomain?: [number | null, number | null];
   squareSnap?: { squareGap: number; groupGap?: number; fit?: boolean };
   children: ReactNode;
   containerRef: React.RefObject<HTMLDivElement | null>;
@@ -185,6 +190,7 @@ const ChartCore = memo(function ChartCore({
   revealSignature = "",
   barGap,
   barWidthProp,
+  valueDomain,
   orientation,
   stacked,
   stackGap,
@@ -283,12 +289,16 @@ const ChartCore = memo(function ChartCore({
   // Value scale (linear) - for the value axis
   const valueScale = useMemo(() => {
     const range = isHorizontal ? [0, innerWidth] : [innerHeight, 0];
+    const lo = Math.max(0, valueDomain?.[0] ?? 0);
+    const hi = valueDomain?.[1] ?? maxValue * 1.1;
     return scaleLinear({
       range,
-      domain: [0, maxValue * 1.1],
-      nice: true,
+      domain: [lo, hi],
+      // `nice` only while the ceiling is automatic: it would round a
+      // deliberate 95 up to 100 and quietly overrule the user.
+      nice: valueDomain?.[1] == null,
     });
-  }, [innerWidth, innerHeight, maxValue, isHorizontal]);
+  }, [innerWidth, innerHeight, maxValue, isHorizontal, valueDomain]);
 
   const yScales = useMemo(() => {
     if (isHorizontal) {
@@ -308,10 +318,10 @@ const ChartCore = memo(function ChartCore({
             }
           }
         }
-        return [0, (max || 100) * 1.1];
+        return [Math.max(0, valueDomain?.[0] ?? 0), valueDomain?.[1] ?? (max || 100) * 1.1];
       },
     });
-  }, [data, innerHeight, isHorizontal, lines, valueScale]);
+  }, [data, innerHeight, isHorizontal, lines, valueScale, valueDomain]);
 
   const primaryYScale = getPrimaryYScale(yScales, valueScale);
 
@@ -684,6 +694,7 @@ export function BarChart({
   orientation = "vertical",
   stacked = false,
   stackGap = 0,
+  valueDomain,
   squareSnap,
   children,
   onPhaseChange,
@@ -705,6 +716,7 @@ export function BarChart({
             animationEasing={animationEasing}
             barGap={barGap}
             barWidthProp={barWidth}
+            valueDomain={valueDomain}
             containerRef={containerRef}
             data={data}
             enterTransition={enterTransition}

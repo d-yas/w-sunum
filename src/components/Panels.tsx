@@ -319,6 +319,33 @@ export function OptionsPanel({ spec, onChange }: { spec: ChartSpec; onChange: (s
           <Field label="Değer adımı" hint="Izgara çizgisi / etiket sayısı">
             <Num value={o.yTicks} min={2} max={12} onChange={(v) => set({ yTicks: v ?? 5 })} />
           </Field>
+          <Field label="Değer aralığı" hint="Boş = veriye göre otomatik. Alt sınır 0'ın altına inemez.">
+            <div className="flex items-center gap-1">
+              <Num value={o.yMin} allowEmpty width={62} onChange={(v) => set({ yMin: v })} />
+              <span className="text-[11px] text-muted-foreground">–</span>
+              <Num value={o.yMax} allowEmpty width={62} onChange={(v) => set({ yMax: v })} />
+            </div>
+          </Field>
+          <Field label={spec.kind === "barH" ? "Değer ekseni adı" : "X ekseni adı"}>
+            <input className="inp w-[132px]" value={o.xTitle} onChange={(e) => set({ xTitle: e.target.value })} />
+          </Field>
+          <Field label={spec.kind === "barH" ? "Kategori ekseni adı" : "Y ekseni adı"}>
+            <input className="inp w-[132px]" value={o.yTitle} onChange={(e) => set({ yTitle: e.target.value })} />
+          </Field>
+          {spec.kind !== "barH" && (
+            <Field label="Etiket açısı" hint="Oto: sığmayınca kendisi eğer">
+              <Seg
+                value={String(o.xTickAngle) as "auto" | "0" | "45" | "90"}
+                options={[
+                  ["auto", "Oto"],
+                  ["0", "0°"],
+                  ["45", "45°"],
+                  ["90", "90°"],
+                ]}
+                onChange={(v) => set({ xTickAngle: v === "auto" ? "auto" : (Number(v) as 0 | 45 | 90) })}
+              />
+            </Field>
+          )}
           {timeLike && (
             <>
               <Field label="X ekseni türü">
@@ -340,6 +367,9 @@ export function OptionsPanel({ spec, onChange }: { spec: ChartSpec; onChange: (s
 
       {timeLike && (
         <Section id="tur" title={spec.kind === "area" ? "Alan" : "Çizgi"}>
+          <Field label="Tahmin kesiği" hint="Bu satırdan sonrası kesikli çizilir. Boş = kapalı, 1 = tümü kesikli.">
+            <Num value={o.forecastFrom} min={1} max={Math.max(1, spec.data.rows.length)} allowEmpty onChange={(v) => set({ forecastFrom: v })} />
+          </Field>
           <Field label="Eğri">
             <Seg value={o.curve} options={[["linear", "Düz"], ["monotone", "Yumuşak"], ["step", "Basamak"], ["natural", "Doğal"]]} onChange={(v) => set({ curve: v })} />
           </Field>
@@ -349,6 +379,11 @@ export function OptionsPanel({ spec, onChange }: { spec: ChartSpec; onChange: (s
           <Field label="Noktalar">
             <Switch checked={o.showMarkers} onChange={(v) => set({ showMarkers: v })} />
           </Field>
+          {spec.kind === "area" && (
+            <Field label="Dolgu gradyanı" hint="Kapalıyken dolgu düz renk">
+              <Switch checked={o.areaGradient} onChange={(v) => set({ areaGradient: v })} />
+            </Field>
+          )}
           {spec.kind === "area" && (
             <Field label="Dolgu opaklığı">
               <Num value={o.areaOpacity} min={0.05} max={1} step={0.05} onChange={(v) => set({ areaOpacity: v ?? 0.25 })} />
