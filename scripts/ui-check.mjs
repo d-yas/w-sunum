@@ -1,6 +1,6 @@
 // Panel and stage behaviour, driven through the real UI.
 //
-// These six have no unit-testable surface — they only exist as the result of
+// These eight have no unit-testable surface — they only exist as the result of
 // a click reaching React state and React state reaching the card:
 //
 //  1. Delete on a card part hides it without destroying the text.
@@ -13,6 +13,9 @@
 //  5. Dragging a row in the layer list reorders it, and dragging it past the
 //     "Grafik" divider flips the item between the front and back stacks.
 //  6. Selecting a decoration brings up its own properties in the inspector.
+//  7. The shape family is in the gallery and lands on the card.
+//  8. Two shapes can be grouped: clicking one selects both, and they move
+//     together as one.
 //
 //   node scripts/ui-check.mjs
 import { launch } from "./cdp.mjs";
@@ -229,6 +232,76 @@ try {
     const nowTop = await evalIn(`document.querySelector('.decor-row[data-nesne-id]')?.dataset.nesneId`);
     report(hasDivider && after !== before && nowTop !== topRow.id, "katman-surukle", `grafik ayıracı=${hasDivider} · ${before}  →  ${after}`);
   }
+
+  /* 7 — şekil ailesi galeride, karta düşüyor */
+  // Serbest yerleşim kapatılıyor: açıkken "grafik" kutusu kartın ortasını
+  // kaplıyor ve altındaki şekli tutamıyorsunuz.
+  await evalIn(`document.querySelector('[data-tool="serbest"]').click(); true`);
+  await sleep(500);
+  await togglePop("ekle");
+  const sekilVar = await evalIn(`(() => {
+    const g = [...document.querySelectorAll('.tool-pop .seg')].find((x) => x.textContent.includes('Şekil'));
+    if (!g) return 0;
+    [...g.querySelectorAll('button')].find((b) => b.textContent === 'Şekil').click();
+    return 1;
+  })()`);
+  await sleep(450);
+  const sekiller = await evalIn(`[...document.querySelectorAll('.tool-pop .decor-cell span')].map((e) => e.textContent)`);
+  await evalIn(`document.querySelectorAll('.tool-pop .decor-cell')[0].click(); true`);
+  await sleep(500);
+  await evalIn(`document.querySelectorAll('.tool-pop .decor-cell')[1].click(); true`);
+  await sleep(500);
+  await togglePop("ekle");
+  const eklenen = (await chart()).decor.nesneler.filter((n) => n.asset.startsWith("sekil/"));
+  report(
+    !!sekilVar && sekiller.includes("Kare") && sekiller.includes("Daire") && eklenen.length === 2,
+    "sekil-ailesi",
+    `galeride ${sekiller.length} şekil (${sekiller.slice(0, 4).join(", ")}…) · karta ${eklenen.length} düştü`
+  );
+
+  /* 8 — iki şekli gruplamak: birlikte taşınırlar, birine tıklamak ikisini seçer */
+  const idler = eklenen.map((n) => n.id);
+  await evalIn(`(() => {
+    const rs = [...document.querySelectorAll('.decor-row[data-nesne-id]')];
+    const hedef = rs.filter((r) => [${idler.map((i) => JSON.stringify(i)).join(",")}].includes(r.dataset.nesneId));
+    if (hedef.length < 2) return false;
+    hedef[0].dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    hedef[1].dispatchEvent(new MouseEvent('click', { bubbles: true, shiftKey: true }));
+    return true;
+  })()`);
+  await sleep(500);
+  const ikiSecili = await secili();
+  await evalIn(`[...document.querySelectorAll('aside.right button')].find((b) => b.textContent === 'Grupla')?.click(); true`);
+  await sleep(600);
+  const gruplu = (await chart()).decor.nesneler.filter((n) => idler.includes(n.id));
+  const ortakGrup = gruplu.length === 2 && gruplu[0].grup !== "" && gruplu[0].grup === gruplu[1].grup;
+
+  // Tek bir üyeye tıklamak grubun tamamını seçer.
+  await evalIn(`document.querySelector('.decor-row[data-nesne-id=${JSON.stringify(idler[0])}]')?.dispatchEvent(new MouseEvent('click', { bubbles: true })); true`);
+  await sleep(450);
+  const grupSecimi = await secili();
+
+  // Ve birlikte taşınırlar.
+  const oncekiler = gruplu.map((n) => ({ id: n.id, x: n.x, y: n.y }));
+  const kutu = await evalIn(`(() => { const e = document.querySelector('.decor-box[data-grup]'); if (!e) return null;
+    const r = e.getBoundingClientRect(); return { x: r.x, y: r.y, w: r.width, h: r.height }; })()`);
+  if (kutu) {
+    await mouse("mousePressed", kutu.x + kutu.w / 2, kutu.y + kutu.h / 2);
+    await mouse("mouseMoved", kutu.x + kutu.w / 2 + 60, kutu.y + kutu.h / 2 + 40);
+    await mouse("mouseReleased", kutu.x + kutu.w / 2 + 60, kutu.y + kutu.h / 2 + 40, 0);
+    await sleep(600);
+  }
+  const sonrakiler = (await chart()).decor.nesneler.filter((n) => idler.includes(n.id));
+  const kaymalar = sonrakiler.map((n) => {
+    const o = oncekiler.find((q) => q.id === n.id);
+    return o ? `${Math.round(n.x - o.x)},${Math.round(n.y - o.y)}` : "?";
+  });
+  const birlikte = !!kutu && kaymalar.length === 2 && kaymalar[0] === kaymalar[1] && kaymalar[0] !== "0,0";
+  report(
+    ikiSecili === "2 nesne" && ortakGrup && grupSecimi === "2 nesne" && birlikte,
+    "gruplama",
+    `iki seçim="${ikiSecili}" · ortak grup=${ortakGrup} · üyeye tık="${grupSecimi}" · kayma [${kaymalar.join(" | ")}]`
+  );
 
   const exc = cdp.problems();
   console.log("console:", exc.length ? "\n  " + exc.join("\n  ") : "(clean)");

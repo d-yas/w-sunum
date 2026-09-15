@@ -14,7 +14,7 @@
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 
 import type { Box, DecorItem, DecorSlot, SlotKey } from "@/decor/model";
-import { SLOT_KEYS, SLOT_LABELS, restack, restackEnd } from "@/decor/model";
+import { SLOT_KEYS, SLOT_LABELS, grubuCoz, grupGenislet, grupla, restack, restackEnd } from "@/decor/model";
 import { getAsset, newItem } from "@/decor/registry";
 import { num, type ZeminSlot } from "@/decor/types";
 import type { ChartSpec } from "@/lib/spec";
@@ -53,13 +53,15 @@ interface Drag {
   start: Handle;
   px: number;
   py: number;
+  /** Çoklu seçimde birlikte taşınanların başlangıç yerleri. */
+  birlikte: { id: string; x: number; y: number }[] | null;
 }
 
 export interface DecorStageProps {
   spec: ChartSpec;
   scale: number;
-  selectedId: string | null;
-  onSelect: (id: string | null) => void;
+  selectedIds: string[];
+  onSelect: (ids: string[]) => void;
   onChange: (s: ChartSpec) => void;
 }
 
@@ -84,7 +86,9 @@ const rot = (x: number, y: number, deg: number) => {
   return [x * c - y * s, x * s + y * c] as const;
 };
 
-export function DecorStage({ spec, scale, selectedId, onSelect, onChange }: DecorStageProps) {
+export function DecorStage({ spec, scale, selectedIds, onSelect, onChange }: DecorStageProps) {
+  /** Tek seçim; tutamaçlar ancak bir nesne seçiliyken çıkıyor. */
+  const selectedId = selectedIds.length === 1 ? selectedIds[0] : null;
   const hostRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<Drag | null>(null);
   const [guides, setGuides] = useState<{ x: number[]; y: number[] }>({ x: [], y: [] });
@@ -139,7 +143,40 @@ export function DecorStage({ spec, scale, selectedId, onSelect, onChange }: Deco
       const el = e.target as HTMLElement | null;
       // Never steal keys from the panel's own inputs.
       if (el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT" || el.isContentEditable)) return;
-      if (e.key === "Escape") return onSelect(null);
+      if (e.key === "Escape") return onSelect([]);
+
+      // Gruplama çoklu seçimle çalışıyor, o yüzden tek seçim şartından önce.
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "g") {
+        e.preventDefault();
+        const nesneler = selectedIds.filter((id) => !asSlot(id));
+        if (e.shiftKey) setItems(grubuCoz(items, nesneler));
+        else if (nesneler.length > 1) setItems(grupla(items, nesneler));
+        return;
+      }
+
+      if (selectedIds.length > 1) {
+        const secili = items.filter((n) => selectedIds.includes(n.id) && !n.kilit);
+        if ((e.key === "Delete" || e.key === "Backspace") && secili.length) {
+          e.preventDefault();
+          setItems(items.filter((n) => !secili.some((m) => m.id === n.id)));
+          onSelect([]);
+          return;
+        }
+        const adim = e.shiftKey ? 10 : 1;
+        const it: Record<string, [number, number]> = {
+          ArrowLeft: [-adim, 0],
+          ArrowRight: [adim, 0],
+          ArrowUp: [0, -adim],
+          ArrowDown: [0, adim],
+        };
+        const dd = it[e.key];
+        if (dd && secili.length) {
+          e.preventDefault();
+          setItems(items.map((n) => (secili.some((m) => m.id === n.id) ? { ...n, x: n.x + dd[0], y: n.y + dd[1] } : n)));
+        }
+        return;
+      }
+
       if (!selectedId) return;
       const h = handles.find((b) => b.id === selectedId);
       if (!h) return;
@@ -150,7 +187,7 @@ export function DecorStage({ spec, scale, selectedId, onSelect, onChange }: Deco
         if (e.key === "Delete" || e.key === "Backspace") {
           e.preventDefault();
           onChange({ ...spec, yerlesim: { ...spec.yerlesim, gizli: [...hiddenSlots, h.slot] } });
-          onSelect(null);
+          onSelect([]);
           return;
         }
       } else {
@@ -159,7 +196,7 @@ export function DecorStage({ spec, scale, selectedId, onSelect, onChange }: Deco
         if ((e.key === "Delete" || e.key === "Backspace") && !it.kilit) {
           e.preventDefault();
           setItems(items.filter((n) => n.id !== selectedId));
-          onSelect(null);
+          onSelect([]);
           return;
         }
         if (e.key === "[" || e.key === "]") {
@@ -174,7 +211,7 @@ export function DecorStage({ spec, scale, selectedId, onSelect, onChange }: Deco
           if (!copy) return;
           const clone: DecorItem = { ...it, id: copy.id, x: it.x + 16, y: it.y + 16 };
           setItems([...items, clone]);
-          onSelect(clone.id);
+          onSelect([clone.id]);
           return;
         }
       }
@@ -232,6 +269,20 @@ export function DecorStage({ spec, scale, selectedId, onSelect, onChange }: Deco
     onChange({ ...spec, decor: { ...spec.decor, zemin: { ...spec.decor.zemin, [a.key]: { ...entry.slotData, params: next } } } });
   };
 
+  /**
+   * Bir kutuya basmak. `Shift` seçime ekler/çıkarır; düz basış, tıklanan
+   * öğenin grubunu seçer — grup olmanın anlamı bu.
+   */
+  const sec = (id: string, ekle: boolean): string[] => {
+    if (asSlot(id)) return [id];
+    if (ekle) {
+      const var_ = selectedIds.includes(id);
+      const ham = var_ ? selectedIds.filter((x) => x !== id) : [...selectedIds.filter((x) => !asSlot(x)), id];
+      return grupGenislet(items, ham);
+    }
+    return grupGenislet(items, [id]);
+  };
+
   const begin = (e: ReactPointerEvent, id: string, mode: Mode) => {
     const h = handles.find((b) => b.id === id);
     if (!h || h.kilit) return;
@@ -239,8 +290,15 @@ export function DecorStage({ spec, scale, selectedId, onSelect, onChange }: Deco
     e.stopPropagation();
     capture(e);
     const [px, py] = toCard(e);
-    dragRef.current = { mode, id, start: { ...h }, px, py };
-    onSelect(id);
+    const next = mode.kind === "tasi" ? sec(id, e.shiftKey) : selectedIds;
+    // Birlikte taşınacak olanların başlangıç yerleri: her kare yeniden okumak
+    // yuvarlama hatalarını biriktirir, grup yavaşça dağılırdı.
+    const birlikte =
+      mode.kind === "tasi" && next.length > 1
+        ? items.filter((n) => next.includes(n.id) && !n.kilit).map((n) => ({ id: n.id, x: n.x, y: n.y }))
+        : null;
+    dragRef.current = { mode, id, start: { ...h }, px, py, birlikte };
+    onSelect(next);
   };
 
   const onMove = (e: ReactPointerEvent) => {
@@ -261,6 +319,18 @@ export function DecorStage({ spec, scale, selectedId, onSelect, onChange }: Deco
       }
       const snapped = snap(nx, ny, s.w, s.h, CW, CH);
       setGuides(snapped.guides);
+      if (d.birlikte) {
+        // Hizalama tutulan nesneye göre hesaplanıyor, kayma hepsine aynen
+        // uygulanıyor: grup içindeki aralıklar bozulmasın.
+        const dx = snapped.x - s.x;
+        const dy = snapped.y - s.y;
+        const yer = new Map(d.birlikte.map((b) => [b.id, b]));
+        setItems(items.map((n) => {
+          const b = yer.get(n.id);
+          return b ? { ...n, x: Math.round(b.x + dx), y: Math.round(b.y + dy) } : n;
+        }));
+        return;
+      }
       patch(d.id, { x: snapped.x, y: snapped.y });
       return;
     }
@@ -325,12 +395,14 @@ export function DecorStage({ spec, scale, selectedId, onSelect, onChange }: Deco
       // "boşluk" ile "kartın bir parçası" ayrımını ancak sahne bilebilir.
     >
       {handles.map((h) => {
+        const coklu = selectedIds.includes(h.id);
         const sel = h.id === selectedId;
         return (
           <div
             key={h.id}
             className="decor-box"
-            data-selected={sel ? "true" : undefined}
+            data-selected={coklu ? "true" : undefined}
+            data-grup={items.find((n) => n.id === h.id)?.grup || undefined}
             data-locked={h.kilit ? "true" : undefined}
             data-slot={h.slot ?? undefined}
             title={h.label}
@@ -342,7 +414,7 @@ export function DecorStage({ spec, scale, selectedId, onSelect, onChange }: Deco
               transform: h.aci ? `rotate(${h.aci}deg)` : undefined,
               transformOrigin: "center",
             }}
-            onPointerDown={(e) => (h.kilit ? onSelect(h.id) : begin(e, h.id, { kind: "tasi" }))}
+            onPointerDown={(e) => (h.kilit ? onSelect(sec(h.id, e.shiftKey)) : begin(e, h.id, { kind: "tasi" }))}
           >
             {sel && !h.kilit && (
               <>

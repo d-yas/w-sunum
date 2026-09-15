@@ -15,7 +15,14 @@ import type { SlotKey } from "@/decor/model";
 /** Kartın seçilebilir parçaları. Alt parçalar (çubuk, değer etiketi…) grafiğe katlanır. */
 export type KartParcasi = "title" | "subtitle" | "note" | "legend" | "axis-x" | "axis-y" | "chart";
 
-export type Secim = { tur: "slayt" } | { tur: "parca"; part: KartParcasi } | { tur: "nesne"; id: string };
+/**
+ * Süsleme seçimi bir liste: gruplamak için birden çok nesneyi aynı anda
+ * seçebilmek gerekiyor, ve bir gruba tıklamak zaten grubun tamamını seçiyor.
+ * Tek nesne, bir elemanlı liste.
+ */
+export type Secim = { tur: "slayt" } | { tur: "parca"; part: KartParcasi } | { tur: "nesne"; ids: string[] };
+
+export const nesneSecimi = (ids: string[]): Secim => (ids.length ? { tur: "nesne", ids } : SLAYT);
 
 export const SLAYT: Secim = { tur: "slayt" };
 
@@ -53,21 +60,22 @@ export function kutununParcasi(key: SlotKey): KartParcasi {
   return key === "baslik" ? "title" : key === "dipnot" ? "note" : "chart";
 }
 
-/** `DecorStage` sahnede hangi öğeyi seçili çizsin. */
-export function sahneSecimi(s: Secim): string | null {
-  if (s.tur === "nesne") return s.id;
+/** `DecorStage` sahnede hangi öğeleri seçili çizsin. */
+export function sahneSecimi(s: Secim): string[] {
+  if (s.tur === "nesne") return s.ids;
   if (s.tur === "parca") {
     const kutu = parcaninKutusu(s.part);
-    return kutu ? `slot:${kutu}` : null;
+    return kutu ? [`slot:${kutu}`] : [];
   }
-  return null;
+  return [];
 }
 
-/** Sahneden gelen seçim kimliğini `Secim`'e çevirir. */
-export function sahnedenSecim(id: string | null): Secim {
-  if (!id) return SLAYT;
-  if (id.startsWith("slot:")) return { tur: "parca", part: kutununParcasi(id.slice(5) as SlotKey) };
-  return { tur: "nesne", id };
+/** Sahneden gelen seçim kimliklerini `Secim`'e çevirir. */
+export function sahnedenSecim(ids: string[]): Secim {
+  const ilk = ids[0];
+  if (!ilk) return SLAYT;
+  if (ilk.startsWith("slot:")) return { tur: "parca", part: kutununParcasi(ilk.slice(5) as SlotKey) };
+  return { tur: "nesne", ids: ids.filter((id) => !id.startsWith("slot:")) };
 }
 
 /**
@@ -82,7 +90,7 @@ export function gorunenBolumler(s: Secim): string[] {
     case "slayt":
       return ["kart", "zemin", "yerlesim", "nesneler", "dekor", "bicim"];
     case "nesne":
-      return ["secili", "nesneler"];
+      return s.ids.length > 1 ? ["coklu", "nesneler"] : ["secili", "nesneler"];
     case "parca":
       switch (s.part) {
         case "title":
@@ -103,7 +111,7 @@ export function gorunenBolumler(s: Secim): string[] {
 /** Seçimin panel başlığında görünen adı. */
 export function secimAdi(s: Secim, nesneAdi?: string): string {
   if (s.tur === "slayt") return "Slayt";
-  if (s.tur === "nesne") return nesneAdi ?? "Süsleme";
+  if (s.tur === "nesne") return s.ids.length > 1 ? `${s.ids.length} nesne` : (nesneAdi ?? "Süsleme");
   const adlar: Record<KartParcasi, string> = {
     title: "Başlık",
     subtitle: "Alt başlık",

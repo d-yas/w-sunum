@@ -31,6 +31,13 @@ export interface DecorItem extends DecorSlot {
   katman: "arka" | "on";
   gizli: boolean;
   kilit: boolean;
+  /**
+   * Birlikte taşınan nesnelerin ortak kimliği; `""` gruplanmamış demek.
+   * Ayrı bir grup listesi değil, çünkü grup bir nesne değil bir etiket: silinen
+   * bir üyenin ardından temizlenecek bir kayıt kalmıyor, ve sıralama yine tek
+   * bir yığın üzerinden yürüyor.
+   */
+  grup: string;
 }
 
 export interface DecorState {
@@ -162,6 +169,7 @@ export function normalizeDecor(input: unknown): DecorState {
           katman: it.katman === "arka" ? "arka" : "on",
           gizli: it.gizli === true,
           kilit: it.kilit === true,
+          grup: typeof it.grup === "string" ? it.grup.slice(0, 40) : "",
         };
       })
       .filter((x): x is DecorItem => x !== null),
@@ -232,6 +240,61 @@ export function restackEnd(items: DecorItem[], id: string, end: "arka" | "on"): 
   const rest = items.filter((n) => n.id !== id);
   const moved: DecorItem = { ...target, katman: end };
   return end === "arka" ? [moved, ...rest] : [...rest, moved];
+}
+
+/* ------------------------------------------------------------------ */
+/* Gruplar                                                              */
+/* ------------------------------------------------------------------ */
+
+let grupSayaci = 0;
+
+/**
+ * Bir seçimi, gruplarıyla birlikte genişletir.
+ *
+ * Bir gruba tıklamak grubun tamamını seçer: grup olmanın anlamı bu. Zaten
+ * seçili olanlar da geçtiği için `Shift` ile eklenen ikinci bir grup kendi
+ * üyelerini de getiriyor.
+ */
+export function grupGenislet(items: DecorItem[], ids: string[]): string[] {
+  const gruplar = new Set(items.filter((n) => ids.includes(n.id) && n.grup).map((n) => n.grup));
+  const out = new Set(ids);
+  for (const n of items) if (n.grup && gruplar.has(n.grup)) out.add(n.id);
+  return items.filter((n) => out.has(n.id)).map((n) => n.id);
+}
+
+/**
+ * Seçili nesneleri tek bir gruba alır.
+ *
+ * Üyeler yığında da yan yana toplanıyor: aksi hâlde "grubu bir üste taşı"
+ * diye bir şey olamazdı, araya başka nesneler girerdi. Toplanma noktası
+ * grubun en öndeki üyesi — grup öne çıkmış gibi görünmesin diye.
+ */
+export function grupla(items: DecorItem[], ids: string[]): DecorItem[] {
+  const uyeler = items.filter((n) => ids.includes(n.id));
+  if (uyeler.length < 2) return items;
+  grupSayaci += 1;
+  const grup = `g${Date.now().toString(36)}${grupSayaci.toString(36)}`;
+  // Katman da ortaklaşıyor: yarısı grafiğin önünde yarısı arkasında duran bir
+  // grup birlikte taşınamaz.
+  const katman = uyeler[uyeler.length - 1].katman;
+  const damga = (n: DecorItem): DecorItem => ({ ...n, grup, katman });
+  const sonIndeks = Math.max(...ids.map((id) => items.findIndex((n) => n.id === id)));
+  const out: DecorItem[] = [];
+  items.forEach((n, i) => {
+    if (ids.includes(n.id)) {
+      if (i === sonIndeks) out.push(...uyeler.map(damga));
+      return;
+    }
+    out.push(n);
+  });
+  return out;
+}
+
+/** Seçili nesnelerin grup etiketini siler. */
+export function grubuCoz(items: DecorItem[], ids: string[]): DecorItem[] {
+  const gruplar = new Set(items.filter((n) => ids.includes(n.id) && n.grup).map((n) => n.grup));
+  if (gruplar.size === 0) return items;
+  return items.map((n) => (n.grup && gruplar.has(n.grup) ? { ...n, grup: "" } : n));
 }
 
 /** True when a card carries nothing — lets the panel and the layer skip work. */

@@ -75,10 +75,22 @@ panelin sekmeleriydi; artık hangi ayardaysanız orada duruyorlar.
    renk bir marka kararıdır, bakımı gereken ikinci bir set değil. Sıra
    önemlidir: seriler bu sırayla boyanır ve süsleme ilk rengi kullanır.
 6. **Süsleme**: doku, ışık ve çerçeve slayt ayarlarından zemin olarak seçilir
-   (üçü aynı anda durabilir); ışık, ok, ikon, işaret ve balonlar araç
+   (üçü aynı anda durabilir); şekil, ışık, ok, ikon, işaret ve balonlar araç
    çubuğundaki `+` galerisinden tıklanıp karta düşer,
    sahnede sürüklenir, köşeden boyutlandırılır, üstteki tutamaçtan
    döndürülür. Renkleri varsayılan olarak grafiğin paletinden gelir.
+   **Şekiller** — dikdörtgen, kare, hap, daire, elips, üçgen, baklava,
+   çokgen (3–12 kenar), yıldız, artı, çizgi — anlamı olmayan tek aile:
+   bir alanı boyamak, bir bloğun arkasına renk koymak için. Hepsi aynı
+   biçem anahtarını paylaşır (dolu / yalnız kenar / ikisi), kenar rengi
+   ikinci renkten gelir, yani "gri dolgu + koyu kenar" tek nesneyle kurulur.
+
+   **Gruplama**: `Shift`+tık seçime ekler (sahnede ya da katman listesinde),
+   `Ctrl+G` gruplar, `Ctrl+Shift+G` çözer. Gruplanmış nesneler birlikte
+   taşınır ve birine tıklamak hepsini seçer; yığında da yan yana toplanırlar,
+   yoksa "grubu bir üste taşı" diye bir şey olamazdı. Boyutlandırma ve
+   döndürme tek nesneye özeldir.
+
    Kısayollar: `Shift` eksene/orana/15°'ye kilitler, ok tuşları 1 px
    (`Shift` ile 10 px) kaydırır, `Del` siler, `Ctrl+D` çoğaltır, `Esc`
    seçimi bırakır. Süslemeler PNG, PPTX ve SVG çıktılarına girer.
@@ -297,7 +309,11 @@ yazar. pnpm 11'de esbuild'in kurulum betiği `pnpm-workspace.yaml` içindeki
   import edebiliyor); `DecorLayer.tsx` kartın içinde çizer. Her varlık
   kutusunun **gerçek piksel boyutunda** çizer — sabit bir viewBox'ı esnetmez,
   bu yüzden 400×60 bir ok ile 90×90 bir ikon aynı kalitede çıkar. Hiçbir
-  varlık dosya değil, hepsi koddan üretilir.
+  varlık dosya değil, hepsi koddan üretilir. `shapes.tsx` anlamı olmayan
+  aile: kenar şeklin *içine* çizilir (kutu küçültülerek), yoksa tutamaçla
+  çizim birbirini tutmaz. Gruplar `DecorItem.grup` etiketiyle tutulur — ayrı
+  bir grup listesi değil, çünkü grup bir nesne değil: silinen bir üyenin
+  ardından temizlenecek kayıt kalmıyor ve sıralama tek yığın üzerinden yürüyor.
 - Serbest yerleşim `ChartSpec.yerlesim` içinde: üç kutu (`baslik`, `grafik`,
   `dipnot`) kart uzayında, süslemeyle **aynı koordinat sisteminde**. Kutu
   varsa o öğe mutlak konumlanır, yoksa kart eskisi gibi kendi akışını kurar.

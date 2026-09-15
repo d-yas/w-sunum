@@ -31,7 +31,7 @@ export function Inspector({
   onChange: (s: ChartSpec) => void;
 }) {
   const bolumler = gorunenBolumler(secim);
-  const nesne = secim.tur === "nesne" ? spec.decor.nesneler.find((n) => n.id === secim.id) : null;
+  const nesne = secim.tur === "nesne" && secim.ids.length === 1 ? spec.decor.nesneler.find((n) => n.id === secim.ids[0]) : null;
   const ad = secimAdi(secim, nesne ? (getAsset(nesne.asset)?.label ?? "Süsleme") : undefined);
 
   return (
@@ -48,8 +48,8 @@ export function Inspector({
             spec={spec}
             theme={theme}
             palettes={palettes}
-            selectedId={sahneSecimi(secim)}
-            onSelect={(id) => onSecim(sahnedenSecim(id))}
+            selectedIds={sahneSecimi(secim)}
+            onSelect={(ids) => onSecim(sahnedenSecim(ids))}
             onChange={onChange}
           />
         </SectionScope>

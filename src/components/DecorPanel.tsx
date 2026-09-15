@@ -17,6 +17,9 @@ import {
   restack,
   restackEnd,
   restackFromRows,
+  grubuCoz,
+  grupGenislet,
+  grupla,
   type DecorItem,
   type DecorSlot,
   type DecorState,
@@ -105,6 +108,7 @@ function fitted(def: AssetDef, slot: DecorSlot, boxW: number, boxH: number): Dec
     katman: "on",
     gizli: false,
     kilit: false,
+    grup: "",
   };
 }
 
@@ -114,15 +118,15 @@ export function DecorPanel({
   spec,
   theme,
   palettes,
-  selectedId,
+  selectedIds,
   onSelect,
   onChange,
 }: {
   spec: ChartSpec;
   theme: Theme;
   palettes: Palette[];
-  selectedId: string | null;
-  onSelect: (id: string | null) => void;
+  selectedIds: string[];
+  onSelect: (ids: string[]) => void;
   onChange: (s: ChartSpec) => void;
 }) {
   const [family, setFamily] = useState<DecorFamily>("ok");
@@ -135,8 +139,14 @@ export function DecorPanel({
     [spec.colors, palette, theme]
   );
 
-  const selected = decor.nesneler.find((n) => n.id === selectedId) ?? null;
+  const selected = selectedIds.length === 1 ? (decor.nesneler.find((n) => n.id === selectedIds[0]) ?? null) : null;
   const selectedDef = selected ? getAsset(selected.asset) : null;
+  const coklu = decor.nesneler.filter((n) => selectedIds.includes(n.id));
+  /** Listeden seçmek de sahneyle aynı kuralı izliyor: grup bütün gelir. */
+  const secListeden = (id: string, ekle: boolean) => {
+    const ham = ekle ? (selectedIds.includes(id) ? selectedIds.filter((x) => x !== id) : [...selectedIds, id]) : [id];
+    onSelect(grupGenislet(decor.nesneler, ham.filter((x) => !x.startsWith("slot:"))));
+  };
 
   const setItem = (id: string, patch: Partial<DecorItem>) =>
     setDecor({ ...decor, nesneler: decor.nesneler.map((n) => (n.id === id ? { ...n, ...patch } : n)) });
@@ -145,12 +155,12 @@ export function DecorPanel({
     const item = newItem(id, spec.options.width, spec.options.height);
     if (!item) return;
     setDecor({ ...decor, nesneler: [...decor.nesneler, item] });
-    onSelect(item.id);
+    onSelect([item.id]);
   };
 
   const removeItem = (id: string) => {
     setDecor({ ...decor, nesneler: decor.nesneler.filter((n) => n.id !== id) });
-    if (selectedId === id) onSelect(null);
+    if (selectedIds.includes(id)) onSelect([]);
   };
 
   const { stack, boundary } = decorStack(decor.nesneler);
@@ -185,7 +195,7 @@ export function DecorPanel({
               {SLOT_KEYS.filter((k) => layout.kutular[k]).map((k) => {
                 const hidden = layout.gizli.includes(k);
                 return (
-                  <div key={k} className="decor-row" aria-selected={selectedId === `slot:${k}`} onClick={() => onSelect(`slot:${k}`)}>
+                  <div key={k} className="decor-row" aria-selected={selectedIds.includes(`slot:${k}`)} onClick={() => onSelect([`slot:${k}`])}>
                     <span className="grow" style={hidden ? { opacity: 0.45, textDecoration: "line-through" } : undefined}>
                       {SLOT_LABELS[k]}
                     </span>
@@ -285,13 +295,19 @@ export function DecorPanel({
                   key={n.id}
                   className="decor-row"
                   data-nesne-id={n.id}
-                  aria-selected={n.id === selectedId}
-                  onClick={() => onSelect(n.id)}
+                  data-grup={n.grup || undefined}
+                  aria-selected={selectedIds.includes(n.id)}
+                  onClick={(e) => secListeden(n.id, e.shiftKey)}
                   role="option"
                   title="Sırayı değiştirmek için sürükleyin"
                   {...dragRows.rowProps(rowIndex)}
                 >
                   <span className="grow">{def?.label ?? n.asset}</span>
+                  {n.grup && (
+                    <span className="decor-grup" title="Bir gruba ait — tıklamak grubun tamamını seçer">
+                      grup
+                    </span>
+                  )}
                   <span className="text-[10px] text-muted-foreground">{n.katman === "arka" ? "arka" : "ön"}</span>
                   <button className="icon-btn" type="button" title="Bir üste (])" onClick={(e) => (e.stopPropagation(), order(n.id, 1))} disabled={i === stack.length - 1}>
                     ↑
@@ -319,7 +335,7 @@ export function DecorPanel({
             })}
             <p className="mt-1 text-[11px] text-muted-foreground">
               Liste slaytla aynı sırada: üstteki en önde. Satırları sürükleyin; "Grafik" çizgisinin üstü ön,
-              altı arka katmandır.
+              altı arka katmandır. <kbd>Shift</kbd>+tık seçime ekler, <kbd>Ctrl+G</kbd> gruplar.
             </p>
           </div>
         )}
@@ -329,6 +345,54 @@ export function DecorPanel({
           </button>
         )}
       </Section>
+
+      {/* ---- çoklu seçim ---- */}
+      {coklu.length > 1 && (
+        <Section id="coklu" title={`${coklu.length} nesne seçili`}>
+          <div className="flex flex-wrap gap-1">
+            <button
+              className="btn btn-sm"
+              type="button"
+              onClick={() => setDecor({ ...decor, nesneler: grupla(decor.nesneler, coklu.map((n) => n.id)) })}
+              title="Birlikte taşınsınlar (Ctrl+G)"
+            >
+              Grupla
+            </button>
+            <button
+              className="btn btn-sm"
+              type="button"
+              disabled={!coklu.some((n) => n.grup)}
+              onClick={() => setDecor({ ...decor, nesneler: grubuCoz(decor.nesneler, coklu.map((n) => n.id)) })}
+              title="Grubu çöz (Ctrl+Shift+G)"
+            >
+              Grubu çöz
+            </button>
+          </div>
+          <Field label="Renk" hint="Seçili nesnelerin hepsine uygulanır.">
+            <ColorWell
+              value={coklu[0].renk}
+              fallback={colors[0]}
+              onChange={(renk) =>
+                setDecor({ ...decor, nesneler: decor.nesneler.map((n) => (selectedIds.includes(n.id) ? { ...n, renk } : n)) })
+              }
+            />
+          </Field>
+          <Field label="Opaklık">
+            <Slider
+              value={coklu[0].opaklik}
+              min={0.05}
+              max={1}
+              step={0.05}
+              onChange={(opaklik) =>
+                setDecor({ ...decor, nesneler: decor.nesneler.map((n) => (selectedIds.includes(n.id) ? { ...n, opaklik } : n)) })
+              }
+            />
+          </Field>
+          <p className="mt-1 text-[11px] text-muted-foreground">
+            Gruplanmış nesneler birlikte taşınır ve birine tıklamak hepsini seçer. Boyutlandırma ve döndürme tek nesneye özeldir.
+          </p>
+        </Section>
+      )}
 
       {/* ---- selection properties ---- */}
       {selected && selectedDef && (

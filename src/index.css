@@ -451,6 +451,10 @@ body.suruklerken [data-drag-row]:not([data-dragging]) { transition: transform .1
   color: var(--foreground); text-align: left;
 }
 .decor-row:hover { background: var(--accent); }
+.decor-grup {
+  flex-shrink: 0; padding: 0 5px; border-radius: 999px; font-size: 9px; letter-spacing: .03em;
+  background: var(--muted); color: var(--muted-foreground);
+}
 .decor-row[aria-selected="true"] { border-color: var(--foreground); background: var(--accent); }
 .decor-row .grow { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .icon-btn {
@@ -472,6 +476,9 @@ body.suruklerken [data-drag-row]:not([data-dragging]) { transition: transform .1
 .decor-box { position: absolute; box-sizing: border-box; cursor: move; user-select: none; -webkit-user-select: none; }
 .decor-box[data-locked="true"] { cursor: default; }
 .decor-box[data-selected="true"] { outline: 1px solid var(--ring); outline-offset: 0; }
+/* Gruplanmış bir üye seçiliyken kesik çerçeve: "bu tek başına değil" demenin
+   en kısa yolu, ve seçili olmayan gruplarda hiç iz bırakmıyor. */
+.decor-box[data-grup][data-selected="true"] { outline-style: dashed; outline-width: 1.5px; }
 /* The card's own parts read differently from decoration: dashed and amber, so
    it is obvious you are about to move the chart rather than a sticker. */
 .decor-box[data-slot] { outline: 1px dashed color-mix(in oklab, var(--destructive) 45%, transparent); }

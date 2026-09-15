@@ -9,11 +9,12 @@ import { FRAMES } from "./frames";
 import { ICONS } from "./icons";
 import { LIGHTS } from "./lights";
 import { MARKS } from "./marks";
+import { SHAPES } from "./shapes";
 import { TEXTURES } from "./textures";
 import type { DecorItem, DecorSlot } from "./model";
 import { defaults, type AssetDef, type DecorFamily, type ZeminSlot } from "./types";
 
-export const ASSETS: AssetDef[] = [...TEXTURES, ...LIGHTS, ...FRAMES, ...ARROWS, ...ICONS, ...MARKS, ...BALLOONS];
+export const ASSETS: AssetDef[] = [...TEXTURES, ...LIGHTS, ...FRAMES, ...SHAPES, ...ARROWS, ...ICONS, ...MARKS, ...BALLOONS];
 
 const BY_ID = new Map(ASSETS.map((a) => [a.id, a]));
 
@@ -37,7 +38,7 @@ export const ZEMIN_SLOTS: { slot: ZeminSlot; family: DecorFamily; label: string 
  * in both lists on purpose: as a background slot they wash the card, and as a
  * placed object they glow over one region.
  */
-export const NESNE_FAMILIES: DecorFamily[] = ["isik", "ok", "ikon", "isaret", "balon"];
+export const NESNE_FAMILIES: DecorFamily[] = ["sekil", "isik", "ok", "ikon", "isaret", "balon"];
 
 export function newSlot(assetId: string): DecorSlot | null {
   const def = getAsset(assetId);
@@ -77,5 +78,6 @@ export function newItem(assetId: string, cardW: number, cardH: number): DecorIte
     aynala: false,
     gizli: false,
     kilit: false,
+    grup: "",
   };
 }

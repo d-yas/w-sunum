@@ -12,7 +12,7 @@
  */
 import type { ReactNode } from "react";
 
-export type DecorFamily = "doku" | "isik" | "cerceve" | "ok" | "ikon" | "isaret" | "balon";
+export type DecorFamily = "doku" | "isik" | "cerceve" | "sekil" | "ok" | "ikon" | "isaret" | "balon";
 export type DecorKind = "zemin" | "nesne";
 /** Behind the chart, or over it. */
 export type DecorZ = "arka" | "on";
@@ -21,6 +21,7 @@ export const FAMILY_LABELS: Record<DecorFamily, string> = {
   doku: "Doku",
   isik: "Işık",
   cerceve: "Çerçeve",
+  sekil: "Şekil",
   ok: "Ok",
   ikon: "İkon",
   isaret: "İşaret",

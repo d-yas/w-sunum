@@ -689,8 +689,8 @@ export function App() {
                 <DecorStage
                   spec={active}
                   scale={scale}
-                  selectedId={sahneSecimi(secim)}
-                  onSelect={(id) => setSecim(sahnedenSecim(id))}
+                  selectedIds={sahneSecimi(secim)}
+                  onSelect={(ids) => setSecim(sahnedenSecim(ids))}
                   onChange={updateChart}
                 />
               </div>
@@ -712,8 +712,8 @@ export function App() {
                   spec={active}
                   theme={ws.theme}
                   palettes={ws.palettes}
-                  selectedId={sahneSecimi(secim)}
-                  onSelect={(id) => setSecim(sahnedenSecim(id))}
+                  selectedIds={sahneSecimi(secim)}
+                  onSelect={(ids) => setSecim(sahnedenSecim(ids))}
                   onChange={updateChart}
                 />
               </SectionScope>
