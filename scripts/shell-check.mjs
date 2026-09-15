@@ -13,6 +13,8 @@
 //     kaydırmadan görünüyor (eskiden yukarı taşıp kesiliyordu).
 //  8. Satırı sürüklemek listeyi gerçekten yeniden sıralıyor.
 //  9. Sürükleme sırasında metin seçimi kapalı ve satır havalanmış görünüyor.
+// 10. Sürüklerken aradaki satırlar kayıp bırakılacak yeri açıyor.
+// 11. Veri alanı tam ekrana açılıp Esc ile geri dönüyor.
 //
 //   node scripts/shell-check.mjs
 import { writeFileSync } from "node:fs";
@@ -176,6 +178,8 @@ try {
   report(hitBar && hl1.length === 1, "cubuk-vurgu", `vurgulanan=[${hl1.join(",")}]`);
 
   /* 9 — "Yeni grafik" kutusu panelin yanında açılıyor ve tamamı görünüyor */
+  const btnR = await evalIn(`(() => { const b = [...document.querySelectorAll('aside.left button')].find((x) => x.textContent.includes('Yeni grafik'));
+    const r = b.getBoundingClientRect(); return { x: r.x, y: r.y, h: r.height }; })()`);
   await evalIn(`[...document.querySelectorAll('aside.left button')].find((b) => b.textContent.includes('Yeni grafik')).click(); true`);
   await sleep(400);
   const pop = await rectOf(".kind-pop");
@@ -203,9 +207,10 @@ try {
       popFacts.count === 23 &&
       !popFacts.scrolls &&
       popFacts.inside &&
-      popFacts.onScreen,
+      popFacts.onScreen &&
+      pop.y >= btnR.y - 2,
     "tur-kutusu-yan",
-    `x=${Math.round(pop?.x ?? -1)} (panel biter ${Math.round(leftCol.x + leftCol.w)}) · ${popFacts?.count} tür · kayar=${popFacts?.scrolls} · hepsi içeride=${popFacts?.inside} · ekranda=${popFacts?.onScreen}`
+    `x=${Math.round(pop?.x ?? -1)} (panel biter ${Math.round(leftCol.x + leftCol.w)}) · üst ${Math.round(pop?.y ?? -1)} ≥ düğme ${Math.round(btnR.y)} · ${popFacts?.count} tür · kayar=${popFacts?.scrolls} · hepsi içeride=${popFacts?.inside} · ekranda=${popFacts?.onScreen}`
   );
   await key("Escape", "Escape", 27);
   await sleep(300);
@@ -256,6 +261,39 @@ try {
     !!mid && mid.secim === 0 && mid.kalkti && mid.golge && mid.secimKapali && secimSonra !== "none",
     "surukleme-gorunum",
     `seçili metin ${mid?.secim ?? "?"} karakter · havada=${mid?.kalkti} · gölge=${mid?.golge} · seçim kapalı=${mid?.secimKapali} → bırakınca ${secimSonra}`
+  );
+
+  /* 12 — sürüklerken aradaki satırlar kayıp yer açıyor */
+  const ids12 = await names();
+  const rTop = await rectOf(`.chart-row[data-id="${ids12[0]}"]`);
+  const rMid = await rectOf(`.chart-row[data-id="${ids12[1]}"]`);
+  const rEnd = await rectOf(`.chart-row[data-id="${ids12[ids12.length - 1]}"]`);
+  const yuva = Math.round(rMid.y - rTop.y);
+  await mouse("mousePressed", rTop.x + 70, rTop.y + rTop.h / 2);
+  await mouse("mouseMoved", rTop.x + 70, rTop.y + rTop.h / 2 + 10);
+  await mouse("mouseMoved", rEnd.x + 70, rEnd.y + rEnd.h - 2);
+  await sleep(450);
+  const kayma = await evalIn(`(() => {
+    const el = document.querySelector('.chart-row[data-id=${JSON.stringify(ids12[1])}]');
+    if (!el) return null;
+    return Math.round(new DOMMatrixReadOnly(getComputedStyle(el).transform).m42);
+  })()`);
+  await mouse("mouseReleased", rEnd.x + 70, rEnd.y + rEnd.h - 2, 0);
+  await sleep(500);
+  report(kayma === -yuva, "kayan-komsu", `komşu ${kayma}px kaydı, yuva ${yuva}px`);
+
+  /* 13 — veri alanı tam ekran olup geri dönüyor */
+  const vp = await evalIn(`({ w: innerWidth, h: innerHeight })`);
+  const acildi = await clickSel("[data-veri-tam]");
+  await sleep(450);
+  const tam = await rectOf(".veri-panel");
+  await key("Escape", "Escape", 27);
+  await sleep(450);
+  const kucuk = await rectOf(".veri-panel");
+  report(
+    acildi && !!tam && !!kucuk && tam.w >= vp.w - 2 && tam.h >= vp.h - 2 && tam.x <= 1 && tam.y <= 1 && kucuk.w < vp.w / 2,
+    "veri-tam-ekran",
+    `tam ${Math.round(tam?.w ?? -1)}×${Math.round(tam?.h ?? -1)} → geri ${Math.round(kucuk?.w ?? -1)}×${Math.round(kucuk?.h ?? -1)}`
   );
 
   const shot = await cdp.send("Page.captureScreenshot", { format: "png" });

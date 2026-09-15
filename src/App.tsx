@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 
-import { FolderOpen, Redo2, Save, Undo2 } from "lucide-react";
+import { FolderOpen, Maximize2, Minimize2, Redo2, Save, Undo2 } from "lucide-react";
 
 import { ChartCard } from "@/components/ChartCard";
 import { ChartList } from "@/components/ChartList";
@@ -144,6 +144,19 @@ export function App() {
       return { ...w, charts };
     });
   };
+  // Geniş bir tabloyu 300 px'lik sütunda düzenlemek işkence; tam ekran veri
+  // panelini tüm pencereye açıyor. Esc kapatıyor — açık kalıp da kullanıcıyı
+  // kilitlemesin diye.
+  const [veriTam, setVeriTam] = useState(false);
+  useEffect(() => {
+    if (!veriTam) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setVeriTam(false);
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [veriTam]);
+
   /** Sürüklemenin karşılığı: komşu takası değil, listeden alıp araya sokma. */
   const reorderCharts = (from: number, to: number) => {
     commit((w) => {
@@ -598,9 +611,22 @@ export function App() {
             />
           </div>
           <div className="split-handle shrink-0" onPointerDown={dragSplit} title="Listeyi yeniden boyutlandır" />
-          <div className="panel-label shrink-0 px-3 pb-1">Veri</div>
-          <div className="min-h-0 flex-1 overflow-hidden px-3 pb-3">
-            <DataGrid kind={active.kind} data={active.data} onChange={(data) => updateChart({ ...active, data })} />
+          <div className={`veri-panel flex min-h-0 flex-1 flex-col${veriTam ? " veri-tam" : ""}`}>
+            <div className="panel-label flex shrink-0 items-center justify-between px-3 pb-1">
+              <span>Veri</span>
+              <button
+                className="icon-btn"
+                data-veri-tam
+                aria-pressed={veriTam}
+                title={veriTam ? "Küçült (Esc)" : "Tam ekran"}
+                onClick={() => setVeriTam((v) => !v)}
+              >
+                {veriTam ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
+              </button>
+            </div>
+            <div className="min-h-0 flex-1 overflow-hidden px-3 pb-3">
+              <DataGrid kind={active.kind} data={active.data} onChange={(data) => updateChart({ ...active, data })} />
+            </div>
           </div>
         </aside>
 

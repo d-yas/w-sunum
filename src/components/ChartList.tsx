@@ -22,7 +22,7 @@ import { KindGrid } from "./KindGrid";
 /** Açılır kutunun ölçülmüş yeri — `position: fixed`, bkz. `place`. */
 interface PopBox {
   left: number;
-  bottom: number;
+  top: number;
   width: number;
   maxHeight: number;
 }
@@ -55,6 +55,7 @@ export function ChartList({
   const [pop, setPop] = useState<PopBox | null>(null);
   const addRef = useRef<HTMLDivElement>(null);
   const popRef = useRef<HTMLDivElement>(null);
+  const btnRef = useRef<HTMLButtonElement>(null);
   const drag = useDragOrder(charts.length, onReorder);
 
   // Dışarı tıklama ve Esc açılır kutuyu kapatır — kutu panelin üstüne binen
@@ -75,27 +76,31 @@ export function ChartList({
     };
   }, [adding]);
 
-  // Kutu düğmenin sağına, alt kenarları hizalı açılır. Konum CSS'le değil
+  // Kutu düğmenin sağına, üst kenarları hizalı açılır ve aşağı büyür. Konum CSS'le değil
   // ölçüyle: `fixed` olduğu için ne panelin ne de sahnenin kırpması onu tutar,
   // ama o zaman koordinatı da kimse hesaplamaz.
   //
-  // İki geçiş: ilkinde kutu henüz yok, düğmenin alt hizasına konur; çizildikten
-  // sonra gerçek yüksekliği ölçülüp ekranın dışına taşmayacak kadar yukarı
-  // kaydırılır. Tek geçişte yapılamaz, çünkü 23 türün kapladığı yer yazı
-  // boyutuna ve sarmaya bağlı.
+  // İki geçiş: ilkinde kutu henüz yok, düğmenin üst hizasına konur; çizildikten
+  // sonra gerçek yüksekliği ölçülüp ekranın altını aşmayacak kadar yukarı
+  // çekilir. Tek geçişte yapılamaz, çünkü 23 türün kapladığı yer yazı boyutuna
+  // ve sarmaya bağlı.
   useEffect(() => {
     if (!adding) {
       setPop(null);
       return;
     }
     const place = () => {
+      // Sağ kenar sarmalayıcıdan (panelin kenarı), üst hiza düğmeden: ikisi
+      // arasında sarmalayıcının dolgusu kadar fark var ve kutu düğmeyle
+      // hizalı görünmeli.
       const r = addRef.current?.getBoundingClientRect();
-      if (!r) return;
+      const b = btnRef.current?.getBoundingClientRect() ?? r;
+      if (!r || !b) return;
       const maxHeight = window.innerHeight - 16;
-      const width = Math.max(320, Math.min(640, window.innerWidth - r.right - 16));
+      const width = Math.max(320, Math.min(720, window.innerWidth - r.right - 16));
       const h = Math.min(popRef.current?.scrollHeight ?? 0, maxHeight);
-      const bottom = Math.min(Math.max(8, window.innerHeight - r.bottom), Math.max(8, window.innerHeight - 8 - h));
-      setPop({ left: r.right + 6, bottom, width, maxHeight });
+      const top = Math.max(8, Math.min(b.top, window.innerHeight - 8 - h));
+      setPop({ left: r.right + 6, top, width, maxHeight });
     };
     place();
     const again = requestAnimationFrame(place);
@@ -207,11 +212,11 @@ export function ChartList({
       </div>
 
       <div className="shrink-0 border-t border-border p-2" ref={addRef}>
-        <button className="btn w-full justify-center" aria-expanded={adding} onClick={() => setAdding((v) => !v)}>
+        <button ref={btnRef} className="btn w-full justify-center" aria-expanded={adding} onClick={() => setAdding((v) => !v)}>
           <Plus size={14} /> Yeni grafik
         </button>
         {adding && pop && (
-          <div className="kind-pop" ref={popRef} style={{ left: pop.left, bottom: pop.bottom, width: pop.width, maxHeight: pop.maxHeight }}>
+          <div className="kind-pop" ref={popRef} style={{ left: pop.left, top: pop.top, width: pop.width, maxHeight: pop.maxHeight }}>
             <KindGrid
               wide
               onPick={(k) => {

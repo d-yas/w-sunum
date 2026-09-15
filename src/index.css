@@ -349,8 +349,10 @@ textarea.inp { height: auto; padding: 6px 8px; resize: vertical; }
   position: fixed; z-index: 60; overflow: auto; padding: 12px; border-radius: 10px;
   border: 1px solid var(--border); background: var(--popover); box-shadow: 0 12px 32px rgba(0,0,0,.18);
 }
-/* Gruplar iki sütuna akar; ortadan bölünmesinler diye break-inside kapalı. */
-.kind-groups { columns: 2; column-gap: 14px; }
+/* Sütun sayısı değil sütun genişliği veriliyor: kutu ne kadar genişse o kadar
+   sütun açılıyor, dar ekranda kendiliğinden ikiye, tek sütuna iniyor. Gruplar
+   ortadan bölünmesin diye break-inside kapalı. */
+.kind-groups { columns: 200px; column-gap: 14px; }
 .kind-groups > div { break-inside: avoid; margin-bottom: 10px; }
 
 /* Sürükleyerek sıralama — iki liste de aynı göstergeyi kullanır.
@@ -361,6 +363,9 @@ textarea.inp { height: auto; padding: 6px 8px; resize: vertical; }
    engelliyor. */
 [data-drag-row] { position: relative; user-select: none; -webkit-user-select: none; touch-action: none; }
 body.suruklerken, body.suruklerken * { user-select: none !important; -webkit-user-select: none !important; }
+/* Yer açan satırlar kayarken süzülsün; sürüklenen satır parmağı birebir takip
+   etmeli, o yüzden geçiş yalnız sürükleme sürerken ve yalnız ötekilerde. */
+body.suruklerken [data-drag-row]:not([data-dragging]) { transition: transform .12s ease; }
 /* Sürüklenen satır havalanır: parmağı takip eder, gölgesi altına düşer. */
 [data-drag-row][data-dragging] {
   z-index: 5; cursor: grabbing; background: var(--popover);
@@ -382,6 +387,13 @@ body.suruklerken, body.suruklerken * { user-select: none !important; -webkit-use
 /* Liste ile veri tablosu arasındaki tutamaç */
 .split-handle { height: 7px; cursor: ns-resize; border-top: 1px solid var(--border); background: transparent; user-select: none; }
 .split-handle:hover { background: color-mix(in oklab, var(--ring) 20%, transparent); }
+/* Veri alanı tam ekran: geniş tablo düzenlerken üç sütunlu kabuk yerine tüm
+   pencere. Tarayıcının kendi tam ekranı değil — o uygulamanın araç çubuklarını
+   gizlemiyor ve sekmeden çıkınca durum karışıyor. */
+.veri-tam {
+  position: fixed; inset: 0; z-index: 70; padding: 10px 2px 2px;
+  background: var(--card); border-top: 0;
+}
 
 /* Decoration gallery */
 .decor-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
