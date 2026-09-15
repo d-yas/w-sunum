@@ -353,9 +353,19 @@ textarea.inp { height: auto; padding: 6px 8px; resize: vertical; }
 .kind-groups { columns: 2; column-gap: 14px; }
 .kind-groups > div { break-inside: avoid; margin-bottom: 10px; }
 
-/* Sürükleyerek sıralama — iki liste de aynı göstergeyi kullanır */
-[data-drag-row] { position: relative; }
-[data-drag-row][data-dragging] { opacity: .45; cursor: grabbing; }
+/* Sürükleyerek sıralama — iki liste de aynı göstergeyi kullanır.
+
+   Satırlar seçilemez: basış seçilebilir bir metinden başlarsa Chrome seçme
+   hareketini üstlenip sürüklemeyi `pointercancel` ile iptal ediyor. Sürükleme
+   boyunca gövdeye konan sınıf da imlecin komşu panellerin metnini taramasını
+   engelliyor. */
+[data-drag-row] { position: relative; user-select: none; -webkit-user-select: none; touch-action: none; }
+body.suruklerken, body.suruklerken * { user-select: none !important; -webkit-user-select: none !important; }
+/* Sürüklenen satır havalanır: parmağı takip eder, gölgesi altına düşer. */
+[data-drag-row][data-dragging] {
+  z-index: 5; cursor: grabbing; background: var(--popover);
+  box-shadow: 0 8px 20px rgba(0,0,0,.22); border-color: var(--ring);
+}
 [data-drag-row][data-drop-before]::before,
 [data-drag-row][data-drop-after]::after {
   content: ""; position: absolute; left: 2px; right: 2px; height: 2px;
@@ -370,7 +380,7 @@ textarea.inp { height: auto; padding: 6px 8px; resize: vertical; }
 }
 .decor-row-grafik:hover { background: color-mix(in oklab, var(--muted) 60%, transparent); }
 /* Liste ile veri tablosu arasındaki tutamaç */
-.split-handle { height: 7px; cursor: ns-resize; border-top: 1px solid var(--border); background: transparent; }
+.split-handle { height: 7px; cursor: ns-resize; border-top: 1px solid var(--border); background: transparent; user-select: none; }
 .split-handle:hover { background: color-mix(in oklab, var(--ring) 20%, transparent); }
 
 /* Decoration gallery */
@@ -400,7 +410,9 @@ textarea.inp { height: auto; padding: 6px 8px; resize: vertical; }
 
 /* Decoration editing overlay — lives on the stage, never inside the card */
 .decor-overlay { position: absolute; inset: 0; }
-.decor-box { position: absolute; box-sizing: border-box; cursor: move; }
+/* Sahnede sürüklenen her şey seçilemez: tutamacı kavramak kartın metnini
+   seçmeye başlıyordu. */
+.decor-box { position: absolute; box-sizing: border-box; cursor: move; user-select: none; -webkit-user-select: none; }
 .decor-box[data-locked="true"] { cursor: default; }
 .decor-box[data-selected="true"] { outline: 1px solid var(--ring); outline-offset: 0; }
 /* The card's own parts read differently from decoration: dashed and amber, so

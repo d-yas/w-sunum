@@ -12,6 +12,7 @@
 //  7. "Yeni grafik" kutusu panelin yanına açılıyor ve 23 türün hepsi
 //     kaydırmadan görünüyor (eskiden yukarı taşıp kesiliyordu).
 //  8. Satırı sürüklemek listeyi gerçekten yeniden sıralıyor.
+//  9. Sürükleme sırasında metin seçimi kapalı ve satır havalanmış görünüyor.
 //
 //   node scripts/shell-check.mjs
 import { writeFileSync } from "node:fs";
@@ -226,6 +227,35 @@ try {
     idsAfter.length === idsBefore.length && idsAfter[idsAfter.length - 1] === first && storedOrder === idsAfter.join(","),
     "liste-surukle",
     `${idsBefore.join(",")} → ${idsAfter.join(",")} (kayıtlı ${storedOrder})`
+  );
+
+  /* 11 — sürüklerken metin seçilmiyor, satır havalanıyor */
+  const idsNow = await names();
+  const rA = await rectOf(`.chart-row[data-id="${idsNow[0]}"]`);
+  const rB = await rectOf(`.chart-row[data-id="${idsNow[idsNow.length - 1]}"]`);
+  await mouse("mousePressed", rA.x + 70, rA.y + rA.h / 2);
+  await mouse("mouseMoved", rA.x + 70, rA.y + rA.h / 2 + 10);
+  await mouse("mouseMoved", rB.x + 70, rB.y + rB.h / 2);
+  await sleep(250);
+  const mid = await evalIn(`(() => {
+    const el = document.querySelector('[data-drag-row][data-dragging]');
+    if (!el) return null;
+    const t = getComputedStyle(el);
+    const body = getComputedStyle(document.body);
+    return {
+      secim: (getSelection()?.toString() ?? '').length,
+      kalkti: t.transform !== 'none',
+      golge: t.boxShadow !== 'none',
+      secimKapali: (body.userSelect || body.webkitUserSelect) === 'none',
+    };
+  })()`);
+  await mouse("mouseReleased", rB.x + 70, rB.y + rB.h / 2, 0);
+  await sleep(400);
+  const secimSonra = await evalIn(`getComputedStyle(document.body).userSelect`);
+  report(
+    !!mid && mid.secim === 0 && mid.kalkti && mid.golge && mid.secimKapali && secimSonra !== "none",
+    "surukleme-gorunum",
+    `seçili metin ${mid?.secim ?? "?"} karakter · havada=${mid?.kalkti} · gölge=${mid?.golge} · seçim kapalı=${mid?.secimKapali} → bırakınca ${secimSonra}`
   );
 
   const shot = await cdp.send("Page.captureScreenshot", { format: "png" });
