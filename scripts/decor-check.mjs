@@ -247,7 +247,7 @@ try {
         const hrefs = [];
         const orig = HTMLAnchorElement.prototype.click;
         HTMLAnchorElement.prototype.click = function () { hrefs.push(this.href); };
-        document.querySelector('[role="tab"][data-tab="disa"]').click();
+        document.querySelector('[data-tool="disa"]').click();
         await wait(300);
         // Metne göre değil data-act özniteliğine göre: yazı bir kez değişti.
         const btn = document.querySelector('button[data-act="svg"]');

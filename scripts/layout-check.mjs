@@ -73,13 +73,10 @@ try {
     evalIn(`(() => { const e = document.querySelector(${JSON.stringify(sel)}); if (!e) return null;
       const r = e.getBoundingClientRect(); return { x: r.x, y: r.y, w: r.width, h: r.height }; })()`);
 
-  // Open the Süsle tab so the overlay mounts.
-  await evalIn(`document.querySelector('[role="tab"][data-tab="susle"]').click(); true`);
-  await sleep(400);
-
+  // Süsleme katmanı artık her zaman çiziliyor; açılacak bir sekme yok.
   /* 1 — switching free layout on must be visually inert */
   const before = await snap();
-  await evalIn(`[...document.querySelectorAll('button[role="switch"]')][0].click(); true`);
+  await evalIn(`document.querySelector('[data-tool="serbest"]').click(); true`);
   await sleep(700);
   const after = await snap();
   const diff = await evalIn(`(async () => {
@@ -140,7 +137,12 @@ try {
   );
 
   /* 3 — hover switch */
-  await evalIn(`document.querySelector('[role="tab"][data-tab="gorunum"]').click(); true`);
+  // Serbest yerleşim kapatılıyor: açıkken kartın parçaları tutamaç kutularının
+  // altında kalıyor ve fare grafiğe ulaşmıyor — taşıma modunda ipucu da yok.
+  // Anahtarın kendisi "Kart" bölümünde, o da hiçbir şey seçili değilken görünür.
+  await evalIn(`document.querySelector('[data-tool="serbest"]').click(); true`);
+  await sleep(500);
+  await cdp.key("Escape", "Escape", 27);
   await sleep(400);
   const card = await rectOf(".stage-card");
   // Bklit's tooltip carries no role; it is identified by the token class the

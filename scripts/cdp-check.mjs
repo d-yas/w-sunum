@@ -77,16 +77,12 @@ try {
   await sleep(2500);
 
   // Optional: open a right-panel tab before the screenshot. Named, not
-  // indexed — the tab set has changed once already.
-  const TABS = ["gorunum", "renk", "susle", "disa"];
-  const tabArg = process.argv[4];
-  const tab = TABS.includes(tabArg) ? tabArg : TABS[Number(tabArg) - 1];
-  if (tab) {
-    await send(
-      "Runtime.evaluate",
-      { expression: `document.querySelector('[role="tab"][data-tab="${tab}"]')?.click()` },
-      sessionId
-    );
+  // Sekmeler kalktı; üçüncü argüman artık araç çubuğundaki bir kutuyu açıyor.
+  const TOOLS = ["ekle", "renk", "disa"];
+  const toolArg = process.argv[4];
+  const tool = TOOLS.includes(toolArg) ? toolArg : TOOLS[Number(toolArg) - 1];
+  if (tool) {
+    await send("Runtime.evaluate", { expression: `document.querySelector('[data-tool="${tool}"]')?.click()` }, sessionId);
     await sleep(400);
   }
 

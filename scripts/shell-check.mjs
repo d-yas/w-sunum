@@ -64,6 +64,17 @@ try {
       const r = e.getBoundingClientRect(); return { x: r.x, y: r.y, w: r.width, h: r.height }; })()`);
   const clickSel = (sel) => evalIn(`(() => { const e = document.querySelector(${JSON.stringify(sel)}); if (!e) return false; e.click(); return true; })()`);
   const names = () => evalIn(`[...document.querySelectorAll('.chart-row')].map(r => r.dataset.id)`);
+  // CDP değiştirici maskesi: Alt=1, Ctrl=2, Meta=4, Shift=8.
+  const clickCard = async (sel, mod = 0) => {
+    const r = await rectOf(sel);
+    if (!r) return false;
+    const x = r.x + r.w / 2;
+    const y = r.y + r.h / 2;
+    await cdp.send("Input.dispatchMouseEvent", { type: "mousePressed", x, y, button: "left", buttons: 1, clickCount: 1, modifiers: mod });
+    await cdp.send("Input.dispatchMouseEvent", { type: "mouseReleased", x, y, button: "left", buttons: 0, clickCount: 1, modifiers: mod });
+    await sleep(400);
+    return true;
+  };
 
   /* 1 — three columns, left to right */
   const left = await rectOf("aside.left");
@@ -134,50 +145,83 @@ try {
   const p = await prefs();
   report(typeof p?.listHeight === "number" && p.listHeight > 300, "bolme", `listHeight=${p?.listHeight}`);
 
-  /* 7 — right panel tabs all mount */
-  for (const t of ["gorunum", "renk", "susle", "disa"]) {
-    await clickSel(`[role="tab"][data-tab="${t}"]`);
-    await sleep(350);
-  }
-  await clickSel(`[role="tab"][data-tab="gorunum"]`);
+  /* 7 — müfettiş hiçbir şey seçili değilken slaytın ayarlarını gösteriyor */
+  await key("Escape", "Escape", 27);
   await sleep(350);
-  const sections = await evalIn(`document.querySelectorAll('aside.right [data-section]').length`);
-  report(sections >= 4, "sag-panel", `${sections} bölüm`);
+  const slaytBolum = await evalIn(`[...document.querySelectorAll('aside.right [data-section]')].map((e) => e.dataset.section)`);
+  const slaytAd = await evalIn(`document.querySelector('.inspector-name')?.textContent`);
+  report(
+    slaytAd === "Slayt" && slaytBolum.includes("kart") && slaytBolum.includes("zemin") && !slaytBolum.includes("tur"),
+    "slayt-mufettis",
+    `seçili="${slaytAd}" · [${slaytBolum.join(",")}]`
+  );
 
-  /* 8 — tıkla-seç: karttaki parça ilgili ayara götürüyor */
-  const activeTab = () => evalIn(`document.querySelector('[role="tab"][aria-selected="true"]')?.dataset.tab`);
-  const clickCard = async (sel, shift = false) => {
-    const r = await rectOf(sel);
-    if (!r) return false;
-    const x = r.x + r.w / 2;
-    const y = r.y + r.h / 2;
-    const mod = shift ? 8 : 0;
-    await cdp.send("Input.dispatchMouseEvent", { type: "mousePressed", x, y, button: "left", buttons: 1, clickCount: 1, modifiers: mod });
-    await cdp.send("Input.dispatchMouseEvent", { type: "mouseReleased", x, y, button: "left", buttons: 0, clickCount: 1, modifiers: mod });
-    await sleep(400);
-    return true;
-  };
+  /* 8 — tıkla-seç: karttaki parça müfettişte kendi ayarını açıyor */
+  const secili = () => evalIn(`document.querySelector('.inspector-name')?.textContent`);
+  const bolumler = () => evalIn(`[...document.querySelectorAll('aside.right [data-section]')].map((e) => e.dataset.section)`);
 
-  await clickSel(`[role="tab"][data-tab="renk"]`);
-  await sleep(300);
   const hitTitle = await clickCard('.stage-card [data-part="title"]');
-  const tabAfter = await activeTab();
-  const sectionSeen = await evalIn(`(() => {
-    const el = document.querySelector('aside.right [data-section="metin"]');
-    if (!el) return null;
-    const r = el.getBoundingClientRect();
-    const p = el.closest('.overflow-auto').getBoundingClientRect();
-    return r.top < p.bottom && r.bottom > p.top;
-  })()`);
-  report(hitTitle && tabAfter === "gorunum" && sectionSeen === true, "tikla-sec", `sekme=${tabAfter} · metin bölümü görünür=${sectionSeen}`);
+  const adTitle = await secili();
+  const bolTitle = await bolumler();
+  report(
+    hitTitle && adTitle === "Başlık" && bolTitle.includes("metin") && !bolTitle.includes("tur"),
+    "tikla-sec",
+    `seçili="${adTitle}" · bölümler=[${bolTitle.join(",")}]`
+  );
 
+  /* 9 — düz tık grafiği seçer, Alt+tık kategoriyi vurgular */
   const hitBar = await clickCard('.stage-card [data-part="bar"]');
-  await sleep(300);
+  const adBar = await secili();
+  const bolBar = await bolumler();
+  await clickCard('.stage-card [data-part="bar"]', 1);
+  await sleep(400);
   const now = await store();
   const hl1 = now.charts.find((c) => c.id === now.activeId)?.options.highlight ?? [];
-  report(hitBar && hl1.length === 1, "cubuk-vurgu", `vurgulanan=[${hl1.join(",")}]`);
+  report(
+    hitBar && adBar === "Grafik" && bolBar.includes("tur") && hl1.length === 1,
+    "cubuk-vurgu",
+    `düz tık="${adBar}" (bölümler ${bolBar.length}) · Alt+tık vurgu=[${hl1.join(",")}]`
+  );
 
-  /* 9 — "Yeni grafik" kutusu panelin yanında açılıyor ve tamamı görünüyor */
+  /* 10 — araç çubuğu: ekle / renk / dışa aktar kutuları */
+  const popIcerik = async (k) => {
+    await clickSel(`[data-tool="${k}"]`);
+    await sleep(400);
+    const v = await evalIn(`(() => { const p = document.querySelector('[data-pop=${JSON.stringify(k)}]');
+      if (!p) return null;
+      return { hucre: p.querySelectorAll('.decor-cell').length,
+               bolum: [...p.querySelectorAll('[data-section]')].map((e) => e.dataset.section) }; })()`);
+    await key("Escape", "Escape", 27);
+    await sleep(250);
+    return v;
+  };
+  const ekle = await popIcerik("ekle");
+  const renk = await popIcerik("renk");
+  const disa = await popIcerik("disa");
+  report(
+    !!ekle && ekle.hucre > 0 && !!renk && renk.bolum.includes("palet") && !!disa && disa.bolum.includes("png"),
+    "arac-cubugu",
+    `ekle ${ekle?.hucre} galeri hücresi · renk [${renk?.bolum.join(",")}] · dışa [${disa?.bolum.join(",")}]`
+  );
+
+  /* 11 — serbest yerleşim araç çubuğundan açılıyor */
+  const aktifYerlesim = async () => {
+    const w = await store();
+    return w.charts.find((c) => c.id === w.activeId)?.yerlesim;
+  };
+  await clickSel('[data-tool="serbest"]');
+  await sleep(700);
+  const serbestAcik = await aktifYerlesim();
+  await clickSel('[data-tool="serbest"]');
+  await sleep(500);
+  const serbestKapali = (await aktifYerlesim())?.serbest;
+  report(
+    serbestAcik?.serbest === true && Object.keys(serbestAcik?.kutular ?? {}).length >= 2 && serbestKapali === false,
+    "serbest-arac",
+    `açık=${serbestAcik?.serbest}, kutu=${Object.keys(serbestAcik?.kutular ?? {}).join(",")} → kapalı=${serbestKapali}`
+  );
+
+  /* 12 — "Yeni grafik" kutusu panelin yanında açılıyor ve tamamı görünüyor */
   const btnR = await evalIn(`(() => { const b = [...document.querySelectorAll('aside.left button')].find((x) => x.textContent.includes('Yeni grafik'));
     const r = b.getBoundingClientRect(); return { x: r.x, y: r.y, h: r.height }; })()`);
   await evalIn(`[...document.querySelectorAll('aside.left button')].find((b) => b.textContent.includes('Yeni grafik')).click(); true`);
@@ -215,7 +259,7 @@ try {
   await key("Escape", "Escape", 27);
   await sleep(300);
 
-  /* 10 — listede satırı sürükleyerek sıralama */
+  /* 13 — listede satırı sürükleyerek sıralama */
   const idsBefore = await names();
   const first = idsBefore[0];
   const last = idsBefore[idsBefore.length - 1];
@@ -234,7 +278,7 @@ try {
     `${idsBefore.join(",")} → ${idsAfter.join(",")} (kayıtlı ${storedOrder})`
   );
 
-  /* 11 — sürüklerken metin seçilmiyor, satır havalanıyor */
+  /* 14 — sürüklerken metin seçilmiyor, satır havalanıyor */
   const idsNow = await names();
   const rA = await rectOf(`.chart-row[data-id="${idsNow[0]}"]`);
   const rB = await rectOf(`.chart-row[data-id="${idsNow[idsNow.length - 1]}"]`);
@@ -263,7 +307,7 @@ try {
     `seçili metin ${mid?.secim ?? "?"} karakter · havada=${mid?.kalkti} · gölge=${mid?.golge} · seçim kapalı=${mid?.secimKapali} → bırakınca ${secimSonra}`
   );
 
-  /* 12 — sürüklerken aradaki satırlar kayıp yer açıyor */
+  /* 15 — sürüklerken aradaki satırlar kayıp yer açıyor */
   const ids12 = await names();
   const rTop = await rectOf(`.chart-row[data-id="${ids12[0]}"]`);
   const rMid = await rectOf(`.chart-row[data-id="${ids12[1]}"]`);
@@ -282,7 +326,7 @@ try {
   await sleep(500);
   report(kayma === -yuva, "kayan-komsu", `komşu ${kayma}px kaydı, yuva ${yuva}px`);
 
-  /* 13 — veri alanı tam ekran olup geri dönüyor */
+  /* 16 — veri alanı tam ekran olup geri dönüyor */
   const vp = await evalIn(`({ w: innerWidth, h: innerHeight })`);
   const acildi = await clickSel("[data-veri-tam]");
   await sleep(450);

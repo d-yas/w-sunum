@@ -17,7 +17,6 @@ import {
   restack,
   restackEnd,
   restackFromRows,
-  type Box,
   type DecorItem,
   type DecorSlot,
   type DecorState,
@@ -25,6 +24,7 @@ import {
 } from "@/decor/model";
 import { NESNE_FAMILIES, ZEMIN_SLOTS, assetsOf, getAsset, newItem, newSlot } from "@/decor/registry";
 import { FAMILY_LABELS, defaults, type AssetDef, type DecorFamily, type ParamDef, type ParamValues } from "@/decor/types";
+import { setFreeLayout } from "@/lib/free-layout";
 import { getPalette, seriesColor, type Palette } from "@/lib/palettes";
 import { useDragOrder } from "@/lib/use-drag-order";
 import type { ChartSpec, Theme } from "@/lib/spec";
@@ -108,37 +108,6 @@ function fitted(def: AssetDef, slot: DecorSlot, boxW: number, boxH: number): Dec
   };
 }
 
-/**
- * Read the card's own parts off the live stage card.
- *
- * Measured rather than computed: the header's height depends on the font, the
- * chart's on the legend position, and guessing would make the layout jump the
- * moment free layout is switched on. Rects are divided by the stage zoom,
- * which the card itself reveals — its rendered width over its true width.
- */
-function measureSlots(width: number): Partial<Record<SlotKey, Box>> {
-  const card = document.querySelector<HTMLElement>(".stage-card");
-  if (!card) return {};
-  const cardRect = card.getBoundingClientRect();
-  const k = cardRect.width / width || 1;
-  const out: Partial<Record<SlotKey, Box>> = {};
-  for (const key of SLOT_KEYS) {
-    const el = card.querySelector<HTMLElement>(`[data-slot="${key}"]`);
-    if (!el) continue;
-    const r = el.getBoundingClientRect();
-    // Two decimals, not whole pixels: the flow layout lands on fractions, and
-    // rounding them would nudge every part when free layout is switched on.
-    const fix = (n: number) => Math.round(n * 100) / 100;
-    out[key] = {
-      x: fix((r.left - cardRect.left) / k),
-      y: fix((r.top - cardRect.top) / k),
-      w: fix(r.width / k),
-      h: fix(r.height / k),
-    };
-  }
-  return out;
-}
-
 /* ---------------- the panel ---------------- */
 
 export function DecorPanel({
@@ -200,21 +169,17 @@ export function DecorPanel({
   });
 
   const layout = spec.yerlesim;
-  const setFree = (on: boolean) => {
-    // Seed from where the parts already are, so switching on changes nothing
-    // visually — it only makes them grabbable.
-    const kutular = on && Object.keys(layout.kutular).length === 0 ? measureSlots(spec.options.width) : layout.kutular;
-    onChange({ ...spec, yerlesim: { ...layout, serbest: on, kutular } });
-  };
 
   return (
     <div className="flex flex-col">
       {/* ---- free layout ---- */}
       <Section id="yerlesim" title="Yerleşim">
-        <Field label="Serbest yerleşim" hint="Başlık, grafik ve dipnot da sürüklenip boyutlandırılabilir olur.">
-          <Switch checked={layout.serbest} onChange={setFree} />
-        </Field>
-        {layout.serbest && (
+        {!layout.serbest ? (
+          <p className="text-[12px] text-muted-foreground">
+            Araç çubuğundaki <strong>serbest yerleşim</strong> düğmesiyle açın; başlık, grafik ve dipnot sürüklenip
+            boyutlandırılabilir olur.
+          </p>
+        ) : (
           <>
             <div className="flex flex-col gap-0.5 pt-1">
               {SLOT_KEYS.filter((k) => layout.kutular[k]).map((k) => {
@@ -250,7 +215,7 @@ export function DecorPanel({
                 onChange({ ...spec, yerlesim: { serbest: false, kutular: {}, gizli: [] } });
                 requestAnimationFrame(() =>
                   requestAnimationFrame(() =>
-                    onChange({ ...spec, yerlesim: { serbest: true, kutular: measureSlots(spec.options.width), gizli: [] } })
+                    onChange(setFreeLayout({ ...spec, yerlesim: { serbest: false, kutular: {}, gizli: [] } }, true))
                   )
                 );
               }}

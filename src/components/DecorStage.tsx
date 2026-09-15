@@ -320,9 +320,9 @@ export function DecorStage({ spec, scale, selectedId, onSelect, onChange }: Deco
       onPointerMove={onMove}
       onPointerUp={end}
       onPointerCancel={end}
-      onPointerDown={(e) => {
-        if (e.target === hostRef.current) onSelect(null);
-      }}
+      // Boşluğa tıklamak seçimi düşürür ama bunu katman değil sahne yapıyor:
+      // katman artık her zaman çiziliyor ve kartın üstünde duruyor, o yüzden
+      // "boşluk" ile "kartın bir parçası" ayrımını ancak sahne bilebilir.
     >
       {handles.map((h) => {
         const sel = h.id === selectedId;

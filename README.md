@@ -9,8 +9,15 @@ Paylaşmak için yalnız bu dosyayı gönderin.
 ## Kullanım (son kullanıcı)
 
 Pencere üç sütun: **solda** grafik listesi ve veri tablosu, **ortada** kart,
-**sağda** o kartın ayarları. Kart üzerindeki bir parçaya tıklamak sağ panelde
-onun ayarına götürür — başlığa tıklayın, Metin bölümü açılır ve vurgulanır.
+**sağda** seçili olan neyse onun ayarları. Sağ panelde sekme yok: karttaki bir
+parçaya tıklamak onu seçer ve panel o parçanın ayarlarını gösterir — başlığa
+tıklayın, yalnız Metin görünür; grafiğe tıklayın, tür, eksen, gösterge ve
+etiket ayarları gelir; boşluğa tıklayın (ya da `Esc`), slaytın kendi ayarları
+kalır. Bir kategoriyi vurgulamak `Alt+tık`.
+
+Kartın altında **yüzen araç çubuğu** durur: seçim ve el araçları, serbest
+yerleşim modu, `+` ile süsleme galerisi, palet ve dışa aktarım. Eskiden sağ
+panelin sekmeleriydi; artık hangi ayardaysanız orada duruyorlar.
 
 1. `veri-gorsel.html` dosyasını Chrome ya da Edge ile açın (çift tık yeter).
 2. Sağ panelin başındaki **Değiştir** ile grafik türünü seçin. Türler beş
@@ -38,7 +45,7 @@ onun ayarına götürür — başlığa tıklayın, Metin bölümü açılır ve
 
    `+ Yeni grafik` kutusu listenin yanına, sahnenin üstüne açılır: 23 türün
    hepsi tek bakışta görünür, kaydırmak gerekmez.
-4. **Görünüm**: başlık, alt başlık, dipnot, kart boyutu (16:9 hazır oranlar),
+4. **Grafik seçiliyken**: başlık, alt başlık, dipnot, kart boyutu (16:9 hazır oranlar),
    gösterge konumu, sayı biçimi (1.250,5 / 1,250.5, ondalık, ön ek/son ek,
    kısaltma). Tür-özel bölümler de burada:
 
@@ -60,15 +67,16 @@ onun ayarına götürür — başlığa tıklayın, Metin bölümü açılır ve
      değiştirince yerini korur.
    - **Çizgi / Alan** — eğri türü, kalınlık, işaretçiler, dolgu gradyanı ve
      **tahmin kesiği** (şu satırdan sonrası kesikli; 1 yazarsanız tüm çizgi).
-5. **Renkler**: dört hazır palet (varsayılan palet renk körlüğü için
+5. **Renkler** (araç çubuğundaki palet düğmesi): dört hazır palet (varsayılan palet renk körlüğü için
    doğrulanmış) ve seri başına özel renk. `+ Palet ekle` seçili paletin
    kopyasından **kendi paletinizi** açar: adını yazın, renkleri tek tek
    değiştirin, `+`/`−` ile renk sayısını ayarlayın. Özel palet çalışma
    alanıyla birlikte kaydedilir ve açık/koyu temada aynı kalır — kurumsal
    renk bir marka kararıdır, bakımı gereken ikinci bir set değil. Sıra
    önemlidir: seriler bu sırayla boyanır ve süsleme ilk rengi kullanır.
-6. **Süsle**: doku, ışık ve çerçeve zemin olarak seçilir (üçü aynı anda
-   durabilir); ışık, ok, ikon, işaret ve balonlar galeriden tıklanıp karta düşer,
+6. **Süsleme**: doku, ışık ve çerçeve slayt ayarlarından zemin olarak seçilir
+   (üçü aynı anda durabilir); ışık, ok, ikon, işaret ve balonlar araç
+   çubuğundaki `+` galerisinden tıklanıp karta düşer,
    sahnede sürüklenir, köşeden boyutlandırılır, üstteki tutamaçtan
    döndürülür. Renkleri varsayılan olarak grafiğin paletinden gelir.
    Kısayollar: `Shift` eksene/orana/15°'ye kilitler, ok tuşları 1 px
@@ -86,8 +94,10 @@ onun ayarına götürür — başlığa tıklayın, Metin bölümü açılır ve
    seçili nesneyi bir basamak aşağı/yukarı taşır, grafiği geçerken katmanı
    kendiliğinden değiştirir; `Shift` ile en alta/en üste gider.
 
-   Aynı sekmedeki **Serbest yerleşim** anahtarı kartın kendi parçalarını —
-   başlık bloğu, grafik ve dipnot — da sürüklenebilir yapar. Açıldığı anda
+   Araç çubuğundaki **serbest yerleşim** düğmesi kartın kendi parçalarını —
+   başlık bloğu, grafik ve dipnot — da sürüklenebilir yapar. Bir mod: açıkken
+   parçalar tutamaç kutularının altında kaldığı için grafiğin fare ipuçları
+   susar. Durum her grafiğe özeldir ve kaydedilir. Açıldığı anda
    kutular öğelerin o anki yerlerinden ölçülür, yani görüntü değişmez;
    sonrasında kesik kırmızı çerçeveli kutulardan tutup taşır, köşeden
    boyutlandırırsınız. `Kutuları sıfırla` kartın kendi akışına geri döner.
@@ -98,13 +108,13 @@ onun ayarına götürür — başlığa tıklayın, Metin bölümü açılır ve
    Zemin ışıklarının merkezi de sürüklenebilir: kartı tamamen kapladıkları
    için tutulacak bir kutuları yok, onun yerine sahnede bir nişan noktası
    çıkar (Yumuşak küre, Radyal gradyan, Halka dalgaları, Spot konisi).
-6b. **Kart dekoru** (Görünüm sekmesinin altında): kart arka planına doku
+6b. **Kart dekoru** (slayt ayarlarında): kart arka planına doku
    (nokta, ızgara, yarım ton, çapraz, dalga, ASCII), gradyan yıkama, bloom
-   ışıması ve başlık vurgu çubuğu. Süsle sekmesindeki yerleştirilebilir
+   ışıması ve başlık vurgu çubuğu. Galeriden gelen yerleştirilebilir
    nesnelerden ayrı bir katman: bunlar kartın SVG'sine gömülür, elle
    taşınmaz. Renkler grafiğin kendi paletinden gelir; hepsi PNG ve
    PowerPoint çıktısına da geçer.
-7. **Dışa aktar** dört kat:
+7. **Dışa aktar** (araç çubuğundaki indirme düğmesi) dört kat:
    - **PNG** — 1×–4×, tema ya da şeffaf arka plan; indir, panoya kopyala
      (PowerPoint'e doğrudan Ctrl+V) ya da tüm grafikleri tek zip olarak indir.
    - **SVG** — kartın tamamı vektör: başlık, gösterge, eksen ve değer
@@ -127,13 +137,13 @@ makineye taşımak için `Kaydet (JSON)` / `Yükle` kullanın.
 | `Esc` | Seçimi bırak |
 
 Geri al yalnız **işi** kapsar: grafikler ve paletler. Tema, yakınlaştırma ve
-açık sekme pencerenin hâli, geri almaya girmez. Yazmak tek adım sayılır —
+seçim pencerenin hâli, geri almaya girmez. Yazmak tek adım sayılır —
 başlığı harf harf geri almanız gerekmez. Metin kutularının içinde de
 uygulamanın geri alması çalışır; tek istisna `Yapıştır` kutusu, orada çok
 satırlı metni elle düzenlemek tarayıcının kendi davranışını gerektiriyor.
 
-Süsle sekmesinin kendi kısayolları var (`[`, `]`, `Del`, `Ctrl+D`, ok tuşları);
-yukarıdaki listeyle çakışmazlar.
+Süslemelerin kendi kısayolları var (`[`, `]`, `Del`, `Ctrl+D`, ok tuşları);
+yukarıdaki listeyle çakışmazlar. `V` seçim aracına, `H` el aracına geçer.
 
 Açık/koyu tema sağ üstte. `index.html?kind=ring&theme=dark` gibi bir adres o
 türde yeni bir grafikle açar.
@@ -146,10 +156,10 @@ pnpm dev          # http://localhost:5173
 pnpm build        # dist/index.html + veri-gorsel.html — tek dosya
 pnpm typecheck
 pnpm test:parse   # sayı / tarih / CSV ayrıştırma birim testleri (Node, bağımlılık yok)
-pnpm kontrol      # node scripts/cdp-check.mjs [kind] [theme] [sekme] — headless Chrome duman testi
+pnpm kontrol      # node scripts/cdp-check.mjs [kind] [theme] [araç] — headless Chrome duman testi
 pnpm test:susle   # süslemeler dışa aktarımda hayatta kalıyor mu — piksel ölçer
 pnpm test:yerlesim # serbest yerleşim ve hover anahtarı — gerçek fare olaylarıyla
-pnpm test:arayuz  # Del ile kaldırma, katman kısayolu ve sürüklemesi, özel palet, ışık tutamacı
+pnpm test:arayuz  # Del ile kaldırma, katman kısayolu ve sürüklemesi, müfettiş, özel palet, ışık tutamacı
 pnpm test:kabuk   # üç sütun, küçük resimler, liste eylemleri, geri al, tıkla-seç, tür kutusu, liste sürükleme
 pnpm test:secenek # ayarlar çizime ulaşıyor mu — köşe, vurgu, aralık, etiket, referans
 pnpm test:svg     # kart SVG'si eksiksiz mi — başlık, gösterge, portal eksenleri
@@ -181,15 +191,17 @@ aktarım hesaplanmış stili gömerken `class`ı siliyor.
 `pnpm test:kabuk` üç sütunun genişliklerini ölçer, küçük resimlerin
 üretildiğini bekler, listedeki yeniden adlandırma / kopyala / sırala
 düğmelerini tıklar, `Ctrl+Z` ile bir grafiği geri alıp `Ctrl+Y` ile geri
-getirir ve karttaki başlığa tıklayınca sağ panelin doğru bölüme gittiğini
-doğrular.
+getirir, karttaki başlığa tıklayınca sağ panelin yalnız Metin bölümünü
+gösterdiğini, çubuğa `Alt+tık`'ın vurguladığını, araç çubuğundaki üç kutunun
+içeriğini ve serbest yerleşim düğmesini doğrular.
 
 `pnpm kontrol` derlenmiş dosyayı headless Chrome'da açar, konsol hatalarını
 yazar, ekran görüntüsü alır ve PNG dışa aktarımını çalıştırır
-(`scripts/out/`). İsteğe bağlı üçüncü argüman sağ paneldeki sekmeyi açar —
-adıyla (`gorunum`, `renk`, `susle`, `disa`) ya da sırasıyla (1–4). Betikler
-sekmeyi indeksle değil `data-tab` özniteliğiyle buluyor: sekme kümesi bir kez
-değişti ve indeksle yazılmış dört betik birden kırıldı. `DUMP_MARKUP=1` dışa
+(`scripts/out/`). İsteğe bağlı üçüncü argüman araç çubuğundaki bir kutuyu
+açar — adıyla (`ekle`, `renk`, `disa`) ya da sırasıyla (1–3). Betikler bu
+düğmeleri indeksle değil `data-tool` özniteliğiyle buluyor: sağ panelin sekme
+kümesi geçmişte bir kez değişti ve indeksle yazılmış dört betik birden
+kırıldı. `DUMP_MARKUP=1` dışa
 aktarımın ara SVG'sini,
 `EVAL_FILE=dosya.js` ise o dosyadaki ifadeyi sayfada çalıştırıp sonucunu
 yazar. pnpm 11'de esbuild'in kurulum betiği `pnpm-workspace.yaml` içindeki
@@ -293,7 +305,24 @@ yazar. pnpm 11'de esbuild'in kurulum betiği `pnpm-workspace.yaml` içindeki
   tipine, grafiğinki gösterge konumuna bağlı, tahmin etmek zıplamaya yol açar.
 - `src/components/DecorStage.tsx` — sahnedeki tutamaç katmanı. Süsleme
   nesneleri ve kart parçaları tek bir tutamaç listesinde birleşir; kart
-  parçalarının kimliği `slot:` önekiyle ayrılır.
+  parçalarının kimliği `slot:` önekiyle ayrılır. Katman **her zaman** çizilir
+  ve fareyi geçirir (`pointer-events: none`, yalnız tutamaçlarda `auto`):
+  aksi hâlde kartın kendi ipuçları ve tıkla-seç çalışmıyor.
+- `src/lib/selection.ts` — sahnede ne seçili. Tek bir durum: eskiden karta
+  tıklama, süsleme seçimi ve panelde kaydırma ayrı ayrı yaşıyordu ve hangi
+  sekmede olduğunuza göre tıklamanın anlamı değişiyordu. Serbest yerleşim
+  kutuları ayrı bir tür değil, aynı parçaların kutusu — yoksa başlığın moda
+  göre iki kimliği olurdu. Hangi seçimde hangi panel bölümünün görüneceği de
+  burada.
+- `src/components/Inspector.tsx` — sağ panel. Sekme yok; `OptionsPanel` ve
+  `DecorPanel` olduğu gibi çiziliyor, hangi bölümlerinin görüneceğini
+  `SectionScope` bağlamı söylüyor. Paneller yeniden yazılmadı: bölümler zaten
+  `<Section id>` olarak ayrılmıştı.
+- `src/components/Toolbar.tsx` — sahnenin üstünde yüzen çubuk: seçim/el
+  araçları, serbest yerleşim modu, galeri, palet ve dışa aktarım. Son üçü
+  eskiden sağ panelin sekmeleriydi.
+- `src/lib/free-layout.ts` — serbest yerleşimin ölçümü ve aç/kapa mantığı.
+  Hem araç çubuğu hem slayt müfettişi kullanıyor.
 - `src/components/ChartCard.tsx` — slayt kartı. Sahnede ve ekran dışı dışa
   aktarımda aynı bileşen, aynı piksel boyutu.
 - Token'lar `src/index.css` içinde: açık palet `:root`, koyu palet

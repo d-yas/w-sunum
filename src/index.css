@@ -387,6 +387,45 @@ body.suruklerken [data-drag-row]:not([data-dragging]) { transition: transform .1
 /* Liste ile veri tablosu arasındaki tutamaç */
 .split-handle { height: 7px; cursor: ns-resize; border-top: 1px solid var(--border); background: transparent; user-select: none; }
 .split-handle:hover { background: color-mix(in oklab, var(--ring) 20%, transparent); }
+/* Sahnede yüzen araç çubuğu.
+
+   Buradaki üç açılır kutu eskiden sağ panelin sekmeleriydi (galeri, palet,
+   dışa aktarım); sağ panel artık yalnız seçili öğeye ayrıldı. Çubuk sahnenin
+   alt kenarında durduğu için kutular yukarı açılıyor. */
+.toolbar {
+  position: absolute; bottom: 14px; left: 50%; transform: translateX(-50%); z-index: 40;
+  display: flex; align-items: center; gap: 2px; padding: 4px;
+  border-radius: 12px; border: 1px solid var(--border); background: var(--popover);
+  box-shadow: 0 10px 30px rgba(0,0,0,.20);
+}
+.tool {
+  display: flex; align-items: center; justify-content: center; height: 30px; min-width: 30px; padding: 0 7px;
+  border: 0; border-radius: 8px; background: transparent; color: var(--muted-foreground);
+  cursor: pointer; font-family: inherit;
+}
+.tool:hover { background: var(--accent); color: var(--foreground); }
+.tool[aria-pressed="true"] { background: var(--foreground); color: var(--background); }
+.tool-sep { width: 1px; height: 18px; margin: 0 3px; background: var(--border); }
+.tool-pop {
+  position: absolute; bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%);
+  max-height: 60vh; overflow: auto; border-radius: 10px;
+  border: 1px solid var(--border); background: var(--popover); box-shadow: 0 12px 32px rgba(0,0,0,.22);
+}
+/* Kutunun içindeki panel kendi kenarlığını taşıyor; kutuda ikinci bir çizgi olmasın. */
+.tool-pop .section:last-child { border-bottom: 0; }
+
+/* El aracı: sahne sürüklenerek kaydırılır. */
+.stage[data-arac="el"] { cursor: grab; }
+.stage[data-arac="el"]:active { cursor: grabbing; }
+
+/* Müfettişin başlığı: panelin ne gösterdiğini söyleyen tek satır. Sekme
+   çubuğunun yerini aldı. */
+.inspector-head {
+  display: flex; align-items: baseline; gap: 8px; padding: 9px 12px 8px;
+  border-bottom: 1px solid var(--border);
+}
+.inspector-name { font-size: 13px; font-weight: 600; letter-spacing: -.01em; }
+
 /* Veri alanı tam ekran: geniş tablo düzenlerken üç sütunlu kabuk yerine tüm
    pencere. Tarayıcının kendi tam ekranı değil — o uygulamanın araç çubuklarını
    gizlemiyor ve sekmeden çıkınca durum karışıyor. */
@@ -421,7 +460,13 @@ body.suruklerken [data-drag-row]:not([data-dragging]) { transition: transform .1
 .icon-btn:hover { background: var(--muted); color: var(--foreground); }
 
 /* Decoration editing overlay — lives on the stage, never inside the card */
-.decor-overlay { position: absolute; inset: 0; }
+/* Katman artık her zaman çiziliyor, o yüzden fareyi geçirmek zorunda: aksi
+   hâlde kartın kendi ipuçları ve tıkla-seç çalışmıyor. Yalnız tutamaçlar
+   olayları yakalıyor. Sürükleme pointer capture ile gittiği için taşıma
+   sırasında hareketler yine katmana ulaşıyor. */
+.decor-overlay { position: absolute; inset: 0; pointer-events: none; }
+.decor-box, .decor-handle, .decor-anchor, .decor-guide { pointer-events: auto; }
+.decor-guide { pointer-events: none; }
 /* Sahnede sürüklenen her şey seçilemez: tutamacı kavramak kartın metnini
    seçmeye başlıyordu. */
 .decor-box { position: absolute; box-sizing: border-box; cursor: move; user-select: none; -webkit-user-select: none; }

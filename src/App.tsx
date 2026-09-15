@@ -8,33 +8,28 @@ import { ChartList } from "@/components/ChartList";
 import { DecorPanel } from "@/components/DecorPanel";
 import { DecorStage } from "@/components/DecorStage";
 import { DataGrid } from "@/components/DataGrid";
-import { ColorsPanel, ExportPanel, KindPicker, OptionsPanel } from "@/components/Panels";
+import { Inspector } from "@/components/Inspector";
+import { ColorsPanel, ExportPanel, SectionScope } from "@/components/Panels";
+import { Toolbar, type Arac } from "@/components/Toolbar";
 import { copyBlobToClipboard, serializeElement, snapshotElement } from "@/lib/export-png";
 import { buildCardSvg } from "@/lib/export-svg";
 import { createHistory } from "@/lib/history";
 import { buildPptx, type PptxSlide } from "@/lib/pptx";
 import { buildZip } from "@/lib/zip";
 import { KIND_LABELS, dataShape, newChart, type ChartKind, type ChartSpec, type Workspace } from "@/lib/spec";
+import { setFreeLayout } from "@/lib/free-layout";
+import { SLAYT, parcaya, sahneSecimi, sahnedenSecim, type Secim } from "@/lib/selection";
 import { downloadBlob, downloadText, loadWorkspace, normalizeWorkspace, safeFilename, saveWorkspace } from "@/lib/storage";
 import { useThumbnails } from "@/lib/thumbnails";
 import { loadPrefs, savePrefs } from "@/lib/ui-prefs";
 
-type Tab = "gorunum" | "renk" | "susle" | "disa";
-
-const TABS: [Tab, string][] = [
-  ["gorunum", "Görünüm"],
-  ["renk", "Renkler"],
-  ["susle", "Süsle"],
-  ["disa", "Dışa aktar"],
-];
-
 export function App() {
   const [ws, setWs] = useState<Workspace>(() => initialWorkspace());
-  const [tab, setTab] = useState<Tab>("gorunum");
+  const [arac, setArac] = useState<Arac>("sec");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [zoom, setZoom] = useState<"fit" | 1>("fit");
-  const [decorSel, setDecorSel] = useState<string | null>(null);
+  const [secim, setSecim] = useState<Secim>(SLAYT);
   const stageRef = useRef<HTMLDivElement>(null);
   const [stageSize, setStageSize] = useState({ w: 800, h: 600 });
   const [listHeight, setListHeight] = useState(() => loadPrefs().listHeight);
@@ -87,8 +82,8 @@ export function App() {
     });
   }, [history]);
 
-  // A decoration selection belongs to one card; switching charts drops it.
-  useEffect(() => setDecorSel(null), [ws.activeId]);
+  // Seçim bir karta ait; grafik değişince düşer.
+  useEffect(() => setSecim(SLAYT), [ws.activeId]);
 
   useEffect(() => {
     document.documentElement.dataset.theme = ws.theme;
@@ -460,83 +455,86 @@ export function App() {
 
   const thumbs = useThumbnails(ws, renderStatic, busy);
 
-  /* ---------------- sahnede tıkla-seç ---------------- */
+  /* ---------------- sahnede seçim ---------------- */
 
   /**
-   * Karttaki bir parçaya tıklamak ilgili ayara götürüyor.
+   * Karttaki parçaya tıklamak onu seçer; sağ panel seçime göre içerik gösterir.
    *
-   * Panelde on bölüm var ve hepsi birbirine benziyor; "başlık boyutunu
-   * nereden değiştiriyordum" sorusunun cevabı, başlığa tıklamak. Eşleştirme
-   * `data-part` özniteliğinden okunuyor — kartın DOM'u zaten dışa aktarılan
-   * DOM, ona durum eklemek istemiyoruz.
-   *
-   * Süsle sekmesinde devre dışı: orada işaretçiyi DecorStage sahipleniyor.
+   * Eşleştirme `data-part` özniteliğinden okunuyor — kartın DOM'u zaten dışa
+   * aktarılan DOM, ona durum eklemek istemiyoruz. Çubuk, değer etiketi gibi
+   * alt parçalar grafiğin kendisini seçiyor: seçim her yerde aynı davransın
+   * diye. Bir kategoriyi vurgulamak `Alt+tık`.
    */
-  const inspect = tab !== "susle";
-  const [selPart, setSelPart] = useState<string | null>(null);
-  const [focusSection, setFocusSection] = useState<{ id: string; nonce: number } | null>(null);
-
   const onStageClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!inspect) return;
-    const el = (e.target as HTMLElement | null)?.closest<HTMLElement>("[data-part]");
+    if (arac === "el") return;
+    // Süsleme katmanı kartın üstünde duruyor, o yüzden tıklamanın hedefi çoğu
+    // zaman o katmanın kendisi oluyor. Hedef bir parça değilse noktadaki tüm
+    // öğelere bakıp altındaki parçayı buluyoruz.
+    const dogrudan = (e.target as HTMLElement | null)?.closest<HTMLElement>("[data-part]");
+    const el =
+      dogrudan ??
+      document
+        .elementsFromPoint(e.clientX, e.clientY)
+        .map((n) => (n as HTMLElement).closest?.("[data-part]") as HTMLElement | null)
+        .find((n): n is HTMLElement => n != null) ??
+      null;
     const part = el?.dataset.part;
-    if (!part) return;
-    const go = (id: string) => {
-      setTab("gorunum");
-      setFocusSection({ id, nonce: Date.now() });
-    };
-    setSelPart(part);
-    switch (part) {
-      case "title":
-      case "subtitle":
-      case "note":
-        go("metin");
-        break;
-      case "legend":
-        go("gosterge");
-        break;
-      case "axis-x":
-      case "axis-y":
-        go("eksenler");
-        break;
-      case "value":
-        go("etiketler");
-        break;
-      case "refline":
-      case "reflabel":
-        go("referans");
-        break;
-      case "bar": {
-        // Bir çubuğa tıklamak onu vurguluyor; Shift ekleyip çıkarıyor.
-        const cat = el?.dataset.category;
-        if (cat) {
-          const has = active.options.highlight.includes(cat);
-          const next = e.shiftKey
-            ? has
-              ? active.options.highlight.filter((h) => h !== cat)
-              : [...active.options.highlight, cat]
-            : has && active.options.highlight.length === 1
-              ? []
-              : [cat];
-          updateChart({ ...active, options: { ...active.options, highlight: next } });
-        }
-        go("vurgu");
-        break;
-      }
-      default:
-        go("tur");
+    if (!part) {
+      setSecim(SLAYT);
+      return;
     }
+    const cat = el?.dataset.category;
+    if (e.altKey && cat) {
+      const has = active.options.highlight.includes(cat);
+      const next = e.shiftKey
+        ? has
+          ? active.options.highlight.filter((h) => h !== cat)
+          : [...active.options.highlight, cat]
+        : has && active.options.highlight.length === 1
+          ? []
+          : [cat];
+      updateChart({ ...active, options: { ...active.options, highlight: next } });
+      return;
+    }
+    setSecim({ tur: "parca", part: parcaya(part) });
   };
 
-  // Seçim çerçevesi sekme değişince ya da Esc ile kalkar.
-  useEffect(() => setSelPart(null), [tab, ws.activeId]);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setSelPart(null);
+      if (e.key === "Escape") setSecim(SLAYT);
+      const hedef = e.target as HTMLElement | null;
+      if (hedef && hedef.closest("input, textarea, select")) return;
+      if (e.key === "v" || e.key === "V") setArac("sec");
+      if (e.key === "h" || e.key === "H") setArac("el");
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
+
+  /**
+   * El aracı: sahneyi sürükleyerek kaydırır. Sahne zaten `overflow: auto`,
+   * yani yapılacak tek şey tekerleğin işini imlece devretmek.
+   */
+  const onStagePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (arac !== "el") return;
+    const el = stageRef.current;
+    if (!el) return;
+    e.preventDefault();
+    const x0 = e.clientX;
+    const y0 = e.clientY;
+    const sl = el.scrollLeft;
+    const st = el.scrollTop;
+    const move = (ev: PointerEvent) => {
+      el.scrollLeft = sl - (ev.clientX - x0);
+      el.scrollTop = st - (ev.clientY - y0);
+    };
+    const up = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+  };
 
   /* ---------------- stage scale ---------------- */
 
@@ -654,7 +652,7 @@ export function App() {
               PNG indir
             </button>
           </div>
-          <div ref={stageRef} className="stage min-h-0 flex-1 overflow-auto">
+          <div ref={stageRef} className="stage min-h-0 flex-1 overflow-auto" data-arac={arac} onPointerDown={onStagePointerDown}>
             <div
               style={{
                 width: Math.max(stageSize.w, active.options.width * scale + pad),
@@ -668,8 +666,8 @@ export function App() {
                 // `inspect` sınıfı yalnız sahne sarmalayıcısında — ChartCard'ın
                 // kendisine asla: aynı DOM dışa aktarılıyor, hover çerçevesi
                 // PNG'ye sızmasın.
-                className={inspect ? "inspect" : undefined}
-                data-sel={selPart ?? undefined}
+                className="inspect"
+                data-sel={secim.tur === "parca" ? secim.part : undefined}
                 onClick={onStageClick}
                 style={{
                   position: "relative",
@@ -688,36 +686,40 @@ export function App() {
                   className="stage-card"
                   style={{ transform: `scale(${scale})`, transformOrigin: "top left" }}
                 />
-                {tab === "susle" && (
-                  <DecorStage spec={active} scale={scale} selectedId={decorSel} onSelect={setDecorSel} onChange={updateChart} />
-                )}
+                <DecorStage
+                  spec={active}
+                  scale={scale}
+                  selectedId={sahneSecimi(secim)}
+                  onSelect={(id) => setSecim(sahnedenSecim(id))}
+                  onChange={updateChart}
+                />
               </div>
             </div>
           </div>
-          {message && tab !== "disa" && (
+          {message && (
             <div className="pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2 rounded-md border border-border bg-card px-3 py-1.5 text-[12px] shadow">
               {message}
             </div>
           )}
-        </main>
-
-        {/* Sağ: özellikler */}
-        <aside className="right flex w-[320px] shrink-0 flex-col border-l border-border bg-card">
-          <div className="tabbar shrink-0">
-            {TABS.map(([t, l]) => (
-              <button key={t} type="button" role="tab" data-tab={t} aria-selected={tab === t} onClick={() => setTab(t)}>
-                {l}
-              </button>
-            ))}
-          </div>
-          <div className="min-h-0 flex-1 overflow-auto">
-            {tab === "gorunum" && (
-              <>
-                <KindPicker spec={active} onChange={updateChart} />
-                <OptionsPanel spec={active} onChange={updateChart} focus={focusSection} />
-              </>
-            )}
-            {tab === "renk" && (
+          <Toolbar
+            arac={arac}
+            onArac={setArac}
+            serbest={active.yerlesim.serbest}
+            onSerbest={(on) => updateChart(setFreeLayout(active, on))}
+            ekle={
+              <SectionScope show={["galeri"]}>
+                <DecorPanel
+                  spec={active}
+                  theme={ws.theme}
+                  palettes={ws.palettes}
+                  selectedId={sahneSecimi(secim)}
+                  onSelect={(id) => setSecim(sahnedenSecim(id))}
+                  onChange={updateChart}
+                />
+              </SectionScope>
+            }
+            renk={
+              <SectionScope show={["palet", "seri"]}>
               <ColorsPanel
                 spec={active}
                 theme={ws.theme}
@@ -726,25 +728,17 @@ export function App() {
                 onPalettes={(palettes) => commit((w) => ({ ...w, palettes }))}
                 onChange={updateChart}
               />
-            )}
-            {tab === "susle" && (
-              <DecorPanel
-                spec={active}
-                theme={ws.theme}
-                palettes={ws.palettes}
-                selectedId={decorSel}
-                onSelect={setDecorSel}
-                onChange={updateChart}
-              />
-            )}
-            {tab === "disa" && (
+              </SectionScope>
+            }
+            disa={
+              <SectionScope show={["png", "svg", "pptx", "json"]}>
               <ExportPanel
                 scale={ws.export.scale}
                 background={ws.export.background}
                 width={active.options.width}
                 height={active.options.height}
                 busy={busy}
-                onScale={(s) => setWs((w) => ({ ...w, export: { ...w.export, scale: s } }))}
+                onScale={(sc) => setWs((w) => ({ ...w, export: { ...w.export, scale: sc } }))}
                 onBackground={(b) => setWs((w) => ({ ...w, export: { ...w.export, background: b } }))}
                 onDownload={exportPng}
                 onCopy={copyPng}
@@ -759,8 +753,21 @@ export function App() {
                 chartCount={ws.charts.length}
                 message={message}
               />
-            )}
-          </div>
+              </SectionScope>
+            }
+          />
+        </main>
+
+        {/* Sağ: seçili öğenin özellikleri */}
+        <aside className="right flex w-[320px] shrink-0 flex-col border-l border-border bg-card">
+          <Inspector
+            secim={secim}
+            spec={active}
+            theme={ws.theme}
+            palettes={ws.palettes}
+            onSecim={setSecim}
+            onChange={updateChart}
+          />
         </aside>
       </div>
     </div>

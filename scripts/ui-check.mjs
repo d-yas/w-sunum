@@ -1,6 +1,6 @@
 // Panel and stage behaviour, driven through the real UI.
 //
-// These five have no unit-testable surface — they only exist as the result of
+// These six have no unit-testable surface — they only exist as the result of
 // a click reaching React state and React state reaching the card:
 //
 //  1. Delete on a card part hides it without destroying the text.
@@ -12,6 +12,7 @@
 //  4. A background light's centre can be dragged on the stage.
 //  5. Dragging a row in the layer list reorders it, and dragging it past the
 //     "Grafik" divider flips the item between the front and back stacks.
+//  6. Selecting a decoration brings up its own properties in the inspector.
 //
 //   node scripts/ui-check.mjs
 import { launch } from "./cdp.mjs";
@@ -76,15 +77,22 @@ try {
     await mouse("mouseReleased", r.x + r.w / 2, r.y + r.h / 2, 0);
     return true;
   };
-  const openTab = async (name) => {
-    await evalIn(`document.querySelector('[role="tab"][data-tab=${JSON.stringify(name)}]').click(); true`);
-    await sleep(400);
+  /** Araç çubuğundaki bir kutuyu açar/kapatır. Düğmeyle kapatmak seçimi korur. */
+  const togglePop = async (k) => {
+    await evalIn(`document.querySelector('[data-tool=${JSON.stringify(k)}]').click(); true`);
+    await sleep(450);
   };
+  /** Hiçbir şey seçili değil — müfettiş slaytın ayarlarını gösterir. */
+  const selectSlide = async () => {
+    await key("Escape", "Escape", 27);
+    await sleep(350);
+  };
+  const secili = () => evalIn(`document.querySelector('.inspector-name')?.textContent`);
+  const bolumler = () => evalIn(`[...document.querySelectorAll('aside.right [data-section]')].map((e) => e.dataset.section)`);
 
   /* 1 — Delete hides a card part, keeps its text */
-  await openTab("susle");
-  await evalIn(`[...document.querySelectorAll('button[role="switch"]')][0].click(); true`);
-  await sleep(700);
+  await evalIn(`document.querySelector('[data-tool="serbest"]').click(); true`);
+  await sleep(800);
   await clickAt('.decor-box[data-slot="dipnot"]');
   await sleep(300);
   const selected = await evalIn(`!!document.querySelector('.decor-box[data-slot="dipnot"][data-selected]')`);
@@ -99,6 +107,7 @@ try {
   report(await evalIn(`!document.querySelector('.stage-card [data-slot="dipnot"]')`), "kart-parcasi-gizli", "karttan kalktı");
 
   /* 2 — "[" walks an item down the stack and stops at the bottom */
+  await togglePop("ekle");
   await evalIn(`(() => { const g = [...document.querySelectorAll('.seg')].find((s) => s.textContent.includes('İkon'));
     [...g.querySelectorAll('button')].find((b) => b.textContent === 'İkon').click(); return true; })()`);
   await sleep(300);
@@ -107,6 +116,8 @@ try {
   await sleep(500);
   await evalIn(`document.querySelectorAll('.decor-cell')[1].click(); true`);
   await sleep(500);
+  // Düğmeyle kapat: Esc seçimi de düşürürdü, "[" seçili nesneyi taşıyor.
+  await togglePop("ekle");
   const show = (c) => c.decor.nesneler.map((n) => `${n.asset.split("/")[1]}:${n.katman}`).join(" ");
   const steps = [show(await chart())];
   for (let i = 0; i < 3; i++) {
@@ -118,9 +129,18 @@ try {
   // Three distinct states: swap, cross the chart, then hit the floor and hold.
   report(twoItems && new Set(steps).size >= 3 && steps[2] === steps[3], "katman-kisayol", steps.join("  →  "));
 
+  /* 6 — seçili süslemenin kendi özellikleri müfettişte */
+  const adNesne = await secili();
+  const bolNesne = await bolumler();
+  report(
+    bolNesne.includes("secili") && bolNesne.includes("nesneler") && !bolNesne.includes("kart"),
+    "nesne-mufettis",
+    `seçili="${adNesne}" · [${bolNesne.join(",")}]`
+  );
+
   /* 3 — a custom palette reaches the card and the export */
-  await openTab("renk");
-  await evalIn(`[...document.querySelectorAll('button')].find((x) => x.textContent.includes('Palet ekle')).click(); true`);
+  await togglePop("renk");
+  await evalIn(`[...document.querySelectorAll('.tool-pop button')].find((x) => x.textContent.includes('Palet ekle')).click(); true`);
   await sleep(600);
   const named = await evalIn(`(() => {
     const f = [...document.querySelectorAll('label.field')].find((l) => l.textContent.trim().startsWith('Ad'));
@@ -156,16 +176,18 @@ try {
     "ozel-palet",
     `ad="${stored?.name}", ekran ${cssVar}, PNG çubuk rgb=${barPx.join(",")}`
   );
+  await togglePop("renk");
 
   /* 4 — drag a background light's centre */
-  await openTab("susle");
+  await selectSlide();
   await evalIn(`(() => {
-    const s = [...document.querySelectorAll('select')].find((el) => [...el.options].some((o) => o.value === 'isik/kure'));
+    const s = [...document.querySelectorAll('aside.right select')].find((el) => [...el.options].some((o) => o.value === 'isik/kure'));
+    if (!s) return false;
     Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set.call(s, 'isik/kure');
     s.dispatchEvent(new Event('change', { bubbles: true }));
     return true;
   })()`);
-  await sleep(700);
+  await sleep(800);
   const dot = await rectOf(".decor-anchor");
   if (!dot) {
     report(false, "isik-surukle", "sahnede tutamaç yok");
@@ -182,14 +204,15 @@ try {
   }
 
   /* 5 — katman listesinde satırı sürükleyerek sıra */
+  await selectSlide();
+  // Müfettiş kaydırılmış olabilir; satırlar görünür alana gelmeden fare
+  // koordinatları başka bir öğeye düşer.
+  await evalIn(`document.querySelector('.decor-row[data-nesne-id]')?.scrollIntoView({ block: "center" }); true`);
+  await sleep(400);
   const layerRow = (i) =>
     evalIn(`(() => { const rs = [...document.querySelectorAll('.decor-row[data-nesne-id]')]; const e = rs[${i}];
       if (!e) return null; const r = e.getBoundingClientRect();
       return { x: r.x, y: r.y, w: r.width, h: r.height, id: e.dataset.nesneId }; })()`);
-  // Sağ panel bu noktada epey kaydırılmış; satırlar görünür alana gelmeden
-  // fare koordinatları başka bir öğeye düşer.
-  await evalIn(`document.querySelector('.decor-row[data-nesne-id]')?.scrollIntoView({ block: "center" }); true`);
-  await sleep(400);
   const hasDivider = await evalIn(`!!document.querySelector('.decor-row-grafik')`);
   const topRow = await layerRow(0);
   const nextRow = await layerRow(1);

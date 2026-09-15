@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { ChevronDown, X } from "lucide-react";
 
 import { GRADIENT_LABELS, PATTERN_LABELS } from "@/decor";
@@ -110,6 +110,22 @@ export function Num({
  * `[data-section]` seçicisi sahnede bir parçaya tıklandığında ilgili bölüme
  * kaydırmayı mümkün kılıyor (bkz. `App.tsx` inceleyici).
  */
+/**
+ * Görünecek bölümlerin kimlikleri. `null` = süzme yok, hepsi görünür.
+ *
+ * Sağ panel artık seçime göre içerik gösteriyor ve paneller bunun için yeniden
+ * yazılmadı: hangi bölümün görüneceğini dışarıdan bu bağlam söylüyor. Bölümler
+ * zaten `<Section id>` olarak ayrılmıştı, tek eksik hangisinin ne zaman
+ * görüneceğiydi.
+ */
+const KapsamCtx = createContext<Set<string> | null>(null);
+
+export function SectionScope({ show, children }: { show: string[]; children: ReactNode }) {
+  const anahtar = show.join("|");
+  const set = useMemo(() => new Set(show), [anahtar]); // eslint-disable-line react-hooks/exhaustive-deps
+  return <KapsamCtx.Provider value={set}>{children}</KapsamCtx.Provider>;
+}
+
 export function Section({
   id,
   title,
@@ -121,12 +137,14 @@ export function Section({
   children: ReactNode;
   collapsible?: boolean;
 }) {
+  const kapsam = useContext(KapsamCtx);
   const [open, setOpen] = useState(() => (collapsible ? sectionOpen(id) : true));
   const toggle = () => {
     const next = !open;
     setOpen(next);
     setSectionOpen(id, next);
   };
+  if (kapsam && !kapsam.has(id)) return null;
   return (
     <section className="section border-b border-border px-3 py-2.5 last:border-b-0" data-section={id} data-open={open}>
       {collapsible ? (
@@ -218,34 +236,7 @@ export function KindPicker({ spec, onChange }: { spec: ChartSpec; onChange: (s: 
 
 /* ---------------- options ---------------- */
 
-export function OptionsPanel({
-  spec,
-  onChange,
-  focus,
-}: {
-  spec: ChartSpec;
-  onChange: (s: ChartSpec) => void;
-  /** Sahnede bir parçaya tıklanınca açılıp vurgulanacak bölüm. */
-  focus?: { id: string; nonce: number } | null;
-}) {
-  const rootRef = useRef<HTMLDivElement>(null);
-
-  // Kaydırmak tek başına gözden kaçıyor — on bölüm var ve hepsi birbirine
-  // benziyor; kısa bir vurgu hangi bölüme gelindiğini söylüyor.
-  useEffect(() => {
-    if (!focus) return;
-    const el = rootRef.current?.querySelector<HTMLElement>(`[data-section="${focus.id}"]`);
-    if (!el) return;
-    if (el.dataset.open === "false") el.querySelector<HTMLButtonElement>(".section-head")?.click();
-    el.scrollIntoView({ block: "start", behavior: "smooth" });
-    el.classList.remove("flash");
-    // Sınıfı yeniden eklemek için bir kare bekle, yoksa aynı animasyon
-    // ikinci tıklamada tetiklenmiyor.
-    requestAnimationFrame(() => el.classList.add("flash"));
-    const t = setTimeout(() => el.classList.remove("flash"), 1400);
-    return () => clearTimeout(t);
-  }, [focus]);
-
+export function OptionsPanel({ spec, onChange }: { spec: ChartSpec; onChange: (s: ChartSpec) => void }) {
   const o = spec.options;
   const set = (patch: Partial<ChartOptions>) => onChange({ ...spec, options: { ...o, ...patch } });
   const setFmt = (patch: Partial<ChartOptions["format"]>) => set({ format: { ...o.format, ...patch } });
@@ -273,7 +264,7 @@ export function OptionsPanel({
   const noLegend = spec.kind === "heatmap" || spec.kind === "sankey" || spec.kind === "pictogram";
 
   return (
-    <div className="flex flex-col" ref={rootRef}>
+    <div className="flex flex-col">
       <Section id="metin" title="Metin">
         <Field label="Başlık">
           <input className="inp w-44" value={spec.title} onChange={(e) => onChange({ ...spec, title: e.target.value })} />
