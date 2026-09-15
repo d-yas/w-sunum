@@ -33,7 +33,11 @@ onun ayarına götürür — başlığa tıklayın, Metin bölümü açılır ve
    Sol üstteki listede her grafiğin küçük resmi duruyor — resim gerçek dışa
    aktarım çıktısı, yani listede gördüğünüz şey indireceğiniz şey. Ada çift
    tıklayarak yeniden adlandırın, satır üzerindeki düğmelerle kopyalayın,
-   silin ya da `↑`/`↓` ile sırasını değiştirin.
+   silin ya da `↑`/`↓` ile sırasını değiştirin. Sırayı tek hamlede değiştirmek
+   için satırı sürükleyin; bırakma yeri araya düşen çizgiyle gösterilir.
+
+   `+ Yeni grafik` kutusu listenin yanına, sahnenin üstüne açılır: 23 türün
+   hepsi tek bakışta görünür, kaydırmak gerekmez.
 4. **Görünüm**: başlık, alt başlık, dipnot, kart boyutu (16:9 hazır oranlar),
    gösterge konumu, sayı biçimi (1.250,5 / 1,250.5, ondalık, ön ek/son ek,
    kısaltma). Tür-özel bölümler de burada:
@@ -76,8 +80,10 @@ onun ayarına götürür — başlığa tıklayın, Metin bölümü açılır ve
    nesneler gibi taşınıp boyutlandırılır.
 
    Katman sırası tek bir yığındır: liste slaytla aynı sırada durur (üstteki
-   en önde) ve grafik, "ön" ile "arka" arasında yer alır. `[` ve `]` seçili
-   nesneyi bir basamak aşağı/yukarı taşır, grafiği geçerken katmanı
+   en önde) ve grafik, "ön" ile "arka" arasında yer alır — listede kendi
+   `— Grafik —` satırı olarak görünür. Satırları sürükleyerek sıralayın; bir
+   nesneyi bu çizginin öte yanına bırakmak katmanını da değiştirir. `[` ve `]`
+   seçili nesneyi bir basamak aşağı/yukarı taşır, grafiği geçerken katmanı
    kendiliğinden değiştirir; `Shift` ile en alta/en üste gider.
 
    Aynı sekmedeki **Serbest yerleşim** anahtarı kartın kendi parçalarını —
@@ -143,8 +149,8 @@ pnpm test:parse   # sayı / tarih / CSV ayrıştırma birim testleri (Node, bağ
 pnpm kontrol      # node scripts/cdp-check.mjs [kind] [theme] [sekme] — headless Chrome duman testi
 pnpm test:susle   # süslemeler dışa aktarımda hayatta kalıyor mu — piksel ölçer
 pnpm test:yerlesim # serbest yerleşim ve hover anahtarı — gerçek fare olaylarıyla
-pnpm test:arayuz  # Del ile kaldırma, katman kısayolu, özel palet, ışık tutamacı
-pnpm test:kabuk   # üç sütun, küçük resimler, liste eylemleri, geri al, tıkla-seç
+pnpm test:arayuz  # Del ile kaldırma, katman kısayolu ve sürüklemesi, özel palet, ışık tutamacı
+pnpm test:kabuk   # üç sütun, küçük resimler, liste eylemleri, geri al, tıkla-seç, tür kutusu, liste sürükleme
 pnpm test:secenek # ayarlar çizime ulaşıyor mu — köşe, vurgu, aralık, etiket, referans
 pnpm test:svg     # kart SVG'si eksiksiz mi — başlık, gösterge, portal eksenleri
 node scripts/gen-country-codes.mjs   # src/lib/country-codes.ts üretir (world-atlas + Node ICU)

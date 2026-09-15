@@ -1,6 +1,6 @@
 // Panel and stage behaviour, driven through the real UI.
 //
-// These four have no unit-testable surface — they only exist as the result of
+// These five have no unit-testable surface — they only exist as the result of
 // a click reaching React state and React state reaching the card:
 //
 //  1. Delete on a card part hides it without destroying the text.
@@ -10,6 +10,8 @@
 //     (It did not at first: renderStatic's memo dependency list was missing
 //     ws.palettes, so exports kept the palette the closure was built with.)
 //  4. A background light's centre can be dragged on the stage.
+//  5. Dragging a row in the layer list reorders it, and dragging it past the
+//     "Grafik" divider flips the item between the front and back stacks.
 //
 //   node scripts/ui-check.mjs
 import { launch } from "./cdp.mjs";
@@ -177,6 +179,32 @@ try {
     await sleep(600);
     const p1 = (await chart()).decor.zemin.isik.params;
     report(p1.x !== p0.x && p1.y !== p0.y, "isik-surukle", `x ${p0.x}→${p1.x}, y ${p0.y}→${p1.y}`);
+  }
+
+  /* 5 — katman listesinde satırı sürükleyerek sıra */
+  const layerRow = (i) =>
+    evalIn(`(() => { const rs = [...document.querySelectorAll('.decor-row[data-nesne-id]')]; const e = rs[${i}];
+      if (!e) return null; const r = e.getBoundingClientRect();
+      return { x: r.x, y: r.y, w: r.width, h: r.height, id: e.dataset.nesneId }; })()`);
+  // Sağ panel bu noktada epey kaydırılmış; satırlar görünür alana gelmeden
+  // fare koordinatları başka bir öğeye düşer.
+  await evalIn(`document.querySelector('.decor-row[data-nesne-id]')?.scrollIntoView({ block: "center" }); true`);
+  await sleep(400);
+  const hasDivider = await evalIn(`!!document.querySelector('.decor-row-grafik')`);
+  const topRow = await layerRow(0);
+  const nextRow = await layerRow(1);
+  if (!topRow || !nextRow) {
+    report(false, "katman-surukle", "listede iki satır yok");
+  } else {
+    const before = show(await chart());
+    await mouse("mousePressed", topRow.x + 20, topRow.y + topRow.h / 2);
+    await mouse("mouseMoved", topRow.x + 20, topRow.y + topRow.h / 2 + 10);
+    await mouse("mouseMoved", nextRow.x + 20, nextRow.y + nextRow.h - 2);
+    await mouse("mouseReleased", nextRow.x + 20, nextRow.y + nextRow.h - 2, 0);
+    await sleep(700);
+    const after = show(await chart());
+    const nowTop = await evalIn(`document.querySelector('.decor-row[data-nesne-id]')?.dataset.nesneId`);
+    report(hasDivider && after !== before && nowTop !== topRow.id, "katman-surukle", `grafik ayıracı=${hasDivider} · ${before}  →  ${after}`);
   }
 
   const exc = cdp.problems();

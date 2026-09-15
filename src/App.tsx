@@ -144,6 +144,16 @@ export function App() {
       return { ...w, charts };
     });
   };
+  /** Sürüklemenin karşılığı: komşu takası değil, listeden alıp araya sokma. */
+  const reorderCharts = (from: number, to: number) => {
+    commit((w) => {
+      if (from < 0 || to < 0 || from >= w.charts.length || to >= w.charts.length) return w;
+      const charts = [...w.charts];
+      const [moved] = charts.splice(from, 1);
+      charts.splice(to, 0, moved);
+      return { ...w, charts };
+    });
+  };
 
   /** Renk panelinde listelenecek adlar — her tür rengi başka bir eksene dağıtır. */
   const seriesNames = useMemo(() => {
@@ -583,6 +593,7 @@ export function App() {
               onDuplicate={duplicateChart}
               onDelete={deleteChart}
               onMove={moveChart}
+              onReorder={reorderCharts}
               onAdd={addChart}
             />
           </div>

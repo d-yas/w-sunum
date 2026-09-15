@@ -342,11 +342,33 @@ textarea.inp { height: auto; padding: 6px 8px; resize: vertical; }
 .chart-row:hover .chart-acts, .chart-row[aria-selected="true"] .chart-acts, .chart-row:focus-within .chart-acts { opacity: 1; }
 .icon-btn:disabled { opacity: .3; cursor: not-allowed; }
 .icon-btn.danger:hover { color: var(--destructive); }
+/* Tür kutusu panelin yanına açılır: 300 px'lik sol sütuna sıkışınca yukarı
+   taşıyor, kesiliyor ve 23 türü görmek için kaydırma gerekiyordu. Konumu JS
+   ölçüyor (position: fixed), böylece ne panel ne de sahne kırpabiliyor. */
 .kind-pop {
-  position: absolute; bottom: calc(100% + 4px); left: 8px; right: 8px; z-index: 20;
-  max-height: 60vh; overflow: auto; padding: 10px; border-radius: 10px;
+  position: fixed; z-index: 60; overflow: auto; padding: 12px; border-radius: 10px;
   border: 1px solid var(--border); background: var(--popover); box-shadow: 0 12px 32px rgba(0,0,0,.18);
 }
+/* Gruplar iki sütuna akar; ortadan bölünmesinler diye break-inside kapalı. */
+.kind-groups { columns: 2; column-gap: 14px; }
+.kind-groups > div { break-inside: avoid; margin-bottom: 10px; }
+
+/* Sürükleyerek sıralama — iki liste de aynı göstergeyi kullanır */
+[data-drag-row] { position: relative; }
+[data-drag-row][data-dragging] { opacity: .45; cursor: grabbing; }
+[data-drag-row][data-drop-before]::before,
+[data-drag-row][data-drop-after]::after {
+  content: ""; position: absolute; left: 2px; right: 2px; height: 2px;
+  border-radius: 2px; background: var(--ring); pointer-events: none;
+}
+[data-drag-row][data-drop-before]::before { top: -1px; }
+[data-drag-row][data-drop-after]::after { bottom: -1px; }
+/* Grafiğin listedeki yeri: taşınmaz, ama ön ile arkayı ayıran çizgi o. */
+.decor-row-grafik {
+  cursor: default; border-style: dashed; border-color: var(--border);
+  background: color-mix(in oklab, var(--muted) 60%, transparent);
+}
+.decor-row-grafik:hover { background: color-mix(in oklab, var(--muted) 60%, transparent); }
 /* Liste ile veri tablosu arasındaki tutamaç */
 .split-handle { height: 7px; cursor: ns-resize; border-top: 1px solid var(--border); background: transparent; }
 .split-handle:hover { background: color-mix(in oklab, var(--ring) 20%, transparent); }

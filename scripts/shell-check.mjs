@@ -9,6 +9,9 @@
 //  4. Kopyala / sil / sırala liste düğmeleri doğru grafiği hedefliyor.
 //  5. Ctrl+Z bir düzenlemeyi geri alıyor, Ctrl+Y geri getiriyor.
 //  6. Bölme tutamacı liste yüksekliğini kalıcı kaydediyor.
+//  7. "Yeni grafik" kutusu panelin yanına açılıyor ve 23 türün hepsi
+//     kaydırmadan görünüyor (eskiden yukarı taşıp kesiliyordu).
+//  8. Satırı sürüklemek listeyi gerçekten yeniden sıralıyor.
 //
 //   node scripts/shell-check.mjs
 import { writeFileSync } from "node:fs";
@@ -170,6 +173,60 @@ try {
   const now = await store();
   const hl1 = now.charts.find((c) => c.id === now.activeId)?.options.highlight ?? [];
   report(hitBar && hl1.length === 1, "cubuk-vurgu", `vurgulanan=[${hl1.join(",")}]`);
+
+  /* 9 — "Yeni grafik" kutusu panelin yanında açılıyor ve tamamı görünüyor */
+  await evalIn(`[...document.querySelectorAll('aside.left button')].find((b) => b.textContent.includes('Yeni grafik')).click(); true`);
+  await sleep(400);
+  const pop = await rectOf(".kind-pop");
+  const leftCol = await rectOf("aside.left");
+  const popFacts = await evalIn(`(() => {
+    const p = document.querySelector('.kind-pop');
+    if (!p) return null;
+    const r = p.getBoundingClientRect();
+    const btns = [...p.querySelectorAll('.kind-btn')];
+    const inside = btns.every((b) => {
+      const q = b.getBoundingClientRect();
+      return q.top >= r.top - 1 && q.bottom <= r.bottom + 1 && q.left >= r.left - 1 && q.right <= r.right + 1;
+    });
+    return {
+      count: btns.length,
+      scrolls: p.scrollHeight > p.clientHeight + 1,
+      inside,
+      onScreen: r.top >= 0 && r.bottom <= innerHeight + 1 && r.right <= innerWidth + 1,
+    };
+  })()`);
+  report(
+    !!pop &&
+      !!popFacts &&
+      pop.x >= leftCol.x + leftCol.w - 2 &&
+      popFacts.count === 23 &&
+      !popFacts.scrolls &&
+      popFacts.inside &&
+      popFacts.onScreen,
+    "tur-kutusu-yan",
+    `x=${Math.round(pop?.x ?? -1)} (panel biter ${Math.round(leftCol.x + leftCol.w)}) · ${popFacts?.count} tür · kayar=${popFacts?.scrolls} · hepsi içeride=${popFacts?.inside} · ekranda=${popFacts?.onScreen}`
+  );
+  await key("Escape", "Escape", 27);
+  await sleep(300);
+
+  /* 10 — listede satırı sürükleyerek sıralama */
+  const idsBefore = await names();
+  const first = idsBefore[0];
+  const last = idsBefore[idsBefore.length - 1];
+  const rFirst = await rectOf(`.chart-row[data-id="${first}"]`);
+  const rLast = await rectOf(`.chart-row[data-id="${last}"]`);
+  await mouse("mousePressed", rFirst.x + 70, rFirst.y + rFirst.h / 2);
+  await mouse("mouseMoved", rFirst.x + 70, rFirst.y + rFirst.h / 2 + 14);
+  await mouse("mouseMoved", rLast.x + 70, rLast.y + rLast.h - 2);
+  await mouse("mouseReleased", rLast.x + 70, rLast.y + rLast.h - 2, 0);
+  await sleep(600);
+  const idsAfter = await names();
+  const storedOrder = (await store()).charts.map((c) => c.id).join(",");
+  report(
+    idsAfter.length === idsBefore.length && idsAfter[idsAfter.length - 1] === first && storedOrder === idsAfter.join(","),
+    "liste-surukle",
+    `${idsBefore.join(",")} → ${idsAfter.join(",")} (kayıtlı ${storedOrder})`
+  );
 
   const shot = await cdp.send("Page.captureScreenshot", { format: "png" });
   writeFileSync(`${dir}/shell.png`, Buffer.from(shot.data, "base64"));

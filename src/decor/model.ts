@@ -206,6 +206,25 @@ export function restack(items: DecorItem[], id: string, dir: -1 | 1): DecorItem[
   return next;
 }
 
+/**
+ * Rebuild `nesneler` from the panel's visual row order.
+ *
+ * Rows read top-first — the way the card looks — and `null` marks the chart
+ * itself. That is what makes dragging a row past the chart flip its `katman`:
+ * which side of the divider a row lands on *is* the layer. Keeping the whole
+ * mapping here means the panel never reasons about the two-stack storage shape.
+ */
+export function restackFromRows(rows: (DecorItem | null)[]): DecorItem[] {
+  const divider = rows.indexOf(null);
+  const split = divider < 0 ? rows.length : divider;
+  const on = rows.slice(0, split).filter((n): n is DecorItem => n !== null);
+  const arka = rows.slice(split + 1).filter((n): n is DecorItem => n !== null);
+  return [
+    ...arka.reverse().map((n) => ({ ...n, katman: "arka" as const })),
+    ...on.reverse().map((n) => ({ ...n, katman: "on" as const })),
+  ];
+}
+
 /** Send an item all the way to one end of the stack. */
 export function restackEnd(items: DecorItem[], id: string, end: "arka" | "on"): DecorItem[] {
   const target = items.find((n) => n.id === id);

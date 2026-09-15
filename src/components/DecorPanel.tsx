@@ -16,6 +16,7 @@ import {
   emptyDecor,
   restack,
   restackEnd,
+  restackFromRows,
   type Box,
   type DecorItem,
   type DecorSlot,
@@ -25,6 +26,7 @@ import {
 import { NESNE_FAMILIES, ZEMIN_SLOTS, assetsOf, getAsset, newItem, newSlot } from "@/decor/registry";
 import { FAMILY_LABELS, defaults, type AssetDef, type DecorFamily, type ParamDef, type ParamValues } from "@/decor/types";
 import { getPalette, seriesColor, type Palette } from "@/lib/palettes";
+import { useDragOrder } from "@/lib/use-drag-order";
 import type { ChartSpec, Theme } from "@/lib/spec";
 
 import { ColorWell, Field, Section, Seg, Slider, Switch } from "./Panels";
@@ -182,9 +184,20 @@ export function DecorPanel({
     if (selectedId === id) onSelect(null);
   };
 
-  const { stack } = decorStack(decor.nesneler);
+  const { stack, boundary } = decorStack(decor.nesneler);
   const order = (id: string, dir: -1 | 1) => setDecor({ ...decor, nesneler: restack(decor.nesneler, id, dir) });
   const orderEnd = (id: string, end: "arka" | "on") => setDecor({ ...decor, nesneler: restackEnd(decor.nesneler, id, end) });
+
+  // Liste slaytla aynı sırada okunur: en üstteki en önde. Grafiğin kendisi
+  // `null` bir satır — yığının iki yarısı arasında durduğu için, bir nesneyi
+  // onun üstüne ya da altına sürüklemek katmanı da değiştiriyor.
+  const rows: (DecorItem | null)[] = [...stack.slice(boundary).reverse(), null, ...stack.slice(0, boundary).reverse()];
+  const dragRows = useDragOrder(rows.length, (from, to) => {
+    const next = [...rows];
+    const [moved] = next.splice(from, 1);
+    next.splice(to, 0, moved);
+    setDecor({ ...decor, nesneler: restackFromRows(next) });
+  });
 
   const layout = spec.yerlesim;
   const setFree = (on: boolean) => {
@@ -291,14 +304,28 @@ export function DecorPanel({
         {decor.nesneler.length === 0 ? (
           <p className="text-[12px] text-muted-foreground">Henüz nesne yok.</p>
         ) : (
-          <div className="flex flex-col gap-0.5">
-            {/* Top of the list is top of the slide: the list reads the way the
-                card looks, not in storage order. */}
-            {[...stack].reverse().map((n, revIndex) => {
+          <div className="flex flex-col gap-0.5" ref={dragRows.listRef}>
+            {rows.map((n, rowIndex) => {
+              if (n === null) {
+                return (
+                  <div key="grafik" className="decor-row decor-row-grafik" {...dragRows.rowProps(rowIndex, true)}>
+                    <span className="grow text-[11px] text-muted-foreground">— Grafik —</span>
+                  </div>
+                );
+              }
               const def = getAsset(n.asset);
-              const i = stack.length - 1 - revIndex;
+              const i = stack.findIndex((s) => s.id === n.id);
               return (
-                <div key={n.id} className="decor-row" aria-selected={n.id === selectedId} onClick={() => onSelect(n.id)} role="option">
+                <div
+                  key={n.id}
+                  className="decor-row"
+                  data-nesne-id={n.id}
+                  aria-selected={n.id === selectedId}
+                  onClick={() => onSelect(n.id)}
+                  role="option"
+                  title="Sırayı değiştirmek için sürükleyin"
+                  {...dragRows.rowProps(rowIndex)}
+                >
                   <span className="grow">{def?.label ?? n.asset}</span>
                   <span className="text-[10px] text-muted-foreground">{n.katman === "arka" ? "arka" : "ön"}</span>
                   <button className="icon-btn" type="button" title="Bir üste (])" onClick={(e) => (e.stopPropagation(), order(n.id, 1))} disabled={i === stack.length - 1}>
@@ -326,7 +353,8 @@ export function DecorPanel({
               );
             })}
             <p className="mt-1 text-[11px] text-muted-foreground">
-              Liste slaytla aynı sırada: üstteki en önde. Grafik, "ön" ile "arka" arasındadır.
+              Liste slaytla aynı sırada: üstteki en önde. Satırları sürükleyin; "Grafik" çizgisinin üstü ön,
+              altı arka katmandır.
             </p>
           </div>
         )}

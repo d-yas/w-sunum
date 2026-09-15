@@ -13,15 +13,18 @@ export function KindGrid({
   current,
   onPick,
   keepsDataOf,
+  wide = false,
 }: {
   /** Basılı görünecek tür; yeni grafik eklerken yok. */
   current?: ChartKind;
   onPick: (kind: ChartKind) => void;
   /** Bu türle aynı tabloyu kullanan türler "veri korunur" ipucu alır. */
   keepsDataOf?: ChartKind;
+  /** Grupları iki sütuna akıtır — geniş açılır kutuda 23 tür kaydırmasız sığsın diye. */
+  wide?: boolean;
 }) {
   return (
-    <div className="flex flex-col gap-2.5">
+    <div className={wide ? "kind-groups" : "flex flex-col gap-2.5"}>
       {KIND_GROUPS.map((group) => (
         <div key={group.title}>
           <div className="panel-label mb-1">{group.title}</div>
