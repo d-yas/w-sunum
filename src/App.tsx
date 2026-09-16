@@ -16,6 +16,7 @@ import { copyBlobToClipboard, serializeElement, snapshotElement } from "@/lib/ex
 import { buildCardSvg } from "@/lib/export-svg";
 import { createHistory } from "@/lib/history";
 import { buildPptx, type PptxSlide } from "@/lib/pptx";
+import { yazilariTopla } from "@/lib/pptx-metin";
 import { buildZip } from "@/lib/zip";
 import { KIND_LABELS, dataShape, newChart, type ChartKind, type ChartSpec, type Workspace } from "@/lib/spec";
 import { bicemAl, bicemUygula, type Bicem } from "@/lib/bicem";
@@ -365,19 +366,25 @@ export function App() {
       const slides: PptxSlide[] = [];
       for (const spec of specs) {
         await renderStatic(async (node) => {
-          const blob = await snapshotElement(node, { scale: ws.export.scale, background: null });
           const cardBg = getComputedStyle(node).backgroundColor;
+          // Tek geçiş: ölçülen kart ile PNG'ye giden kart aynı kart. Önce
+          // yazılar toplanıyor, sonra görünmez kılınıyor — böylece slaytta
+          // düzenlenebilir bir kutu olarak duruyorlar ve resimde yoklar.
+          const { yazilar, gizle } = yazilariTopla(node);
+          gizle();
+          const blob = await snapshotElement(node, { scale: ws.export.pptxScale, background: null });
           slides.push({
             png: new Uint8Array(await blob.arrayBuffer()),
             width: spec.options.width,
             height: spec.options.height,
             background: ws.export.background === "transparent" ? null : cssColorToHex(cardBg),
             name: spec.title || spec.name,
+            texts: yazilar,
           });
         }, spec);
       }
       const name = all ? "grafikler.pptx" : `${safeFilename(active.title || active.name)}.pptx`;
-      const bytes = buildPptx(slides, all ? "Grafikler" : active.title || active.name);
+      const bytes = buildPptx(slides, all ? "Grafikler" : active.title || active.name, ws.export.pptxSlayt);
       downloadBlob(name, new Blob([bytes], { type: "application/vnd.openxmlformats-officedocument.presentationml.presentation" }));
       return `İndirildi: ${name} (${slides.length} slayt, ${Math.round(bytes.length / 1024)} KB)`;
     });
@@ -816,6 +823,10 @@ export function App() {
                 onAllSvg={() => exportAll("svg")}
                 onPptx={() => exportPptx(false)}
                 onPptxAll={() => exportPptx(true)}
+                pptxScale={ws.export.pptxScale}
+                onPptxScale={(pptxScale) => setWs((w) => ({ ...w, export: { ...w.export, pptxScale } }))}
+                pptxSlayt={ws.export.pptxSlayt}
+                onPptxSlayt={(pptxSlayt) => setWs((w) => ({ ...w, export: { ...w.export, pptxSlayt } }))}
                 onSaveJson={exportWorkspace}
                 onLoadJson={() => fileRef.current?.click()}
                 chartCount={ws.charts.length}

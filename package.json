@@ -18,6 +18,7 @@
     "test:katman": "node scripts/layers-check.mjs",
     "test:metin": "node scripts/text-check.mjs",
     "test:stil": "node scripts/style-check.mjs",
+    "test:sunu": "node scripts/pptx-check.mjs",
     "test:kabuk": "node scripts/shell-check.mjs",
     "test:secenek": "node scripts/options-check.mjs",
     "test:svg": "node scripts/svg-check.mjs"

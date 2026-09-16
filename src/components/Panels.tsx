@@ -3,6 +3,7 @@ import { ChevronDown, X } from "lucide-react";
 
 import { GRADIENT_LABELS, PATTERN_LABELS } from "@/decor";
 import type { Bicem } from "@/lib/bicem";
+import type { PptxSlideSize } from "@/lib/pptx";
 import { KIND_ICONS, PICTO_ICONS } from "@/lib/chart-icons";
 import { PALETTES, getPalette, isCustom, newPalette, seriesColor, type Palette } from "@/lib/palettes";
 import type { Locale } from "@/lib/format";
@@ -1164,6 +1165,10 @@ export function ExportPanel({
   onAllSvg,
   onPptx,
   onPptxAll,
+  pptxScale,
+  onPptxScale,
+  pptxSlayt,
+  onPptxSlayt,
   onSaveJson,
   onLoadJson,
   chartCount,
@@ -1184,6 +1189,10 @@ export function ExportPanel({
   onAllSvg: () => void;
   onPptx: () => void;
   onPptxAll: () => void;
+  pptxScale: 2 | 3 | 4;
+  onPptxScale: (s: 2 | 3 | 4) => void;
+  pptxSlayt: PptxSlideSize;
+  onPptxSlayt: (s: PptxSlideSize) => void;
   onSaveJson: () => void;
   onLoadJson: () => void;
   chartCount: number;
@@ -1246,9 +1255,34 @@ export function ExportPanel({
             Tümü ({chartCount} slayt)
           </button>
         </div>
+        <Field label="Slayt boyutu">
+          <Seg
+            value={pptxSlayt}
+            options={[
+              ["16:9", "16:9"],
+              ["4:3", "4:3"],
+              ["kart", "Karta göre"],
+            ]}
+            onChange={onPptxSlayt}
+          />
+        </Field>
+        {/* PNG'den ayrı bir ölçek: slayt 13 inç genişliğinde yansıtılıyor,
+            yani 2× bile ~144 DPI. */}
+        <Field label="Çözünürlük" hint="Slayttaki resmin keskinliği. PNG indirmenin ölçeğinden bağımsız.">
+          <Seg
+            value={String(pptxScale) as "2" | "3" | "4"}
+            options={[
+              ["2", "2×"],
+              ["3", "3×"],
+              ["4", "4×"],
+            ]}
+            onChange={(v) => onPptxScale(Number(v) as 2 | 3 | 4)}
+          />
+        </Field>
         <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">
-          16:9 geniş ekran sunu; grafik yukarıdaki çözünürlükte PNG olarak slayta ortalanır. Dosyayı açıp slaytları
-          kendi sununuza sürükleyebilirsiniz.
+          Başlık, dipnot ve yerleştirdiğiniz metinler <strong>gerçek metin kutusu</strong> olarak gider; PowerPoint'te
+          düzenlenir. Grafik ve süsleme resim olarak, kart oranı korunarak slayta ortalanır. Dosyayı açıp slaytları kendi
+          sununuza sürükleyebilirsiniz.
         </p>
       </Section>
 

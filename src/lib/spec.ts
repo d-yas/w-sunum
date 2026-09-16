@@ -1,4 +1,5 @@
 import { emptyDecor, emptyLayout, type CardLayout, type DecorState } from "@/decor/model";
+import type { PptxSlideSize } from "./pptx";
 
 import type { Palette } from "./palettes";
 
@@ -262,7 +263,18 @@ export interface Workspace {
   charts: ChartSpec[];
   /** User-defined palettes, offered alongside the built-in four. */
   palettes: Palette[];
-  export: { scale: 1 | 2 | 3 | 4; background: ExportBackground };
+  export: {
+    scale: 1 | 2 | 3 | 4;
+    background: ExportBackground;
+    /**
+     * PPTX'e gömülen resmin ölçeği. PNG'den ayrı: bir slayt 13 inç genişliğinde
+     * yansıtılıyor, yani 2× bile yaklaşık 144 DPI — projeksiyonda yumuşak
+     * görünüyor. Varsayılan 3.
+     */
+    pptxScale: 2 | 3 | 4;
+    /** Slayt ölçüsü. */
+    pptxSlayt: PptxSlideSize;
+  };
 }
 
 export const KIND_LABELS: Record<ChartKind, string> = {
@@ -732,7 +744,7 @@ export function defaultWorkspace(): Workspace {
     activeId: first.id,
     charts: [first],
     palettes: [],
-    export: { scale: 2, background: "theme" },
+    export: { scale: 2, background: "theme", pptxScale: 3, pptxSlayt: "16:9" },
   };
 }
 

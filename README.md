@@ -194,7 +194,16 @@ panelin sekmeleriydi; artık hangi ayardaysanız orada duruyorlar.
    - **SVG** — kartın tamamı vektör: başlık, gösterge, eksen ve değer
      etiketleri, süsleme dâhil. İndirin, panoya kopyalayıp Illustrator ya da
      Figma'ya yapıştırın, veya hepsini zip olarak alın.
-   - **PowerPoint** — tek slayt ya da her grafik bir slayt, 16:9 .pptx.
+   - **PowerPoint** — tek slayt ya da her grafik bir slayt. Başlık, alt
+     başlık, dipnot ve yerleştirdiğiniz bütün metinler (metin kutuları, balon
+     ve rozet yazıları) **gerçek metin kutusu** olarak gider: PowerPoint'te
+     tıklayıp düzenlersiniz, sununun aramasına ve anahat görünümüne girer.
+     Grafik ve süsleme resim olarak, kart oranı korunarak slayta ortalanır —
+     ve o resimde yazı **yoktur**, yani hiçbir şey iki kez çizilmez.
+     *Slayt boyutu* 16:9, 4:3 ya da **karta göre** (kartın oranını alır ama
+     geniş ekran kutusunu aşmaz: 800×600 bir kart tam olarak standart 4:3
+     slayt olur). *Çözünürlük* PNG indirmeden ayrı ve varsayılanı 3×: bir
+     slayt 13 inç genişliğinde yansıtılıyor, 2× bile yaklaşık 144 DPI.
    - **Çalışma alanı** — bütün grafikler, veriler ve paletler tek JSON'da.
 
 Çalışma alanı tarayıcının yerel deposunda kendiliğinden saklanır. Başka bir
@@ -237,6 +246,7 @@ pnpm test:arayuz  # Del ile kaldırma, katman kısayolu ve sürüklemesi, müfet
 pnpm test:katman  # katman ağacı, ad değiştirme, göz, gruba sürükleme, arama, sağ tık menüsü
 pnpm test:metin   # T/L araçları, yerinde yazma, otomatik yükseklik, uç sürükleme
 pnpm test:stil    # stili kopyala/yapıştır: neyin taşındığı ve neyin taşınmadığı
+pnpm test:sunu    # .pptx paketi: metin kutuları, resimde yazı yokluğu, slayt ölçüsü
 pnpm test:kabuk   # üç sütun, küçük resimler, liste eylemleri, geri al, tıkla-seç, tür kutusu, liste sürükleme
 pnpm test:secenek # ayarlar çizime ulaşıyor mu — köşe, vurgu, aralık, etiket, referans
 pnpm test:svg     # kart SVG'si eksiksiz mi — başlık, gösterge, portal eksenleri
@@ -253,6 +263,12 @@ betik 1 ile çıkar.
 (açmak görüntüyü değiştirmemeli), grafik kutusunu gerçek fare olaylarıyla
 sürükleyip boyutlandırır ve hover anahtarının ipucunu gerçekten kaldırdığını
 doğrular. `pnpm test:arayuz` panelin dört davranışını gerçek tıklamalarla sürer.
+`pnpm test:sunu` üretilen .pptx'i indirme akışından yakalayıp ZIP'ini çözüyor
+ve slayt XML'ini okuyor — bir sununun doğruluğu PowerPoint açılana kadar belli
+olmuyor. Yalnız metin kutularının varlığına değil, başlığın durduğu şeridin
+**resimde boş** olduğuna da bakıyor: XML'de metin kutusu olması, aynı yazının
+resimde olmadığı anlamına gelmez.
+
 `pnpm test:stil` iki yönlü bakıyor: taşınması gerekenler taşındı mı,
 **taşınmaması** gerekenler yerinde kaldı mı. Sınır yanlış çizilirse kimse fark
 etmez — yalnızca bir gün bir kart başka bir kartın eksen adını taşımaya başlar.
@@ -374,8 +390,19 @@ yazar. pnpm 11'de esbuild'in kurulum betiği `pnpm-workspace.yaml` içindeki
   kullanıcının yazdığı gibi kalır.
 - `src/lib/zip.ts`, `src/lib/pptx.ts` — kütüphanesiz .pptx: STORE yöntemli ZIP
   yazıcı + en küçük OOXML paketi (presentation, master, boş layout, tema, slayt
-  başına bir PNG). `pnpm test:pptx` örnek dosya üretir; PowerPoint COM ile
-  doğrulandı.
+  başına bir PNG **ve metin kutuları**). Metin kutusu `wrap="none"` ile
+  yazılıyor: satır sonlarını kart üzerinde biz koyduk, PowerPoint'in yeniden
+  bölmesini istemiyoruz. İç kenar boşlukları sıfır, yoksa varsayılan 0,05
+  inçlik pay ölçtüğümüz kutuyu kaydırırdı. `pnpm test:pptx` örnek dosya
+  üretir; PowerPoint COM ile doğrulandı.
+- `src/lib/pptx-metin.ts` — slayda gidecek yazıları **çizilmiş karttan
+  ölçüyor**, modelden hesaplamıyor. Yazının nerede durduğunu, hangi puntoda ve
+  hangi renkte olduğunu bilen tek yer tarayıcının yaptığı yerleşim; modelden
+  gitseydik serbest yerleşimi, sarma satırlarını, balonun kendi hizasını ve
+  temanın çözdüğü rengi ikinci kez — ve bir gün yanlış — hesaplamamız
+  gerekirdi. Ölçümden sonra aynı öğeler `visibility: hidden` oluyor ve PNG o
+  karttan alınıyor: **tek geçiş**, ölçülen kart ile resme giden kart aynı
+  kart. Yeni bir yazan varlık eklendiğinde bu dosyaya dokunmak gerekmiyor.
 - `src/lib/export-png.ts` — DOM klonu + hesaplanmış stil gömme +
   `<foreignObject>` → canvas → PNG. Kütüphane yok. `data:` URL kullanılır;
   `file://` üzerinde `blob:` URL canvas'ı kirletir (opak origin).

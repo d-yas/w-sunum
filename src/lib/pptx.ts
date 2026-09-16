@@ -1,23 +1,68 @@
 /**
- * Hand-rolled .pptx: one 16:9 slide per chart, each carrying a PNG that is
- * fitted (contain) and centred. The package is the minimum PowerPoint
- * accepts — presentation, one master, one blank layout, one theme, slides.
+ * Hand-rolled .pptx: one slide per chart. The chart and its decoration go in
+ * as a PNG, fitted (contain) and centred; **the words go in as real text
+ * boxes** over it, so the title, the note and every placed text layer stay
+ * editable in PowerPoint. Those texts are hidden on the card before it is
+ * rasterised (see `pptx-metin.ts`), so nothing is drawn twice.
+ *
+ * The package is the minimum PowerPoint accepts — presentation, one master,
+ * one blank layout, one theme, slides.
  */
 // Extension kept so Node's --experimental-strip-types can run this outside Vite.
 import { buildZip, type ZipEntry } from "./zip.ts";
 
+/** One editable text box, measured in the card's own pixel space. */
+export interface PptxSlideText {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  /** Her satır PPTX'te ayrı bir paragraf. */
+  satirlar: string[];
+  /** Punto, kart pikselinde. Noktaya çeviren taraf slaytın ölçeğini biliyor. */
+  punto: number;
+  kalinlik: number;
+  /** RRGGBB. */
+  renk: string;
+  hiza: "sol" | "orta" | "sag";
+  satirAraligi: number;
+  /** Mürekkep sınırından gelen kutular dikeyde ortalanır; düzen kutuları üstten. */
+  kaynak: "duzen" | "murekkep";
+}
+
 export interface PptxSlide {
   png: Uint8Array;
-  /** PNG pixel size — used only for aspect ratio. */
+  /** Card size in px — the coordinate system the text boxes are measured in. */
   width: number;
   height: number;
   /** Slide background as RRGGBB hex, or null for the theme's white. */
   background: string | null;
   name?: string;
+  /** Editable text boxes laid over the picture. */
+  texts?: PptxSlideText[];
 }
+
+/** Hazır slayt ölçüleri. "kart" kartın kendi oranını slayt yapar. */
+export type PptxSlideSize = "16:9" | "4:3" | "kart";
 
 const SLIDE_W = 12192000; // 13.333 in
 const SLIDE_H = 6858000; // 7.5 in
+const EMU_IN = 914400;
+
+/**
+ * Slaytın ölçüsü.
+ *
+ * "kart" seçildiğinde slayt kartın oranını alıyor ama geniş ekran kutusunu
+ * (13,333 × 7,5 inç) **aşmıyor**: iki kenardan hangisi önce dolarsa ölçek o.
+ * 800×600 bir kart böylece tam olarak standart 4:3 slaydı oluyor, 13×10 inçlik
+ * tuhaf bir sayfa değil.
+ */
+export function slaytOlcusu(size: PptxSlideSize, cardW: number, cardH: number): { cx: number; cy: number } {
+  if (size === "4:3") return { cx: 9144000, cy: 6858000 };
+  if (size !== "kart" || !(cardW > 0) || !(cardH > 0)) return { cx: SLIDE_W, cy: SLIDE_H };
+  const k = Math.min(SLIDE_W / cardW, SLIDE_H / cardH);
+  return { cx: Math.round(cardW * k), cy: Math.round(cardH * k) };
+}
 
 const NS_A = 'xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"';
 const NS_R = 'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"';
@@ -42,26 +87,72 @@ function rels(items: { id: string; type: string; target: string }[]): string {
   );
 }
 
-function slideXml(s: PptxSlide, index: number): string {
+/**
+ * Bir metin kutusu.
+ *
+ * `wrap="none"`: satır sonlarını biz koyduk (her paragraf bir satır) ve
+ * PowerPoint'in onları yeniden bölmesini istemiyoruz — sarma kartın üzerinde
+ * çoktan yapıldı, orada ne göründüyse slaytta da o görünmeli. Başlık ve
+ * dipnot istisna: onların kutusu tarayıcının sardığı kutunun ta kendisi, o
+ * yüzden aynı kutuda aynı biçimde sarılabilirler.
+ *
+ * İç kenar boşlukları sıfır: PowerPoint'in varsayılan 0,05 inçlik payı
+ * ölçtüğümüz kutuyu kaydırırdı.
+ */
+function textXml(t: PptxSlideText, id: number, kx: number, ox: number, oy: number): string {
+  const emu = (v: number) => Math.round(v * kx);
+  // Punto: kart pikseli → EMU → inç → nokta, PPTX'in yüzde birlik biriminde.
+  const sz = Math.max(100, Math.round((t.punto * kx * 72) / EMU_IN) * 100);
+  // Mürekkep sınırı yalnız harflerin kapladığı yer, gerçek satır kutusundan
+  // kısa; ortalayarak veriyoruz, yoksa yazı bir-iki piksel yukarı kayardı.
+  const anchor = t.kaynak === "murekkep" ? "ctr" : "t";
+  const wrap = t.kaynak === "murekkep" ? "none" : "square";
+  const algn = t.hiza === "orta" ? "ctr" : t.hiza === "sag" ? "r" : "l";
+  const b = t.kalinlik >= 600 ? ' b="1"' : "";
+  const oran = Math.round(Math.max(0.8, Math.min(3, t.satirAraligi)) * 100000);
+  const lnSpc = `<a:lnSpc><a:spcPct val="${oran}"/></a:lnSpc>`;
+  const paragraflar = t.satirlar
+    .map(
+      (satir) =>
+        `<a:p><a:pPr algn="${algn}">${lnSpc}</a:pPr>` +
+        (satir.trim()
+          ? `<a:r><a:rPr lang="tr-TR" sz="${sz}"${b} dirty="0"><a:solidFill><a:srgbClr val="${t.renk}"/></a:solidFill></a:rPr><a:t>${esc(satir)}</a:t></a:r>`
+          : `<a:endParaRPr lang="tr-TR" sz="${sz}"/>`) +
+        "</a:p>"
+    )
+    .join("");
+  return (
+    `<p:sp><p:nvSpPr><p:cNvPr id="${id}" name="Metin ${id - 2}"/><p:cNvSpPr txBox="1"/><p:nvPr/></p:nvSpPr>` +
+    `<p:spPr><a:xfrm><a:off x="${ox + emu(t.x)}" y="${oy + emu(t.y)}"/><a:ext cx="${Math.max(1, emu(t.w))}" cy="${Math.max(1, emu(t.h))}"/></a:xfrm>` +
+    '<a:prstGeom prst="rect"><a:avLst/></a:prstGeom><a:noFill/></p:spPr>' +
+    `<p:txBody><a:bodyPr wrap="${wrap}" lIns="0" tIns="0" rIns="0" bIns="0" anchor="${anchor}"><a:noAutofit/></a:bodyPr><a:lstStyle/>${paragraflar}</p:txBody></p:sp>`
+  );
+}
+
+function slideXml(s: PptxSlide, index: number, slide: { cx: number; cy: number }): string {
   // Fit the picture inside the slide with a small safe margin.
   const margin = 0;
-  const availW = SLIDE_W - 2 * margin;
-  const availH = SLIDE_H - 2 * margin;
+  const availW = slide.cx - 2 * margin;
+  const availH = slide.cy - 2 * margin;
   const scale = Math.min(availW / s.width, availH / s.height);
   const cx = Math.round(s.width * scale);
   const cy = Math.round(s.height * scale);
-  const x = Math.round((SLIDE_W - cx) / 2);
-  const y = Math.round((SLIDE_H - cy) / 2);
+  const x = Math.round((slide.cx - cx) / 2);
+  const y = Math.round((slide.cy - cy) / 2);
   const bg = s.background
     ? `<p:bg><p:bgPr><a:solidFill><a:srgbClr val="${s.background}"/></a:solidFill><a:effectLst/></p:bgPr></p:bg>`
     : "";
   const name = esc(s.name ?? `Grafik ${index + 1}`);
+  // Kart pikseli başına EMU. Metin kutuları resmin oturduğu bu ölçekte.
+  const kx = cx / s.width;
+  const texts = (s.texts ?? []).map((t, i) => textXml(t, 3 + i, kx, x, y)).join("");
   return (
     XML +
     `<p:sld ${NS_A} ${NS_R} ${NS_P}><p:cSld>${bg}<p:spTree>${EMPTY_TREE}` +
     `<p:pic><p:nvPicPr><p:cNvPr id="2" name="${name}" descr="${name}"/><p:cNvPicPr><a:picLocks noChangeAspect="1"/></p:cNvPicPr><p:nvPr/></p:nvPicPr>` +
     `<p:blipFill><a:blip r:embed="rId2"/><a:stretch><a:fillRect/></a:stretch></p:blipFill>` +
     `<p:spPr><a:xfrm><a:off x="${x}" y="${y}"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></p:spPr></p:pic>` +
+    texts +
     `</p:spTree></p:cSld><p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr></p:sld>`
   );
 }
@@ -92,8 +183,10 @@ const LAYOUT =
   XML +
   `<p:sldLayout ${NS_A} ${NS_R} ${NS_P} type="blank" preserve="1"><p:cSld name="Boş"><p:spTree>${EMPTY_TREE}</p:spTree></p:cSld><p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr></p:sldLayout>`;
 
-export function buildPptx(slides: PptxSlide[], title = "Grafikler"): Uint8Array<ArrayBuffer> {
+export function buildPptx(slides: PptxSlide[], title = "Grafikler", size: PptxSlideSize = "16:9"): Uint8Array<ArrayBuffer> {
   if (slides.length === 0) throw new Error("Slayt yok.");
+  // Tek bir slayt ölçüsü var: bir sunuda slayttan slayda boy değişmez.
+  const slide = slaytOlcusu(size, slides[0].width, slides[0].height);
   const entries: ZipEntry[] = [];
 
   entries.push({
@@ -140,7 +233,8 @@ export function buildPptx(slides: PptxSlide[], title = "Grafikler"): Uint8Array<
     data:
       XML +
       '<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties" xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes">' +
-      `<Application>Veri Görsel</Application><Slides>${slides.length}</Slides><PresentationFormat>Geniş ekran</PresentationFormat></Properties>`,
+      `<Application>Veri Görsel</Application><Slides>${slides.length}</Slides>` +
+      `<PresentationFormat>${size === "4:3" ? "Ekran Gösterisi (4:3)" : "Geniş ekran"}</PresentationFormat></Properties>`,
   });
 
   entries.push({
@@ -152,7 +246,7 @@ export function buildPptx(slides: PptxSlide[], title = "Grafikler"): Uint8Array<
       "<p:sldIdLst>" +
       slides.map((_, i) => `<p:sldId id="${256 + i}" r:id="rId${3 + i}"/>`).join("") +
       "</p:sldIdLst>" +
-      `<p:sldSz cx="${SLIDE_W}" cy="${SLIDE_H}"/><p:notesSz cx="6858000" cy="9144000"/>` +
+      `<p:sldSz cx="${slide.cx}" cy="${slide.cy}"/><p:notesSz cx="6858000" cy="9144000"/>` +
       '<p:defaultTextStyle><a:defPPr><a:defRPr lang="tr-TR"/></a:defPPr></p:defaultTextStyle>' +
       "</p:presentation>",
   });
@@ -181,7 +275,7 @@ export function buildPptx(slides: PptxSlide[], title = "Grafikler"): Uint8Array<
   entries.push({ name: "ppt/theme/theme1.xml", data: THEME });
 
   slides.forEach((s, i) => {
-    entries.push({ name: `ppt/slides/slide${i + 1}.xml`, data: slideXml(s, i) });
+    entries.push({ name: `ppt/slides/slide${i + 1}.xml`, data: slideXml(s, i, slide) });
     entries.push({
       name: `ppt/slides/_rels/slide${i + 1}.xml.rels`,
       data: rels([
