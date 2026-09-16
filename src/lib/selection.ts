@@ -11,6 +11,7 @@
  * göre iki kimliği olurdu.
  */
 import type { SlotKey } from "@/decor/model";
+import type { ZeminSlot } from "@/decor/types";
 
 /** Kartın seçilebilir parçaları. Alt parçalar (çubuk, değer etiketi…) grafiğe katlanır. */
 export type KartParcasi = "title" | "subtitle" | "note" | "legend" | "axis-x" | "axis-y" | "chart";
@@ -20,7 +21,12 @@ export type KartParcasi = "title" | "subtitle" | "note" | "legend" | "axis-x" | 
  * seçebilmek gerekiyor, ve bir gruba tıklamak zaten grubun tamamını seçiyor.
  * Tek nesne, bir elemanlı liste.
  */
-export type Secim = { tur: "slayt" } | { tur: "parca"; part: KartParcasi } | { tur: "nesne"; ids: string[] };
+export type Secim =
+  | { tur: "slayt" }
+  | { tur: "parca"; part: KartParcasi }
+  | { tur: "nesne"; ids: string[] }
+  /** Zemin yuvası — katman listesinden seçilir, sahnede tutamağı yok. */
+  | { tur: "zemin"; slot: ZeminSlot };
 
 export const nesneSecimi = (ids: string[]): Secim => (ids.length ? { tur: "nesne", ids } : SLAYT);
 
@@ -60,9 +66,10 @@ export function kutununParcasi(key: SlotKey): KartParcasi {
   return key === "baslik" ? "title" : key === "dipnot" ? "note" : "chart";
 }
 
-/** `DecorStage` sahnede hangi öğeleri seçili çizsin. */
+/** `DecorStage` ve katman listesi hangi öğeleri seçili çizsin. */
 export function sahneSecimi(s: Secim): string[] {
   if (s.tur === "nesne") return s.ids;
+  if (s.tur === "zemin") return [`zemin:${s.slot}`];
   if (s.tur === "parca") {
     const kutu = parcaninKutusu(s.part);
     return kutu ? [`slot:${kutu}`] : [];
@@ -70,12 +77,13 @@ export function sahneSecimi(s: Secim): string[] {
   return [];
 }
 
-/** Sahneden gelen seçim kimliklerini `Secim`'e çevirir. */
+/** Sahneden ya da katman listesinden gelen seçim kimliklerini `Secim`'e çevirir. */
 export function sahnedenSecim(ids: string[]): Secim {
   const ilk = ids[0];
   if (!ilk) return SLAYT;
   if (ilk.startsWith("slot:")) return { tur: "parca", part: kutununParcasi(ilk.slice(5) as SlotKey) };
-  return { tur: "nesne", ids: ids.filter((id) => !id.startsWith("slot:")) };
+  if (ilk.startsWith("zemin:")) return { tur: "zemin", slot: ilk.slice(6) as ZeminSlot };
+  return { tur: "nesne", ids: ids.filter((id) => !id.startsWith("slot:") && !id.startsWith("zemin:")) };
 }
 
 /**
@@ -88,9 +96,11 @@ export function sahnedenSecim(ids: string[]): Secim {
 export function gorunenBolumler(s: Secim): string[] {
   switch (s.tur) {
     case "slayt":
-      return ["kart", "zemin", "yerlesim", "nesneler", "dekor", "bicim"];
+      return ["kart", "zemin", "yerlesim", "dekor", "bicim"];
+    case "zemin":
+      return ["zemin"];
     case "nesne":
-      return s.ids.length > 1 ? ["coklu", "nesneler"] : ["secili", "nesneler"];
+      return s.ids.length > 1 ? ["coklu"] : ["secili"];
     case "parca":
       switch (s.part) {
         case "title":
@@ -111,6 +121,7 @@ export function gorunenBolumler(s: Secim): string[] {
 /** Seçimin panel başlığında görünen adı. */
 export function secimAdi(s: Secim, nesneAdi?: string): string {
   if (s.tur === "slayt") return "Slayt";
+  if (s.tur === "zemin") return { doku: "Doku", isik: "Işık", cerceve: "Çerçeve" }[s.slot];
   if (s.tur === "nesne") return s.ids.length > 1 ? `${s.ids.length} nesne` : (nesneAdi ?? "Süsleme");
   const adlar: Record<KartParcasi, string> = {
     title: "Başlık",

@@ -9,27 +9,11 @@
 import { useId, useMemo, useState } from "react";
 
 import { DecorLayer } from "@/decor/DecorLayer";
-import {
-  SLOT_KEYS,
-  SLOT_LABELS,
-  decorStack,
-  emptyDecor,
-  restack,
-  restackEnd,
-  restackFromRows,
-  grubuCoz,
-  grupGenislet,
-  grupla,
-  type DecorItem,
-  type DecorSlot,
-  type DecorState,
-  type SlotKey,
-} from "@/decor/model";
-import { NESNE_FAMILIES, ZEMIN_SLOTS, assetsOf, getAsset, newItem, newSlot } from "@/decor/registry";
+import { emptyDecor, grubuCoz, grupla, type DecorItem, type DecorSlot, type DecorState } from "@/decor/model";
+import { NESNE_FAMILIES, ZEMIN_SLOTS, assetsOf, getAsset, newItem, newSlot, otomatikBoy } from "@/decor/registry";
 import { FAMILY_LABELS, defaults, type AssetDef, type DecorFamily, type ParamDef, type ParamValues } from "@/decor/types";
 import { setFreeLayout } from "@/lib/free-layout";
 import { getPalette, seriesColor, type Palette } from "@/lib/palettes";
-import { useDragOrder } from "@/lib/use-drag-order";
 import type { ChartSpec, Theme } from "@/lib/spec";
 
 import { ColorWell, Field, Section, Seg, Slider, Switch } from "./Panels";
@@ -38,6 +22,9 @@ import { ColorWell, Field, Section, Seg, Slider, Switch } from "./Panels";
 
 function ParamEditor({ param, values, onChange }: { param: ParamDef; values: ParamValues; onChange: (v: ParamValues) => void }) {
   const set = (v: number | string) => onChange({ ...values, [param.key]: v });
+  // Sahnede kendi tutamağı olan parametreler burada çizilmiyor: bir bağlantının
+  // uç noktasını kaydırıcıyla aramak kimsenin işine yaramaz.
+  if (param.gizli) return null;
   if (param.type === "sayi") {
     const v = typeof values[param.key] === "number" ? (values[param.key] as number) : param.def;
     return (
@@ -61,6 +48,20 @@ function ParamEditor({ param, values, onChange }: { param: ParamDef; values: Par
     );
   }
   const v = typeof values[param.key] === "string" ? (values[param.key] as string) : param.def;
+  if (param.multiline) {
+    return (
+      <Field label={param.label} hint="Sahnede çift tıklayarak da yazabilirsiniz.">
+        <textarea
+          className="inp w-[170px]"
+          rows={3}
+          value={v}
+          maxLength={param.maxLength ?? 4000}
+          style={{ height: "auto", resize: "vertical", lineHeight: 1.35, padding: "4px 6px" }}
+          onChange={(e) => set(e.target.value)}
+        />
+      </Field>
+    );
+  }
   return (
     <Field label={param.label}>
       <input className="inp w-[170px]" value={v} maxLength={param.maxLength ?? 120} onChange={(e) => set(e.target.value)} />
@@ -72,17 +73,15 @@ function ParamEditor({ param, values, onChange }: { param: ParamDef; values: Par
 
 function Preview({ def, theme, colors, w, h }: { def: AssetDef; theme: Theme; colors: string[]; w: number; h: number }) {
   const uid = `p${useId().replace(/:/g, "")}`;
-  const slot: DecorSlot = { asset: def.id, renk: "", renk2: "", opaklik: 1, params: defaults(def) };
+  const slot: DecorSlot = { asset: def.id, renk: "", renk2: "", opaklik: 1, params: defaults(def), gizli: false };
+  const bos = emptyDecor();
   const decor: DecorState =
     def.kind === "zemin"
-      ? { zemin: { doku: def.family === "doku" ? slot : null, isik: def.family === "isik" ? slot : null, cerceve: null }, nesneler: [] }
-      : {
-          zemin: { doku: null, isik: null, cerceve: null },
-          nesneler: [fitted(def, slot, w, h)],
-        };
+      ? { ...bos, zemin: { doku: def.family === "doku" ? slot : null, isik: def.family === "isik" ? slot : null, cerceve: null } }
+      : { ...bos, nesneler: [fitted(def, slot, w, h)] };
   // Frames are a background slot but paint in the "on" phase, so preview them there.
   const phase = def.family === "cerceve" ? "on" : def.kind === "zemin" ? "arka" : "on";
-  const framed: DecorState = def.family === "cerceve" ? { zemin: { doku: null, isik: null, cerceve: slot }, nesneler: [] } : decor;
+  const framed: DecorState = def.family === "cerceve" ? { ...bos, zemin: { doku: null, isik: null, cerceve: slot } } : decor;
   return (
     <div style={{ position: "relative", width: w, height: h, overflow: "hidden", borderRadius: 4 }}>
       <DecorLayer decor={framed} phase={phase} w={w} h={h} uid={uid} colors={colors} theme={theme} />
@@ -99,6 +98,7 @@ function fitted(def: AssetDef, slot: DecorSlot, boxW: number, boxH: number): Dec
   return {
     ...slot,
     id: "pv",
+    ad: "",
     x: (boxW - w) / 2,
     y: (boxH - h) / 2,
     w,
@@ -106,7 +106,6 @@ function fitted(def: AssetDef, slot: DecorSlot, boxW: number, boxH: number): Dec
     aci: 0,
     aynala: false,
     katman: "on",
-    gizli: false,
     kilit: false,
     grup: "",
   };
@@ -141,15 +140,18 @@ export function DecorPanel({
 
   const selected = selectedIds.length === 1 ? (decor.nesneler.find((n) => n.id === selectedIds[0]) ?? null) : null;
   const selectedDef = selected ? getAsset(selected.asset) : null;
+  /** Yüksekliğini metnine bırakmış bir nesne mi — kutu elle değiştirilemez. */
+  const otoBoy =
+    !!selected &&
+    !!selectedDef?.otomatikYukseklik &&
+    selectedDef.otomatikYukseklik({ ...defaults(selectedDef), ...selected.params }, selected.w) != null;
   const coklu = decor.nesneler.filter((n) => selectedIds.includes(n.id));
-  /** Listeden seçmek de sahneyle aynı kuralı izliyor: grup bütün gelir. */
-  const secListeden = (id: string, ekle: boolean) => {
-    const ham = ekle ? (selectedIds.includes(id) ? selectedIds.filter((x) => x !== id) : [...selectedIds, id]) : [id];
-    onSelect(grupGenislet(decor.nesneler, ham.filter((x) => !x.startsWith("slot:"))));
-  };
 
+  // `otomatikBoy`: metin kutusunun yüksekliği punto, satır aralığı ve yazının
+  // kendisi değişince yeniden hesaplanmalı — panelden yapılan her değişiklik
+  // buradan geçiyor.
   const setItem = (id: string, patch: Partial<DecorItem>) =>
-    setDecor({ ...decor, nesneler: decor.nesneler.map((n) => (n.id === id ? { ...n, ...patch } : n)) });
+    setDecor({ ...decor, nesneler: decor.nesneler.map((n) => (n.id === id ? otomatikBoy({ ...n, ...patch }) : n)) });
 
   const addAsset = (id: string) => {
     const item = newItem(id, spec.options.width, spec.options.height);
@@ -157,26 +159,6 @@ export function DecorPanel({
     setDecor({ ...decor, nesneler: [...decor.nesneler, item] });
     onSelect([item.id]);
   };
-
-  const removeItem = (id: string) => {
-    setDecor({ ...decor, nesneler: decor.nesneler.filter((n) => n.id !== id) });
-    if (selectedIds.includes(id)) onSelect([]);
-  };
-
-  const { stack, boundary } = decorStack(decor.nesneler);
-  const order = (id: string, dir: -1 | 1) => setDecor({ ...decor, nesneler: restack(decor.nesneler, id, dir) });
-  const orderEnd = (id: string, end: "arka" | "on") => setDecor({ ...decor, nesneler: restackEnd(decor.nesneler, id, end) });
-
-  // Liste slaytla aynı sırada okunur: en üstteki en önde. Grafiğin kendisi
-  // `null` bir satır — yığının iki yarısı arasında durduğu için, bir nesneyi
-  // onun üstüne ya da altına sürüklemek katmanı da değiştiriyor.
-  const rows: (DecorItem | null)[] = [...stack.slice(boundary).reverse(), null, ...stack.slice(0, boundary).reverse()];
-  const dragRows = useDragOrder(rows.length, (from, to) => {
-    const next = [...rows];
-    const [moved] = next.splice(from, 1);
-    next.splice(to, 0, moved);
-    setDecor({ ...decor, nesneler: restackFromRows(next) });
-  });
 
   const layout = spec.yerlesim;
 
@@ -191,30 +173,11 @@ export function DecorPanel({
           </p>
         ) : (
           <>
-            <div className="flex flex-col gap-0.5 pt-1">
-              {SLOT_KEYS.filter((k) => layout.kutular[k]).map((k) => {
-                const hidden = layout.gizli.includes(k);
-                return (
-                  <div key={k} className="decor-row" aria-selected={selectedIds.includes(`slot:${k}`)} onClick={() => onSelect([`slot:${k}`])}>
-                    <span className="grow" style={hidden ? { opacity: 0.45, textDecoration: "line-through" } : undefined}>
-                      {SLOT_LABELS[k]}
-                    </span>
-                    <button
-                      className="icon-btn"
-                      type="button"
-                      title={hidden ? "Karta geri getir" : "Karttan kaldır (Del)"}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        const gizli = hidden ? layout.gizli.filter((g) => g !== k) : [...layout.gizli, k];
-                        onChange({ ...spec, yerlesim: { ...layout, gizli } });
-                      }}
-                    >
-                      {hidden ? "◻" : "◉"}
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
+            {/* Parçaların görünürlüğü ve sırası artık Katmanlar panelinde;
+                burada yalnız serbest yerleşime özgü olan kaldı. */}
+            <p className="text-[12px] text-muted-foreground">
+              Başlık, grafik ve dipnot sürüklenip boyutlandırılabilir. Görünürlükleri <strong>Katmanlar</strong> listesinde.
+            </p>
             <button
               className="btn btn-sm mt-2 self-start"
               type="button"
@@ -254,7 +217,7 @@ export function DecorPanel({
 
       {/* ---- gallery ---- */}
       <Section id="galeri" title="Galeri">
-        <div className="seg mb-2 w-full justify-between">
+        <div className="seg mb-2 w-full flex-wrap justify-between gap-y-0.5">
           {NESNE_FAMILIES.map((f) => (
             <button key={f} type="button" aria-pressed={family === f} onClick={() => setFamily(f)} className="flex-1">
               {FAMILY_LABELS[f]}
@@ -274,78 +237,6 @@ export function DecorPanel({
         </p>
       </Section>
 
-      {/* ---- placed items ---- */}
-      <Section id="nesneler" title={`Yerleştirilenler (${decor.nesneler.length})`}>
-        {decor.nesneler.length === 0 ? (
-          <p className="text-[12px] text-muted-foreground">Henüz nesne yok.</p>
-        ) : (
-          <div className="flex flex-col gap-0.5" ref={dragRows.listRef}>
-            {rows.map((n, rowIndex) => {
-              if (n === null) {
-                return (
-                  <div key="grafik" className="decor-row decor-row-grafik" {...dragRows.rowProps(rowIndex, true)}>
-                    <span className="grow text-[11px] text-muted-foreground">— Grafik —</span>
-                  </div>
-                );
-              }
-              const def = getAsset(n.asset);
-              const i = stack.findIndex((s) => s.id === n.id);
-              return (
-                <div
-                  key={n.id}
-                  className="decor-row"
-                  data-nesne-id={n.id}
-                  data-grup={n.grup || undefined}
-                  aria-selected={selectedIds.includes(n.id)}
-                  onClick={(e) => secListeden(n.id, e.shiftKey)}
-                  role="option"
-                  title="Sırayı değiştirmek için sürükleyin"
-                  {...dragRows.rowProps(rowIndex)}
-                >
-                  <span className="grow">{def?.label ?? n.asset}</span>
-                  {n.grup && (
-                    <span className="decor-grup" title="Bir gruba ait — tıklamak grubun tamamını seçer">
-                      grup
-                    </span>
-                  )}
-                  <span className="text-[10px] text-muted-foreground">{n.katman === "arka" ? "arka" : "ön"}</span>
-                  <button className="icon-btn" type="button" title="Bir üste (])" onClick={(e) => (e.stopPropagation(), order(n.id, 1))} disabled={i === stack.length - 1}>
-                    ↑
-                  </button>
-                  <button
-                    className="icon-btn"
-                    type="button"
-                    title="Bir alta ([)"
-                    onClick={(e) => (e.stopPropagation(), order(n.id, -1))}
-                    disabled={i === 0}
-                  >
-                    ↓
-                  </button>
-                  <button className="icon-btn" type="button" title={n.gizli ? "Göster" : "Gizle"} onClick={(e) => (e.stopPropagation(), setItem(n.id, { gizli: !n.gizli }))}>
-                    {n.gizli ? "◻" : "◉"}
-                  </button>
-                  <button className="icon-btn" type="button" title={n.kilit ? "Kilidi aç" : "Kilitle"} onClick={(e) => (e.stopPropagation(), setItem(n.id, { kilit: !n.kilit }))}>
-                    {n.kilit ? "🔒" : "🔓"}
-                  </button>
-                  <button className="icon-btn" type="button" title="Sil (Del)" onClick={(e) => (e.stopPropagation(), removeItem(n.id))}>
-                    ✕
-                  </button>
-                </div>
-              );
-            })}
-            <p className="mt-1 text-[11px] text-muted-foreground">
-              Liste slaytla aynı sırada: üstteki en önde. Satırları sürükleyin; "Grafik" çizgisinin üstü ön,
-              altı arka katmandır. <kbd>Shift</kbd>+tık seçime ekler, <kbd>Ctrl+G</kbd> gruplar.
-            </p>
-          </div>
-        )}
-        {decor.nesneler.length > 0 && (
-          <button className="btn btn-sm mt-2 self-start" type="button" onClick={() => setDecor({ ...emptyDecor(), zemin: decor.zemin })}>
-            Nesneleri temizle
-          </button>
-        )}
-      </Section>
-
       {/* ---- çoklu seçim ---- */}
       {coklu.length > 1 && (
         <Section id="coklu" title={`${coklu.length} nesne seçili`}>
@@ -353,7 +244,7 @@ export function DecorPanel({
             <button
               className="btn btn-sm"
               type="button"
-              onClick={() => setDecor({ ...decor, nesneler: grupla(decor.nesneler, coklu.map((n) => n.id)) })}
+              onClick={() => setDecor(grupla(decor, coklu.map((n) => n.id)))}
               title="Birlikte taşınsınlar (Ctrl+G)"
             >
               Grupla
@@ -362,7 +253,7 @@ export function DecorPanel({
               className="btn btn-sm"
               type="button"
               disabled={!coklu.some((n) => n.grup)}
-              onClick={() => setDecor({ ...decor, nesneler: grubuCoz(decor.nesneler, coklu.map((n) => n.id)) })}
+              onClick={() => setDecor(grubuCoz(decor, coklu.map((n) => n.id)))}
               title="Grubu çöz (Ctrl+Shift+G)"
             >
               Grubu çöz
@@ -408,33 +299,19 @@ export function DecorPanel({
           <Field label="Opaklık">
             <Slider value={selected.opaklik} min={0.05} max={1} step={0.05} onChange={(opaklik) => setItem(selected.id, { opaklik })} />
           </Field>
-          <Field label="Açı">
-            <Slider value={selected.aci} min={-180} max={180} step={1} onChange={(aci) => setItem(selected.id, { aci })} />
-          </Field>
-          <Field label="Sıra" hint="Grafik, arka ve ön yığınların arasındadır. Klavye: [ ve ]">
-            <div className="flex gap-1">
-              <button className="btn btn-sm" type="button" title="En arkaya" onClick={() => orderEnd(selected.id, "arka")}>
-                ⤓
-              </button>
-              <button className="btn btn-sm" type="button" title="Bir alta ([)" onClick={() => order(selected.id, -1)}>
-                ↓
-              </button>
-              <button className="btn btn-sm" type="button" title="Bir üste (])" onClick={() => order(selected.id, 1)}>
-                ↑
-              </button>
-              <button className="btn btn-sm" type="button" title="En öne" onClick={() => orderEnd(selected.id, "on")}>
-                ⤒
-              </button>
-            </div>
-          </Field>
-          <Field label="Yığındaki yeri">
-            <span className="text-[11px] text-muted-foreground">
-              {stack.findIndex((n) => n.id === selected.id) + 1}/{stack.length} · grafiğin {selected.katman === "arka" ? "arkasında" : "önünde"}
-            </span>
-          </Field>
-          <Field label="Aynala">
-            <Switch checked={selected.aynala} onChange={(aynala) => setItem(selected.id, { aynala })} />
-          </Field>
+          {/* İki uçlu varlıkta açı ve aynalama yok: yön uçların yerinden geliyor. */}
+          {!selectedDef.uclar && (
+            <>
+              <Field label="Açı">
+                <Slider value={selected.aci} min={-180} max={180} step={1} onChange={(aci) => setItem(selected.id, { aci })} />
+              </Field>
+              {/* Sıralama artık Katmanlar listesinin işi: satırı sürükleyin, ya da
+                  [ ve ] ile bir adım oynatın. */}
+              <Field label="Aynala">
+                <Switch checked={selected.aynala} onChange={(aynala) => setItem(selected.id, { aynala })} />
+              </Field>
+            </>
+          )}
           <Field label="Konum (x, y)">
             <div className="flex gap-1.5">
               <input
@@ -451,30 +328,33 @@ export function DecorPanel({
               />
             </div>
           </Field>
-          <Field label="Boyut (g, y)">
-            <div className="flex gap-1.5">
-              <input
-                className="inp inp-num w-[64px]"
-                type="number"
-                min={4}
-                value={Math.round(selected.w)}
-                onChange={(e) => {
-                  const w = Math.max(4, Number(e.target.value) || 4);
-                  setItem(selected.id, selectedDef.square ? { w, h: w } : { w });
-                }}
-              />
-              <input
-                className="inp inp-num w-[64px]"
-                type="number"
-                min={4}
-                value={Math.round(selected.h)}
-                onChange={(e) => {
-                  const h = Math.max(4, Number(e.target.value) || 4);
-                  setItem(selected.id, selectedDef.square ? { w: h, h } : { h });
-                }}
-              />
-            </div>
-          </Field>
+          {!selectedDef.uclar && (
+            <Field label="Boyut (g, y)" hint={otoBoy ? "Yükseklik metne göre; sabitlemek için aşağıdaki Yükseklik ayarı." : undefined}>
+              <div className="flex gap-1.5">
+                <input
+                  className="inp inp-num w-[64px]"
+                  type="number"
+                  min={4}
+                  value={Math.round(selected.w)}
+                  onChange={(e) => {
+                    const w = Math.max(4, Number(e.target.value) || 4);
+                    setItem(selected.id, selectedDef.square ? { w, h: w } : { w });
+                  }}
+                />
+                <input
+                  className="inp inp-num w-[64px]"
+                  type="number"
+                  min={4}
+                  disabled={otoBoy}
+                  value={Math.round(selected.h)}
+                  onChange={(e) => {
+                    const h = Math.max(4, Number(e.target.value) || 4);
+                    setItem(selected.id, selectedDef.square ? { w: h, h } : { h });
+                  }}
+                />
+              </div>
+            </Field>
+          )}
           {(selectedDef.params ?? []).map((param) => (
             <ParamEditor
               key={param.key}

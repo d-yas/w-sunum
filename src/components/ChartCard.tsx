@@ -109,7 +109,9 @@ export const ChartCard = forwardRef<HTMLDivElement, ChartCardProps>(function Cha
    * no border, so its padding box and its border box are the same rectangle,
    * and left:0 lands on the card's own edge.
    */
-  const hiddenSlot = (key: SlotKey) => spec.yerlesim.serbest && spec.yerlesim.gizli.includes(key);
+  // Bir parçayı gizlemek yerleşim kipinden bağımsız: katman listesindeki göz
+  // her iki kipte de aynı şeyi yapmalı.
+  const hiddenSlot = (key: SlotKey) => spec.yerlesim.gizli.includes(key);
   const slot = (key: SlotKey, flow: CSSProperties): CSSProperties => {
     const box = spec.yerlesim.serbest ? spec.yerlesim.kutular[key] : undefined;
     if (!box) return flow;

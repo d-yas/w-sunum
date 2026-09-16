@@ -8,8 +8,8 @@ Paylaşmak için yalnız bu dosyayı gönderin.
 
 ## Kullanım (son kullanıcı)
 
-Pencere üç sütun: **solda** grafik listesi ve veri tablosu, **ortada** kart,
-**sağda** seçili olan neyse onun ayarları. Sağ panelde sekme yok: karttaki bir
+Pencere üç sütun: **solda** grafik listesi, katman listesi ve veri tablosu,
+**ortada** kart, **sağda** seçili olan neyse onun ayarları. Sağ panelde sekme yok: karttaki bir
 parçaya tıklamak onu seçer ve panel o parçanın ayarlarını gösterir — başlığa
 tıklayın, yalnız Metin görünür; grafiğe tıklayın, tür, eksen, gösterge ve
 etiket ayarları gelir; boşluğa tıklayın (ya da `Esc`), slaytın kendi ayarları
@@ -74,6 +74,25 @@ panelin sekmeleriydi; artık hangi ayardaysanız orada duruyorlar.
    alanıyla birlikte kaydedilir ve açık/koyu temada aynı kalır — kurumsal
    renk bir marka kararıdır, bakımı gereken ikinci bir set değil. Sıra
    önemlidir: seriler bu sırayla boyanır ve süsleme ilk rengi kullanır.
+5b. **Metin kutusu ve bağlantı** — araç çubuğunun iki jesti:
+
+   - **`T`** (Metin kutusu): karta tıklayın, kutu oraya düşer ve **yazma
+     doğrudan açılır**. Çok satırlı; satırlara bölmeyi uygulama yapıyor, yani
+     kutuyu daraltınca metin sarar. Yüksekliği metne bağlı — kenardan
+     genişletirsiniz, boy kendiliğinden ayarlanır; sabit bir boy istiyorsanız
+     **Yükseklik: Sabit**. Punto, kalınlık, hiza, satır aralığı, iç boşluk,
+     dolgu/kenar kutusu ve köşe yarıçapı seçilir. Yazı tipi kartın kendi yazı
+     tipidir; kart genelinde tek bir tipografi olması bilinçli.
+   - **`L`** (Bağlantı): kartta sürükleyin. Çıkan şey **iki uçlu** bir çizgi,
+     kutu içinde döndürülen bir ok değil: her ucun kendi tutamağı var, birini
+     çekince öteki yerinde kalır. Kalınlık, düz/kesik/noktalı, iki uca ayrı
+     ayrı ok/nokta/çizgi başı ve büküm. "Şu çubuktan şu yazıya" demenin yolu bu.
+
+   Yerleştirilmiş her metni **çift tıklayarak** sahnede düzenlersiniz — balon
+   ve rozet yazıları da dâhil. `Ctrl+Enter` ya da başka bir yere tıklamak
+   bitirir, `Esc` yazmadan önceki hâle döner. Katman listesinde metin katmanları
+   yazılarının ilk satırıyla adlanır.
+
 6. **Süsleme**: doku, ışık ve çerçeve slayt ayarlarından zemin olarak seçilir
    (üçü aynı anda durabilir); şekil, ışık, ok, ikon, işaret ve balonlar araç
    çubuğundaki `+` galerisinden tıklanıp karta düşer,
@@ -91,20 +110,45 @@ panelin sekmeleriydi; artık hangi ayardaysanız orada duruyorlar.
    yoksa "grubu bir üste taşı" diye bir şey olamazdı. Boyutlandırma ve
    döndürme tek nesneye özeldir.
 
-   Kısayollar: `Shift` eksene/orana/15°'ye kilitler, ok tuşları 1 px
-   (`Shift` ile 10 px) kaydırır, `Del` siler, `Ctrl+D` çoğaltır, `Esc`
-   seçimi bırakır. Süslemeler PNG, PPTX ve SVG çıktılarına girer.
+   Kısayollar: `V` seç, `H` kaydır, `T` metin kutusu, `L` bağlantı; `Shift`
+   eksene/orana/15°'ye kilitler, ok tuşları 1 px (`Shift` ile 10 px) kaydırır,
+   `Del` siler, `Ctrl+D` çoğaltır, `Esc` seçimi bırakır. Süslemeler PNG, PPTX
+   ve SVG çıktılarına girer — metin kutusu gerçek bir SVG `<text>`, bağlantı
+   gerçek bir `<path>`.
 
    Işıklar iki yerde birden: **Zemin**'den seçilince tüm kartı yıkar,
    **Galeri**'den eklenince yalnız kendi kutusunu aydınlatır ve diğer
    nesneler gibi taşınıp boyutlandırılır.
 
-   Katman sırası tek bir yığındır: liste slaytla aynı sırada durur (üstteki
-   en önde) ve grafik, "ön" ile "arka" arasında yer alır — listede kendi
-   `— Grafik —` satırı olarak görünür. Satırları sürükleyerek sıralayın; bir
-   nesneyi bu çizginin öte yanına bırakmak katmanını da değiştirir. `[` ve `]`
-   seçili nesneyi bir basamak aşağı/yukarı taşır, grafiği geçerken katmanı
-   kendiliğinden değiştirir; `Shift` ile en alta/en üste gider.
+6a. **Katmanlar** (sol sütunun ortası) kartın içindeki her şeyin tek
+   listesidir — Figma'nın katman paneli gibi çalışır. Liste slaytla aynı
+   sırada durur: **üstteki en önde.**
+
+   - **Kart parçaları şeridi** — Başlık bloğu, Grafik ve Dipnot listenin
+     ortasında sabit durur. Üstündeki her şey grafiğin önünde, altındaki her
+     şey arkasındadır; bir satırı şeridin öte yanına sürüklemek katmanını da
+     değiştirir. Kısayol olarak `[` ve `]` seçiliyi bir basamak oynatır,
+     `Shift` ile uca gönderir.
+   - **Zemin yuvaları** listenin dibinde kendi satırlarını alır (Çerçeve,
+     Doku, Işık); gözleri zemini kapatır. Bunlar tanımı gereği kartın
+     arkasındadır, o yüzden satırları sürüklenmez — bir zemini **öne almak**
+     için sağ tık → *Nesneye dönüştür*: kart boyunda, grafiğin önünde,
+     taşınıp boyutlandırılabilir bir katmana döner ve görüntü birebir aynı
+     kalır. (Aynı ışığı doğrudan **Galeri → Işık**'tan da ekleyebilirsiniz;
+     o zaman kendi kutusu kadar yer kaplar ve varsayılan olarak arkaya
+     düşer — listede şeridin üstüne sürükleyerek öne alın.)
+   - **Gruplar** açılıp kapanan düğümlerdir: başlığa tıklamak grubun tamamını
+     seçer, çocuğa tıklamak yalnız onu. Bir satırı grubun üyeleri arasına
+     bırakmak onu gruba katar; çıkarmak için sağ tık → *Gruptan çıkar*.
+   - **Göz ve kilit** satırın üstüne gelince çıkar, ama **kapalı** olan hep
+     görünür: bir katmanın neden görünmediğini aramak gerekmesin. Gizli
+     katman soluk, kilitli katman eğik yazılır.
+   - **Ad**: çift tık (ya da `F2`) satırı yeniden adlandırır; verilmemişse
+     varlığın kendi etiketi görünür. Üstteki kutu adlarda arar.
+   - **Seçim**: tık seçer, `Shift`+tık aralık alır, `Ctrl`/`Cmd`+tık ekler ya
+     da çıkarır. `↑`/`↓` satır gezer, `←`/`→` grup açıp kapatır.
+   - **Sağ tık** menüsü: yeniden adlandır, çoğalt, grupla / grubu çöz,
+     gruptan çıkar, en öne / en arkaya, gizle, kilitle, sil.
 
    Araç çubuğundaki **serbest yerleşim** düğmesi kartın kendi parçalarını —
    başlık bloğu, grafik ve dipnot — da sürüklenebilir yapar. Bir mod: açıkken
@@ -114,7 +158,8 @@ panelin sekmeleriydi; artık hangi ayardaysanız orada duruyorlar.
    sonrasında kesik kırmızı çerçeveli kutulardan tutup taşır, köşeden
    boyutlandırırsınız. `Kutuları sıfırla` kartın kendi akışına geri döner.
    Seçili bir kart parçasına `Del` basmak onu karttan kaldırır — metni
-   silmez, gizler; listedeki göz düğmesi geri getirir. (Kart parçaları
+   silmez, gizler; Katmanlar listesindeki göz geri getirir (göz akış
+   yerleşiminde de çalışır, serbest kip gerekmez). (Kart parçaları
    döndürülmez: dönmüş bir eksen etiketi okunmaz.)
 
    Zemin ışıklarının merkezi de sürüklenebilir: kartı tamamen kapladıkları
@@ -172,6 +217,8 @@ pnpm kontrol      # node scripts/cdp-check.mjs [kind] [theme] [araç] — headle
 pnpm test:susle   # süslemeler dışa aktarımda hayatta kalıyor mu — piksel ölçer
 pnpm test:yerlesim # serbest yerleşim ve hover anahtarı — gerçek fare olaylarıyla
 pnpm test:arayuz  # Del ile kaldırma, katman kısayolu ve sürüklemesi, müfettiş, özel palet, ışık tutamacı
+pnpm test:katman  # katman ağacı, ad değiştirme, göz, gruba sürükleme, arama, sağ tık menüsü
+pnpm test:metin   # T/L araçları, yerinde yazma, otomatik yükseklik, uç sürükleme
 pnpm test:kabuk   # üç sütun, küçük resimler, liste eylemleri, geri al, tıkla-seç, tür kutusu, liste sürükleme
 pnpm test:secenek # ayarlar çizime ulaşıyor mu — köşe, vurgu, aralık, etiket, referans
 pnpm test:svg     # kart SVG'si eksiksiz mi — başlık, gösterge, portal eksenleri
@@ -187,8 +234,16 @@ betik 1 ile çıkar.
 `pnpm test:yerlesim` serbest yerleşimi açıp kartı piksel piksel karşılaştırır
 (açmak görüntüyü değiştirmemeli), grafik kutusunu gerçek fare olaylarıyla
 sürükleyip boyutlandırır ve hover anahtarının ipucunu gerçekten kaldırdığını
-doğrular. `pnpm test:arayuz` panelin dört davranışını gerçek tıklamalarla sürer. Üçü de
-`scripts/cdp.mjs` içindeki ortak sürücüyü kullanır.
+doğrular. `pnpm test:arayuz` panelin dört davranışını gerçek tıklamalarla sürer.
+`pnpm test:metin` metin kutusunu ve bağlantıyı gerçek fare ve klavyeyle sürer:
+`T` ile kutu koyma, yerinde yazma, `Esc` ile iptal, kutuyu genişletince
+yüksekliğin düşmesi (sarma satırı azalıyor), `L` ile çizme ve bir ucu çekince
+ötekinin yerinde kalması.
+
+`pnpm test:katman` Katmanlar panelini sürer: grubun açılıp kapanması, çift tıkla
+ad değiştirme, gözün karttan gerçekten bir şey kaldırması, bir satırı sürükleyip
+gruba katmak, arama ve sağ tık menüsü. Hepsi `scripts/cdp.mjs` içindeki ortak
+sürücüyü kullanır.
 
 > Özel palet testi boşuna değil: ilk sürümde palet ekrana geçiyor ama dışa
 > aktarıma geçmiyordu. `renderStatic`'in memo bağımlılık listesinde
@@ -289,8 +344,8 @@ yazar. pnpm 11'de esbuild'in kurulum betiği `pnpm-workspace.yaml` içindeki
   (`chart-area-grow-clip`): sayfada ikinci bir canlı AreaChart olsa `url(#…)`
   ilk eşleşmeye bağlanır ve sahnedeki grafik küçük resmin genişliğinde
   kırpılırdı.
-- `src/lib/ui-prefs.ts` — panel bölümlerinin açık/kapalı hâli ve sol listenin
-  yüksekliği. Çalışma alanı JSON'unun **dışında**: bunlar işin parçası değil, o
+- `src/lib/ui-prefs.ts` — panel bölümlerinin açık/kapalı hâli ile sol
+  sütundaki grafik ve katman listelerinin yükseklikleri. Çalışma alanı JSON'unun **dışında**: bunlar işin parçası değil, o
   makinedeki pencere hâli, taşınmaları anlamsız.
 - `src/lib/adapters.ts` — tablo → her grafiğin veri biçimi. Çizgi/alan
   grafikte kategorik x, içeride eşit aralıklı sanal tarihe eşlenir; etiketler
@@ -312,8 +367,36 @@ yazar. pnpm 11'de esbuild'in kurulum betiği `pnpm-workspace.yaml` içindeki
   varlık dosya değil, hepsi koddan üretilir. `shapes.tsx` anlamı olmayan
   aile: kenar şeklin *içine* çizilir (kutu küçültülerek), yoksa tutamaçla
   çizim birbirini tutmaz. Gruplar `DecorItem.grup` etiketiyle tutulur — ayrı
-  bir grup listesi değil, çünkü grup bir nesne değil: silinen bir üyenin
-  ardından temizlenecek kayıt kalmıyor ve sıralama tek yığın üzerinden yürüyor.
+  bir grup **ağacı** değil: üyeler yığında yan yana durur, silinen bir üyenin
+  ardından temizlenecek düğüm kalmaz ve sıralama tek yığın üzerinden yürür.
+  `DecorState.gruplar` yalnızca grubun **adını** tutar; görünürlük ve kilit
+  üyelerden okunur, yoksa "grup açık ama üyesi kapalı" gibi hangisinin
+  kazandığı belirsiz bir hâl doğardı. Üyesi kalmamış kayıtları
+  `normalizeDecor` süpürür.
+- `src/decor/text.tsx` — metin kutusu. Satırlara bölmeyi **uygulama** yapıyor:
+  SVG `<text>` sarmaz, `foreignObject` ise SVG çıktısını Illustrator'da ve
+  PowerPoint'te açılmaz hâle getirirdi. Ölçüm gizli bir canvas ile, kartın
+  kendi `--font-sans`'ıyla; ekran dışı dışa aktarım kartı da aynı fontu miras
+  aldığı için "ekranda sığan, PNG'de taşan satır" diye bir şey olmuyor.
+  Yükseklik `AssetDef.otomatikYukseklik` ile metne bağlı — panel ve sahne tek
+  bir `otomatikBoy()` kapısından geçiyor, o yüzden kutu yazarken büyüyor,
+  bırakınca zıplamıyor.
+- `ok/baglanti` (`src/decor/arrows.tsx`) — iki uçlu çizgi. Uçlar kutunun
+  yüzdesi olarak parametrede (`AssetDef.uclar`); sahne köşe tutamakları yerine
+  iki nokta gösteriyor ve uç çekilince kutuyu iki noktanın sınırlayıcı
+  dikdörtgeni olarak yeniden yazıyor. `aci`/`aynala` bu varlıklarda yok
+  sayılıyor: yön zaten uçların yerinden geliyor, bir de kutuyu çevirmek aynı
+  şeyi iki kez söylemek olurdu.
+- `src/decor/katmanlar.ts` — katman **ağacı**: iki yığınlı depoyu panelin
+  gördüğü tek listeye (ve geri) çevirir. Panel depolama biçimini, model de
+  panelin ağacını hiç bilmez. Kart parçaları listenin ortasında sabit bir
+  şerit; bir satırı şeridin öte yanına bırakmak `katman` alanını değiştirir,
+  yani katman ayrı bir düğme değil listedeki yerdir.
+- `src/components/LayersPanel.tsx` — o ağacın arayüzü: ağaç satırları,
+  sürükleyerek sıralama ve gruba katma, yerinde ad değiştirme, göz/kilit,
+  arama, sağ tık menüsü, klavye gezinmesi. Grup satırının açık/kapalı hâli
+  bilerek kaydedilmez ve geri alınmaz — bir grubu kapatmak işin değil bakışın
+  değişmesidir.
 - Serbest yerleşim `ChartSpec.yerlesim` içinde: üç kutu (`baslik`, `grafik`,
   `dipnot`) kart uzayında, süslemeyle **aynı koordinat sisteminde**. Kutu
   varsa o öğe mutlak konumlanır, yoksa kart eskisi gibi kendi akışını kurar.

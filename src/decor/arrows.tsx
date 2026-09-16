@@ -46,6 +46,23 @@ function Head({ x, y, ang, size, color, width, style }: { x: number; y: number; 
   return <path d={`M${round(x)} ${round(y)}L${ax} ${ay}L${bx} ${by}Z`} fill={color} />;
 }
 
+const END_STYLES = [
+  { value: "yok", label: "Yok" },
+  { value: "ok", label: "Ok" },
+  { value: "cizgi", label: "Çizgi" },
+  { value: "nokta", label: "Nokta" },
+];
+
+/**
+ * Bağlantının uç süsü. `Head`'in üstüne bir katman: oraya "nokta" eklemek
+ * mevcut sekiz okun `ucTipi` seçeneklerini de değiştirirdi.
+ */
+function Uc({ x, y, ang, size, color, width, style }: { x: number; y: number; ang: number; size: number; color: string; width: number; style: string }) {
+  if (style === "yok" || size <= 0) return null;
+  if (style === "nokta") return <circle cx={round(x)} cy={round(y)} r={round(size * 0.35)} fill={color} />;
+  return <Head x={x} y={y} ang={ang} size={size} color={color} width={width} style={style === "ok" ? "dolu" : "cizgi"} />;
+}
+
 /** Pull the shaft back so a filled head does not sit on top of its own line. */
 function shorten(x: number, y: number, ang: number, by: number) {
   return [x - Math.cos(ang) * by, y - Math.sin(ang) * by] as const;
@@ -440,6 +457,88 @@ export const ARROWS: AssetDef[] = [
               fill={color}
             />
           )}
+        </>
+      );
+    },
+  },
+  {
+    /**
+     * Bağlantı — kutu içinde çizilip döndürülen bir ok değil, **iki ucu olan**
+     * bir çizgi. Uçlar kutunun yüzdesi olarak duruyor; sahnede her ucun kendi
+     * tutamağı var ve uç kaydırılınca kutu iki noktanın sınırlayıcı
+     * dikdörtgeni olarak yeniden yazılıyor (`AssetDef.uclar`). Bir veriyi
+     * işaret eden açıklama oku ancak böyle kurulabiliyor: "şu çubuktan şu
+     * yazıya" demek, bir açı ile bir kutu boyu ayarlamak değil.
+     */
+    id: "ok/baglanti",
+    label: "Bağlantı",
+    family: "ok",
+    kind: "nesne",
+    size: { w: 220, h: 120 },
+    uclar: {
+      x1: "x1",
+      y1: "y1",
+      x2: "x2",
+      y2: "y2",
+      pay: (p) => Math.max(num(p, "kalinlik", 3), num(p, "uc", 14)) / 2 + 4,
+    },
+    params: [
+      { type: "sayi", key: "x1", label: "Baş X", min: -100, max: 200, step: 0.01, def: 0, gizli: true },
+      { type: "sayi", key: "y1", label: "Baş Y", min: -100, max: 200, step: 0.01, def: 100, gizli: true },
+      { type: "sayi", key: "x2", label: "Son X", min: -100, max: 200, step: 0.01, def: 100, gizli: true },
+      { type: "sayi", key: "y2", label: "Son Y", min: -100, max: 200, step: 0.01, def: 0, gizli: true },
+      { type: "sayi", key: "kalinlik", label: "Kalınlık", min: 0.5, max: 24, step: 0.5, def: 3 },
+      {
+        type: "secim",
+        key: "stil",
+        label: "Çizgi",
+        options: [
+          { value: "duz", label: "Düz" },
+          { value: "kesik", label: "Kesik" },
+          { value: "nokta", label: "Noktalı" },
+        ],
+        def: "duz",
+      },
+      { type: "secim", key: "bas", label: "Baş ucu", options: END_STYLES, def: "yok" },
+      { type: "secim", key: "son", label: "Son ucu", options: END_STYLES, def: "ok" },
+      { type: "sayi", key: "uc", label: "Uç boyu", min: 4, max: 40, step: 1, def: 14 },
+      { type: "sayi", key: "bukum", label: "Büküm", min: -100, max: 100, step: 5, def: 0 },
+    ],
+    render({ w, h, color, p }) {
+      const t = num(p, "kalinlik", 3);
+      const uc = num(p, "uc", 14);
+      const ax = (num(p, "x1", 0) / 100) * w;
+      const ay = (num(p, "y1", 100) / 100) * h;
+      const bx = (num(p, "x2", 100) / 100) * w;
+      const by = (num(p, "y2", 0) / 100) * h;
+      const dx = bx - ax;
+      const dy = by - ay;
+      const uzunluk = Math.hypot(dx, dy) || 1;
+      // Bükümün kontrol noktası orta noktadan **dike** kaçıyor; yarıçapı
+      // uzunluğa oranlı, yani kısa bir bağlantı da uzun bir bağlantı da aynı
+      // kavisi gösteriyor.
+      const bukum = num(p, "bukum", 0) / 100;
+      const cx = (ax + bx) / 2 - (dy / uzunluk) * uzunluk * bukum * 0.5;
+      const cy = (ay + by) / 2 + (dx / uzunluk) * uzunluk * bukum * 0.5;
+      // Uç açıları kontrol noktasına bakıyor: kavisli bir çizgide ok başı
+      // kirişin değil teğetin yönünde durmalı.
+      const basAci = Math.atan2(ay - cy, ax - cx);
+      const sonAci = Math.atan2(by - cy, bx - cx);
+      const basStil = str(p, "bas", "yok");
+      const sonStil = str(p, "son", "ok");
+      const [sx, sy] = shorten(ax, ay, basAci, basStil === "ok" ? uc * 0.85 : 0);
+      const [ex, ey] = shorten(bx, by, sonAci, sonStil === "ok" ? uc * 0.85 : 0);
+      const stil = str(p, "stil", "duz");
+      const kesik =
+        stil === "kesik" ? `${round(t * 3)} ${round(t * 2)}` : stil === "nokta" ? `0.01 ${round(t * 2)}` : undefined;
+      const govde = bukum === 0
+        ? `M${round(sx)} ${round(sy)}L${round(ex)} ${round(ey)}`
+        : `M${round(sx)} ${round(sy)}Q${round(cx)} ${round(cy)} ${round(ex)} ${round(ey)}`;
+      return (
+        <>
+          <path d={govde} {...SHAFT} stroke={color} strokeWidth={t} strokeDasharray={kesik} />
+          <Uc x={ax} y={ay} ang={basAci} size={uc} color={color} width={t} style={basStil} />
+          <Uc x={bx} y={by} ang={sonAci} size={uc} color={color} width={t} style={sonStil} />
         </>
       );
     },

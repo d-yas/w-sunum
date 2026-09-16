@@ -7,9 +7,19 @@
  */
 import { num, round, str, type AssetDef } from "./types";
 
-/** Split on "|", drop empties, cap at four lines — past that nothing fits. */
+/** Satır ayracı: gerçek satır sonu ya da eski `|`. */
+const AYRAC = /[\r\n|]+/;
+
+/**
+ * Split on "|" or a real newline, drop empties, cap at four lines — past that
+ * nothing fits. Sahnede yerinde düzenleme gerçek satır sonu üretiyor; `|` eski
+ * kayıtlar ve panelin tek satırlık kutusu için duruyor.
+ */
 function lines(text: string): string[] {
-  const out = text.split("|").map((s) => s.trim()).filter(Boolean);
+  const out = text
+    .split(AYRAC)
+    .map((x) => x.trim())
+    .filter(Boolean);
   return out.length > 0 ? out.slice(0, 4) : [""];
 }
 
@@ -61,6 +71,7 @@ const TEXT_PARAMS = [
 export const BALLOONS: AssetDef[] = [
   {
     id: "balon/konusma",
+    duzenle: "yazi",
     label: "Konuşma balonu",
     family: "balon",
     kind: "nesne",
@@ -96,6 +107,7 @@ export const BALLOONS: AssetDef[] = [
   },
   {
     id: "balon/aciklama",
+    duzenle: "yazi",
     label: "Açıklama kutusu",
     family: "balon",
     kind: "nesne",
@@ -129,6 +141,7 @@ export const BALLOONS: AssetDef[] = [
   },
   {
     id: "balon/etiket",
+    duzenle: "yazi",
     label: "Etiket bayrağı",
     family: "balon",
     kind: "nesne",
@@ -163,6 +176,7 @@ export const BALLOONS: AssetDef[] = [
   },
   {
     id: "balon/kurdele",
+    duzenle: "yazi",
     label: "Kurdele",
     family: "balon",
     kind: "nesne",

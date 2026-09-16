@@ -15,15 +15,31 @@ import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } f
 
 import type { Box, DecorItem, DecorSlot, SlotKey } from "@/decor/model";
 import { SLOT_KEYS, SLOT_LABELS, grubuCoz, grupGenislet, grupla, restack, restackEnd } from "@/decor/model";
-import { getAsset, newItem } from "@/decor/registry";
-import { num, type ZeminSlot } from "@/decor/types";
+import { getAsset, newItem, otomatikBoy } from "@/decor/registry";
+import { defaults, num, str, type AssetDef, type ZeminSlot } from "@/decor/types";
 import type { ChartSpec } from "@/lib/spec";
 
-type Corner = "nw" | "ne" | "sw" | "se";
-type Mode = { kind: "tasi" } | { kind: "boyut"; corner: Corner } | { kind: "dondur" };
+import type { Arac } from "./Toolbar";
+
+type Corner = "nw" | "ne" | "sw" | "se" | "w" | "e";
+type Mode = { kind: "tasi" } | { kind: "boyut"; corner: Corner } | { kind: "dondur" } | { kind: "uc"; uc: "bas" | "son" };
 
 const CORNERS: Corner[] = ["nw", "ne", "sw", "se"];
-const SIGN: Record<Corner, [number, number]> = { nw: [-1, -1], ne: [1, -1], sw: [-1, 1], se: [1, 1] };
+/** Yalnız genişliği değişen kutular (metin) için: yükseklik metnin işi. */
+const EDGES: Corner[] = ["w", "e"];
+const SIGN: Record<Corner, [number, number]> = {
+  nw: [-1, -1],
+  ne: [1, -1],
+  sw: [-1, 1],
+  se: [1, 1],
+  w: [-1, 0],
+  e: [1, 0],
+};
+
+interface Nokta {
+  x: number;
+  y: number;
+}
 /** How close, in card px, a drag has to get before it snaps to a guide. */
 const SNAP = 5;
 
@@ -45,6 +61,8 @@ interface Handle {
   square: boolean;
   min: number;
   label: string;
+  /** Süsleme nesnesinin tanımı — tutamaç setini o belirliyor. Kart parçalarında `null`. */
+  def: AssetDef | null;
 }
 
 interface Drag {
@@ -55,6 +73,12 @@ interface Drag {
   py: number;
   /** Çoklu seçimde birlikte taşınanların başlangıç yerleri. */
   birlikte: { id: string; x: number; y: number }[] | null;
+  /**
+   * Uç sürüklenirken **yerinde kalan** uç, mutlak kart koordinatında.
+   * Yüzdeden yeniden okunamaz: kutu her karede yeniden yazıldığı için aynı
+   * yüzde her karede başka bir noktayı gösterirdi.
+   */
+  sabitUc: Nokta | null;
 }
 
 export interface DecorStageProps {
@@ -63,6 +87,9 @@ export interface DecorStageProps {
   selectedIds: string[];
   onSelect: (ids: string[]) => void;
   onChange: (s: ChartSpec) => void;
+  /** Etkin araç. `metin` ve `cizgi` sahnede çizim yapar, `sec` seçer. */
+  arac: Arac;
+  onArac: (a: Arac) => void;
 }
 
 /**
@@ -79,6 +106,27 @@ function capture(e: ReactPointerEvent) {
   }
 }
 
+/**
+ * Yerinde düzenleme kutusunun biçemi.
+ *
+ * Amaç birebir aynı yerleşim değil — yazarken okunaklı ve kabaca aynı
+ * görünen bir alan. Punto, kalınlık, hiza ve iç boşluk varlığın kendi
+ * parametrelerinden okunuyor; adları paylaşan balon ve rozet de bedavaya
+ * doğru görünüyor, bilmeyen varlıklar makul varsayılanlara düşüyor.
+ */
+function metinBicemi(n: DecorItem, def: AssetDef, scale: number): React.CSSProperties {
+  const p = { ...defaults(def), ...n.params };
+  const punto = num(p, "punto", 16) * scale;
+  const hiza = str(p, "hiza", "sol");
+  return {
+    fontSize: punto,
+    fontWeight: str(p, "kalinlik", "500"),
+    lineHeight: num(p, "satir", 1.3),
+    padding: Math.max(2, num(p, "bosluk", 6) * scale),
+    textAlign: hiza === "orta" ? "center" : hiza === "sag" ? "right" : "left",
+  };
+}
+
 const rot = (x: number, y: number, deg: number) => {
   const a = (deg * Math.PI) / 180;
   const c = Math.cos(a);
@@ -86,7 +134,7 @@ const rot = (x: number, y: number, deg: number) => {
   return [x * c - y * s, x * s + y * c] as const;
 };
 
-export function DecorStage({ spec, scale, selectedIds, onSelect, onChange }: DecorStageProps) {
+export function DecorStage({ spec, scale, selectedIds, onSelect, onChange, arac, onArac }: DecorStageProps) {
   /** Tek seçim; tutamaçlar ancak bir nesne seçiliyken çıkıyor. */
   const selectedId = selectedIds.length === 1 ? selectedIds[0] : null;
   const hostRef = useRef<HTMLDivElement>(null);
@@ -113,12 +161,13 @@ export function DecorStage({ spec, scale, selectedIds, onSelect, onChange }: Dec
         square: getAsset(n.asset)?.square === true,
         min: 8,
         label: getAsset(n.asset)?.label ?? n.asset,
+        def: getAsset(n.asset),
       })),
     ...(free
       ? SLOT_KEYS.flatMap((k) => {
           const b = spec.yerlesim.kutular[k];
           if (!b || hiddenSlots.includes(k)) return [];
-          return [{ id: slotId(k), ...b, aci: 0, kilit: false, slot: k, square: false, min: 24, label: SLOT_LABELS[k] }];
+          return [{ id: slotId(k), ...b, aci: 0, kilit: false, slot: k, square: false, min: 24, label: SLOT_LABELS[k], def: null }];
         })
       : []),
   ];
@@ -133,7 +182,67 @@ export function DecorStage({ spec, scale, selectedIds, onSelect, onChange }: Dec
       onChange({ ...spec, yerlesim: { ...spec.yerlesim, kutular: { ...spec.yerlesim.kutular, [key]: { ...cur, ...p } } } });
       return;
     }
-    setItems(items.map((n) => (n.id === id ? { ...n, ...p } : n)));
+    // `otomatikBoy`: bir metin kutusu genişletilince yüksekliği de yeniden
+    // hesaplanmalı, ve boyutlandırma her karede buradan geçtiği için kutu
+    // sürüklerken büyüyor — bırakınca zıplamıyor.
+    setItems(items.map((n) => (n.id === id ? otomatikBoy({ ...n, ...p }) : n)));
+  };
+
+  /* ---------------- iki uçlu nesneler ---------------- */
+
+  /** Bir bağlantının uçları, mutlak kart koordinatında. */
+  const ucNoktalari = (n: DecorItem, def: AssetDef): [Nokta, Nokta] => {
+    const u = def.uclar!;
+    const p = { ...defaults(def), ...n.params };
+    return [
+      { x: n.x + (num(p, u.x1, 0) / 100) * n.w, y: n.y + (num(p, u.y1, 100) / 100) * n.h },
+      { x: n.x + (num(p, u.x2, 100) / 100) * n.w, y: n.y + (num(p, u.y2, 0) / 100) * n.h },
+    ];
+  };
+
+  /**
+   * İki noktadan bir bağlantı kurar: kutu, iki ucun sınırlayıcı dikdörtgeni
+   * artı çizgi kalınlığı/ok başı payı; uçlar o kutunun yüzdesi olarak yazılır.
+   *
+   * Saf: hem uç sürüklemesi hem de çizerek oluşturma aynı işlevi çağırıyor, o
+   * yüzden "çizilen" ile "sonradan düzeltilen" bir bağlantı ayırt edilemez.
+   */
+  const ucluKur = (n: DecorItem, def: AssetDef, A: Nokta, B: Nokta): DecorItem => {
+    const u = def.uclar!;
+    const pay = u.pay?.({ ...defaults(def), ...n.params }) ?? 8;
+    const x = Math.round(Math.min(A.x, B.x) - pay);
+    const y = Math.round(Math.min(A.y, B.y) - pay);
+    const w = Math.max(8, Math.round(Math.abs(B.x - A.x) + 2 * pay));
+    const h = Math.max(8, Math.round(Math.abs(B.y - A.y) + 2 * pay));
+    // Yüzdeler **yuvarlanmış** kutuya göre: yuvarlamadan önce hesaplasak uç,
+    // her sürükleme karesinde yarım piksel kayardı.
+    const yzd = (v: number, o: number, boy: number) => Math.round(((v - o) / boy) * 10000) / 100;
+    return {
+      ...n,
+      x,
+      y,
+      w,
+      h,
+      aci: 0,
+      aynala: false,
+      params: {
+        ...n.params,
+        [u.x1]: yzd(A.x, x, w),
+        [u.y1]: yzd(A.y, y, h),
+        [u.x2]: yzd(B.x, x, w),
+        [u.y2]: yzd(B.y, y, h),
+      },
+    };
+  };
+
+  const ucYaz = (id: string, A: Nokta, B: Nokta) => {
+    setItems(
+      items.map((n) => {
+        if (n.id !== id) return n;
+        const def = getAsset(n.asset);
+        return def?.uclar ? ucluKur(n, def, A, B) : n;
+      })
+    );
   };
 
   /* ---------------- keyboard ---------------- */
@@ -149,8 +258,8 @@ export function DecorStage({ spec, scale, selectedIds, onSelect, onChange }: Dec
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "g") {
         e.preventDefault();
         const nesneler = selectedIds.filter((id) => !asSlot(id));
-        if (e.shiftKey) setItems(grubuCoz(items, nesneler));
-        else if (nesneler.length > 1) setItems(grupla(items, nesneler));
+        if (e.shiftKey) onChange({ ...spec, decor: grubuCoz(spec.decor, nesneler) });
+        else if (nesneler.length > 1) onChange({ ...spec, decor: grupla(spec.decor, nesneler) });
         return;
       }
 
@@ -297,12 +406,108 @@ export function DecorStage({ spec, scale, selectedIds, onSelect, onChange }: Dec
       mode.kind === "tasi" && next.length > 1
         ? items.filter((n) => next.includes(n.id) && !n.kilit).map((n) => ({ id: n.id, x: n.x, y: n.y }))
         : null;
-    dragRef.current = { mode, id, start: { ...h }, px, py, birlikte };
+    // Uç sürüklemesinde yerinde kalan uç bir kez okunuyor; bkz. Drag.sabitUc.
+    const sabitUc =
+      mode.kind === "uc" && h.def?.uclar
+        ? (() => {
+            const n = items.find((q) => q.id === id);
+            if (!n) return null;
+            const [A, B] = ucNoktalari(n, h.def!);
+            return mode.uc === "bas" ? B : A;
+          })()
+        : null;
+    dragRef.current = { mode, id, start: { ...h }, px, py, birlikte, sabitUc };
     onSelect(next);
   };
 
+  /* ---------------- araçla oluşturma ---------------- */
+
+  /** Çizilmekte olan bağlantı. `id` ilk birkaç pikselden sonra doluyor. */
+  const cizim = useRef<{ id: string | null; A: Nokta } | null>(null);
+
+  /**
+   * `T` ve `L` araçları. Sahneye basmak bir nesne doğuruyor; iş bitince araç
+   * kendiliğinden `sec`'e dönüyor — Figma'da da metin aracı tek kutu koyup
+   * bırakır, arka arkaya kutu dizmek isteyen aracı yeniden seçer.
+   */
+  const aracIleBasla = (e: ReactPointerEvent) => {
+    if (arac !== "metin" && arac !== "cizgi") return;
+    e.preventDefault();
+    e.stopPropagation();
+    const [px, py] = toCard(e);
+    if (arac === "metin") {
+      const taze = newItem("metin/kutu", CW, CH);
+      if (!taze) return;
+      const yeni: DecorItem = {
+        ...taze,
+        x: Math.round(Math.max(0, Math.min(CW - taze.w, px))),
+        y: Math.round(Math.max(0, Math.min(CH - taze.h, py))),
+      };
+      setItems([...items, yeni]);
+      onSelect([yeni.id]);
+      setDuzenleme({ id: yeni.id, ilk: str(yeni.params, "yazi", "") });
+      onArac("sec");
+      return;
+    }
+    capture(e);
+    cizim.current = { id: null, A: { x: px, y: py } };
+  };
+
+  const onCizimMove = (e: ReactPointerEvent) => {
+    const c = cizim.current;
+    if (!c) return;
+    const [px, py] = toCard(e);
+    const B = { x: px, y: py };
+    if (c.id === null) {
+      // Kısacık bir titreme yüzünden bağlantı doğmasın; tıklama (sürüklemesiz)
+      // hâli `end` içinde varsayılan boyda kuruluyor.
+      if (Math.hypot(B.x - c.A.x, B.y - c.A.y) < 3) return;
+      const taze = newItem("ok/baglanti", CW, CH);
+      const def = getAsset("ok/baglanti");
+      if (!taze || !def) return;
+      const kur = ucluKur(taze, def, c.A, B);
+      c.id = kur.id;
+      setItems([...items, kur]);
+      onSelect([kur.id]);
+      return;
+    }
+    ucYaz(c.id, c.A, B);
+  };
+
+  const cizimiBitir = () => {
+    const c = cizim.current;
+    cizim.current = null;
+    if (!c) return;
+    if (c.id === null) {
+      // Sürüklemeden bırakıldı: kullanıcı "buraya bir bağlantı" dedi, boyunu
+      // biz veriyoruz.
+      const taze = newItem("ok/baglanti", CW, CH);
+      const def = getAsset("ok/baglanti");
+      if (taze && def) {
+        const kur = ucluKur(taze, def, c.A, { x: c.A.x + 160, y: c.A.y });
+        setItems([...items, kur]);
+        onSelect([kur.id]);
+      }
+    }
+    onArac("sec");
+  };
+
+  /* ---------------- yerinde metin düzenleme ---------------- */
+
+  /** Hangi nesnenin metni yazılıyor, ve `Esc` ile dönülecek ilk hâli. */
+  const [duzenleme, setDuzenleme] = useState<{ id: string; ilk: string } | null>(null);
+
+  // Nesne silinir ya da seçim başkasına geçerse kutu açık kalmasın.
+  useEffect(() => {
+    if (duzenleme && !items.some((n) => n.id === duzenleme.id && !n.gizli && !n.kilit)) setDuzenleme(null);
+  }, [duzenleme, items]);
+
+  const duzenlemeYaz = (id: string, anahtar: string, deger: string) =>
+    setItems(items.map((n) => (n.id === id ? otomatikBoy({ ...n, params: { ...n.params, [anahtar]: deger } }) : n)));
+
   const onMove = (e: ReactPointerEvent) => {
     if (dragAnchor.current) return onAnchorMove(e);
+    if (cizim.current) return onCizimMove(e);
     const d = dragRef.current;
     if (!d) return;
     const [px, py] = toCard(e);
@@ -335,6 +540,14 @@ export function DecorStage({ spec, scale, selectedIds, onSelect, onChange }: Dec
       return;
     }
 
+    if (d.mode.kind === "uc") {
+      if (!d.sabitUc) return;
+      const hareketli = { x: px, y: py };
+      const [A, B] = d.mode.uc === "bas" ? [hareketli, d.sabitUc] : [d.sabitUc, hareketli];
+      ucYaz(d.id, A, B);
+      return;
+    }
+
     if (d.mode.kind === "dondur") {
       const cx = s.x + s.w / 2;
       const cy = s.y + s.h / 2;
@@ -355,9 +568,11 @@ export function DecorStage({ spec, scale, selectedIds, onSelect, onChange }: Dec
     const AX = cx + ax;
     const AY = cy + ay;
     const [qx, qy] = rot(px - AX, py - AY, -s.aci);
-    let nw = Math.max(s.min, sx * qx);
-    let nh = Math.max(s.min, sy * qy);
-    if (keepRatio) {
+    // Kenar tutamacı tek eksende çalışır: ötekini olduğu gibi bırakıyoruz,
+    // yoksa `sy * qy` sıfır çıkıp yüksekliği en küçük değere düşürürdü.
+    let nw = sx === 0 ? s.w : Math.max(s.min, sx * qx);
+    let nh = sy === 0 ? s.h : Math.max(s.min, sy * qy);
+    if (keepRatio && sx !== 0 && sy !== 0) {
       const ratio = s.h / s.w || 1;
       if (nw * ratio > nh) nh = nw * ratio;
       else nw = nh / ratio;
@@ -372,7 +587,11 @@ export function DecorStage({ spec, scale, selectedIds, onSelect, onChange }: Dec
   };
 
   const end = (e: ReactPointerEvent) => {
+    // Bırakma noktası da sayılıyor: hızlı bir sürüklemede son `pointermove`
+    // hedefin gerisinde kalabiliyor ve nesne birkaç piksel geride duruyordu.
+    onMove(e);
     dragAnchor.current = null;
+    if (cizim.current) cizimiBitir();
     if (!dragRef.current) return;
     try {
       (e.target as Element).releasePointerCapture(e.pointerId);
@@ -387,6 +606,8 @@ export function DecorStage({ spec, scale, selectedIds, onSelect, onChange }: Dec
     <div
       ref={hostRef}
       className="decor-overlay"
+      data-arac={arac}
+      onPointerDown={aracIleBasla}
       onPointerMove={onMove}
       onPointerUp={end}
       onPointerCancel={end}
@@ -397,6 +618,14 @@ export function DecorStage({ spec, scale, selectedIds, onSelect, onChange }: Dec
       {handles.map((h) => {
         const coklu = selectedIds.includes(h.id);
         const sel = h.id === selectedId;
+        const nesne = h.slot ? null : (items.find((q) => q.id === h.id) ?? null);
+        const ucluMu = !!h.def?.uclar && !!nesne;
+        // "Otomatik" gerçekten açık mı: kullanıcı yüksekliği sabitlediyse kutu
+        // yine köşelerinden tutulabilmeli.
+        const otoBoy =
+          !!h.def?.otomatikYukseklik &&
+          !!nesne &&
+          h.def.otomatikYukseklik({ ...defaults(h.def), ...nesne.params }, nesne.w) != null;
         return (
           <div
             key={h.id}
@@ -414,30 +643,52 @@ export function DecorStage({ spec, scale, selectedIds, onSelect, onChange }: Dec
               transform: h.aci ? `rotate(${h.aci}deg)` : undefined,
               transformOrigin: "center",
             }}
+            onDoubleClick={(e) => {
+              if (arac !== "sec" || h.kilit || !h.def?.duzenle) return;
+              e.stopPropagation();
+              const n = items.find((q) => q.id === h.id);
+              if (n) setDuzenleme({ id: h.id, ilk: str(n.params, h.def.duzenle, "") });
+            }}
             onPointerDown={(e) => (h.kilit ? onSelect(sec(h.id, e.shiftKey)) : begin(e, h.id, { kind: "tasi" }))}
           >
-            {sel && !h.kilit && (
+            {sel && !h.kilit && duzenleme?.id !== h.id && (
               <>
-                {CORNERS.map((c) => {
+                {/* Üç tutamaç seti. İki uçlu bir bağlantıda köşe ve döndürme
+                    yok — yön uçların yerinden geliyor. Yüksekliğini metnine
+                    bırakmış bir kutuda ise yalnız genişlik tutulur. */}
+                {(ucluMu ? [] : otoBoy ? EDGES : CORNERS).map((c) => {
                   const [sx, sy] = SIGN[c];
                   return (
                     <div
                       key={c}
                       className="decor-handle"
                       style={{
-                        left: sx < 0 ? -5 : undefined,
+                        left: sx < 0 ? -5 : sx === 0 ? "50%" : undefined,
                         right: sx > 0 ? -5 : undefined,
-                        top: sy < 0 ? -5 : undefined,
+                        top: sy < 0 ? -5 : sy === 0 ? "50%" : undefined,
                         bottom: sy > 0 ? -5 : undefined,
-                        cursor: c === "nw" || c === "se" ? "nwse-resize" : "nesw-resize",
+                        marginLeft: sx === 0 ? -5 : undefined,
+                        marginTop: sy === 0 ? -5 : undefined,
+                        cursor: sy === 0 ? "ew-resize" : sx === 0 ? "ns-resize" : c === "nw" || c === "se" ? "nwse-resize" : "nesw-resize",
                       }}
                       onPointerDown={(e) => begin(e, h.id, { kind: "boyut", corner: c })}
                     />
                   );
                 })}
+                {ucluMu &&
+                  ucNoktalari(nesne!, h.def!).map((P, i) => (
+                    <div
+                      key={i === 0 ? "bas" : "son"}
+                      className="decor-handle decor-uc"
+                      data-uc={i === 0 ? "bas" : "son"}
+                      title={i === 0 ? "Baş ucu" : "Son ucu"}
+                      style={{ left: (P.x - h.x) * scale - 6, top: (P.y - h.y) * scale - 6 }}
+                      onPointerDown={(e) => begin(e, h.id, { kind: "uc", uc: i === 0 ? "bas" : "son" })}
+                    />
+                  ))}
                 {/* Card parts stay upright: a rotated title is a different feature
                     and a rotated chart would fight its own axis labels. */}
-                {!h.slot && (
+                {!h.slot && !ucluMu && (
                   <>
                     <div
                       className="decor-handle decor-rotate"
@@ -449,6 +700,28 @@ export function DecorStage({ spec, scale, selectedIds, onSelect, onChange }: Dec
                   </>
                 )}
               </>
+            )}
+            {duzenleme?.id === h.id && h.def?.duzenle && nesne && (
+              <textarea
+                className="decor-edit"
+                autoFocus
+                value={str(nesne.params, h.def.duzenle, "")}
+                style={metinBicemi(nesne, h.def, scale)}
+                onPointerDown={(e) => e.stopPropagation()}
+                onDoubleClick={(e) => e.stopPropagation()}
+                onChange={(e) => duzenlemeYaz(h.id, h.def!.duzenle!, e.target.value)}
+                onKeyDown={(e) => {
+                  // Esc sahnenin genel "seçimi bırak" kısayoluna ulaşmasın:
+                  // yazarken vazgeçmek seçimi değil metni geri almalı.
+                  if (e.key === "Escape") {
+                    e.stopPropagation();
+                    duzenlemeYaz(h.id, h.def!.duzenle!, duzenleme.ilk);
+                    setDuzenleme(null);
+                  }
+                  if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) setDuzenleme(null);
+                }}
+                onBlur={() => setDuzenleme(null)}
+              />
             )}
           </div>
         );

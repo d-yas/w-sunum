@@ -138,9 +138,16 @@ export function useDragOrder(count: number, onReorder: (from: number, to: number
         setDropAt(null);
         setOffsetY(0);
         if (!st?.canli) return;
-        // Bırakmanın ardından gelen tıklama satırı bir de seçerdi. Bayrak bir
-        // sonraki basışta sıfırlanıyor, yani tıklama hiç gelmezse de takılmıyor.
+        // Bırakmanın ardından gelen tıklama satırı bir de seçerdi. Tıklama
+        // `pointerup` ile aynı turda geliyor, o yüzden bayrağı bir sonraki
+        // makro göreve bırakmak yetiyor — ve orada kendiliğinden düşüyor.
+        // Basışta sıfırlamak yeterli değildi: `pointerdown` üretmeyen bir
+        // tıklama (betikler, erişilebilirlik araçları) bayrağı hiç açmadan
+        // gelip yutuluyordu.
         yut.current = true;
+        setTimeout(() => {
+          yut.current = false;
+        }, 0);
         if (to == null) return;
         const target = to > st.from ? to - 1 : to;
         if (target !== st.from) onReorder(st.from, target);

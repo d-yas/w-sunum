@@ -43,12 +43,17 @@ function tones(theme: Theme) {
 function ctxFor(slot: DecorSlot, def: AssetDef, uid: string, w: number, h: number, colors: string[], theme: Theme): AssetCtx {
   const { ink, paper } = tones(theme);
   const fallback = def.tone === "murekkep" ? ink : colors[0] ?? ink;
+  // İkinci renk kendi tonunu taşıyabiliyor: mürekkep tonlu bir metin kutusunun
+  // yazısı mürekkep ama dolgusu seri rengi olmalı, yoksa kutu kendi yazısını
+  // yutuyor.
+  const tone2 = def.tone2 ?? def.tone;
+  const fallback2 = tone2 === "murekkep" ? ink : tone2 === "kagit" ? paper : colors[1] ?? colors[0] ?? ink;
   return {
     uid,
     w,
     h,
     color: slot.renk || fallback,
-    color2: slot.renk2 || (def.tone === "murekkep" ? ink : colors[1] ?? colors[0] ?? ink),
+    color2: slot.renk2 || fallback2,
     ink,
     paper,
     p: { ...defaults(def), ...slot.params },
@@ -56,7 +61,7 @@ function ctxFor(slot: DecorSlot, def: AssetDef, uid: string, w: number, h: numbe
 }
 
 function Zemin({ slot, uid, w, h, colors, theme }: { slot: DecorSlot | null } & Omit<DecorLayerProps, "decor" | "phase">) {
-  if (!slot) return null;
+  if (!slot || slot.gizli) return null;
   const def = getAsset(slot.asset);
   if (!def) return null;
   return <g opacity={round(slot.opaklik, 3)}>{def.render(ctxFor(slot, def, uid, w, h, colors, theme))}</g>;
@@ -67,11 +72,15 @@ function Nesne({ item, uid, colors, theme }: { item: DecorItem; uid: string; col
   if (!def || item.gizli) return null;
   // Rotate and mirror about the item's own centre, then hand the asset a
   // plain 0,0–w,h box to draw in. Assets never see the transform.
-  const t =
-    `translate(${round(item.x + item.w / 2)} ${round(item.y + item.h / 2)})` +
-    (item.aci ? ` rotate(${round(item.aci, 2)})` : "") +
-    (item.aynala ? " scale(-1 1)" : "") +
-    ` translate(${round(-item.w / 2)} ${round(-item.h / 2)})`;
+  //
+  // İki uçlu varlıklarda dönüş yok: yön zaten uçların yerinden geliyor, bir de
+  // kutuyu çevirmek aynı şeyi iki kez söylemek olurdu.
+  const t = def.uclar
+    ? `translate(${round(item.x)} ${round(item.y)})`
+    : `translate(${round(item.x + item.w / 2)} ${round(item.y + item.h / 2)})` +
+      (item.aci ? ` rotate(${round(item.aci, 2)})` : "") +
+      (item.aynala ? " scale(-1 1)" : "") +
+      ` translate(${round(-item.w / 2)} ${round(-item.h / 2)})`;
   return (
     <g transform={t} opacity={round(item.opaklik, 3)}>
       {def.render(ctxFor(item, def, uid, item.w, item.h, colors, theme))}
@@ -82,7 +91,8 @@ function Nesne({ item, uid, colors, theme }: { item: DecorItem; uid: string; col
 export function DecorLayer({ decor, phase, w, h, uid, colors, theme }: DecorLayerProps) {
   const items = decor.nesneler.filter((n) => n.katman === phase && !n.gizli);
   const back = phase === "arka";
-  const hasZemin = back ? decor.zemin.isik || decor.zemin.doku : decor.zemin.cerceve;
+  const gorunur = (s: DecorSlot | null) => (s && !s.gizli ? s : null);
+  const hasZemin = back ? gorunur(decor.zemin.isik) || gorunur(decor.zemin.doku) : gorunur(decor.zemin.cerceve);
   if (items.length === 0 && !hasZemin) return null;
   const shared = { uid, w, h, colors, theme };
   return (

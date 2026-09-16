@@ -13,11 +13,13 @@ const KEY = "data-gorsel.ui.v1";
 export interface UiPrefs {
   /** Sol paneldeki grafik listesinin yüksekliği (px). */
   listHeight: number;
+  /** Sol paneldeki katman listesinin yüksekliği (px). */
+  layerHeight: number;
   /** Bölüm id → açık mı. Yazılmayan bölüm açık sayılır. */
   sections: Record<string, boolean>;
 }
 
-const DEFAULTS: UiPrefs = { listHeight: 260, sections: {} };
+const DEFAULTS: UiPrefs = { listHeight: 170, layerHeight: 300, sections: {} };
 
 let cache: UiPrefs | null = null;
 
@@ -28,6 +30,7 @@ export function loadPrefs(): UiPrefs {
     const p = raw ? (JSON.parse(raw) as Partial<UiPrefs>) : {};
     cache = {
       listHeight: clampHeight(typeof p.listHeight === "number" ? p.listHeight : DEFAULTS.listHeight),
+      layerHeight: clampHeight(typeof p.layerHeight === "number" ? p.layerHeight : DEFAULTS.layerHeight),
       sections: isRecord(p.sections) ? p.sections : {},
     };
   } catch {
@@ -39,6 +42,7 @@ export function loadPrefs(): UiPrefs {
 export function savePrefs(patch: Partial<UiPrefs>) {
   const next = { ...loadPrefs(), ...patch };
   if (patch.listHeight != null) next.listHeight = clampHeight(patch.listHeight);
+  if (patch.layerHeight != null) next.layerHeight = clampHeight(patch.layerHeight);
   cache = next;
   try {
     localStorage.setItem(KEY, JSON.stringify(next));
@@ -57,7 +61,7 @@ export function setSectionOpen(id: string, open: boolean) {
 }
 
 function clampHeight(h: number): number {
-  return Math.max(120, Math.min(900, Math.round(h)));
+  return Math.max(90, Math.min(900, Math.round(h)));
 }
 
 function isRecord(v: unknown): v is Record<string, boolean> {

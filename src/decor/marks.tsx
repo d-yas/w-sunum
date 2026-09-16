@@ -184,6 +184,7 @@ export const MARKS: AssetDef[] = [
   },
   {
     id: "isaret/rozet",
+    duzenle: "yazi",
     label: "Rozet",
     family: "isaret",
     kind: "nesne",

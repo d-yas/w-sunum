@@ -10,12 +10,12 @@
 //     (It did not at first: renderStatic's memo dependency list was missing
 //     ws.palettes, so exports kept the palette the closure was built with.)
 //  4. A background light's centre can be dragged on the stage.
-//  5. Dragging a row in the layer list reorders it, and dragging it past the
-//     "Grafik" divider flips the item between the front and back stacks.
+//  5. Dragging a row in the Katmanlar list reorders it, and dragging it past
+//     the card-parts band flips the item between the front and back stacks.
 //  6. Selecting a decoration brings up its own properties in the inspector.
 //  7. The shape family is in the gallery and lands on the card.
-//  8. Two shapes can be grouped: clicking one selects both, and they move
-//     together as one.
+//  8. Two shapes can be grouped: clicking the group row selects both, and
+//     they move together as one on the stage.
 //
 //   node scripts/ui-check.mjs
 import { launch } from "./cdp.mjs";
@@ -91,6 +91,8 @@ try {
     await sleep(350);
   };
   const secili = () => evalIn(`document.querySelector('.inspector-name')?.textContent`);
+  /** Sol sütundaki katman listesinin nesne satırları. */
+  const KATMAN = 'aside.left .katman-satir[data-tur="nesne"]';
   const bolumler = () => evalIn(`[...document.querySelectorAll('aside.right [data-section]')].map((e) => e.dataset.section)`);
 
   /* 1 — Delete hides a card part, keeps its text */
@@ -136,7 +138,7 @@ try {
   const adNesne = await secili();
   const bolNesne = await bolumler();
   report(
-    bolNesne.includes("secili") && bolNesne.includes("nesneler") && !bolNesne.includes("kart"),
+    bolNesne.includes("secili") && !bolNesne.includes("kart"),
     "nesne-mufettis",
     `seçili="${adNesne}" · [${bolNesne.join(",")}]`
   );
@@ -208,15 +210,16 @@ try {
 
   /* 5 — katman listesinde satırı sürükleyerek sıra */
   await selectSlide();
-  // Müfettiş kaydırılmış olabilir; satırlar görünür alana gelmeden fare
+  // Liste kaydırılmış olabilir; satırlar görünür alana gelmeden fare
   // koordinatları başka bir öğeye düşer.
-  await evalIn(`document.querySelector('.decor-row[data-nesne-id]')?.scrollIntoView({ block: "center" }); true`);
+  await evalIn(`document.querySelector('${KATMAN}')?.scrollIntoView({ block: "center" }); true`);
   await sleep(400);
   const layerRow = (i) =>
-    evalIn(`(() => { const rs = [...document.querySelectorAll('.decor-row[data-nesne-id]')]; const e = rs[${i}];
+    evalIn(`(() => { const rs = [...document.querySelectorAll('${KATMAN}')]; const e = rs[${i}];
       if (!e) return null; const r = e.getBoundingClientRect();
-      return { x: r.x, y: r.y, w: r.width, h: r.height, id: e.dataset.nesneId }; })()`);
-  const hasDivider = await evalIn(`!!document.querySelector('.decor-row-grafik')`);
+      return { x: r.x, y: r.y, w: r.width, h: r.height, id: e.dataset.satirId }; })()`);
+  // Kart parçaları şeridi ön ile arkayı ayırır; eski "— Grafik —" satırının yerinde o var.
+  const hasDivider = await evalIn(`!!document.querySelector('aside.left .katman-satir[data-tur="parca"]')`);
   const topRow = await layerRow(0);
   const nextRow = await layerRow(1);
   if (!topRow || !nextRow) {
@@ -229,8 +232,8 @@ try {
     await mouse("mouseReleased", nextRow.x + 20, nextRow.y + nextRow.h - 2, 0);
     await sleep(700);
     const after = show(await chart());
-    const nowTop = await evalIn(`document.querySelector('.decor-row[data-nesne-id]')?.dataset.nesneId`);
-    report(hasDivider && after !== before && nowTop !== topRow.id, "katman-surukle", `grafik ayıracı=${hasDivider} · ${before}  →  ${after}`);
+    const nowTop = await evalIn(`document.querySelector('${KATMAN}')?.dataset.satirId`);
+    report(hasDivider && after !== before && nowTop !== topRow.id, "katman-surukle", `parça şeridi=${hasDivider} · ${before}  →  ${after}`);
   }
 
   /* 7 — şekil ailesi galeride, karta düşüyor */
@@ -262,8 +265,8 @@ try {
   /* 8 — iki şekli gruplamak: birlikte taşınırlar, birine tıklamak ikisini seçer */
   const idler = eklenen.map((n) => n.id);
   await evalIn(`(() => {
-    const rs = [...document.querySelectorAll('.decor-row[data-nesne-id]')];
-    const hedef = rs.filter((r) => [${idler.map((i) => JSON.stringify(i)).join(",")}].includes(r.dataset.nesneId));
+    const rs = [...document.querySelectorAll('${KATMAN}')];
+    const hedef = rs.filter((r) => [${idler.map((i) => JSON.stringify(i)).join(",")}].includes(r.dataset.satirSec));
     if (hedef.length < 2) return false;
     hedef[0].dispatchEvent(new MouseEvent('click', { bubbles: true }));
     hedef[1].dispatchEvent(new MouseEvent('click', { bubbles: true, shiftKey: true }));
@@ -276,8 +279,10 @@ try {
   const gruplu = (await chart()).decor.nesneler.filter((n) => idler.includes(n.id));
   const ortakGrup = gruplu.length === 2 && gruplu[0].grup !== "" && gruplu[0].grup === gruplu[1].grup;
 
-  // Tek bir üyeye tıklamak grubun tamamını seçer.
-  await evalIn(`document.querySelector('.decor-row[data-nesne-id=${JSON.stringify(idler[0])}]')?.dispatchEvent(new MouseEvent('click', { bubbles: true })); true`);
+  // Grup başlığına tıklamak grubun tamamını seçer. (Bir *üyeye* tıklamak
+  // yalnız onu seçer — Figma'da da katman listesi böyle davranır, sahnede
+  // grubun herhangi bir yerine tıklamak ise hâlâ grubun tamamını getirir.)
+  await evalIn(`document.querySelector('aside.left .katman-satir[data-tur="grup"]')?.dispatchEvent(new MouseEvent('click', { bubbles: true })); true`);
   await sleep(450);
   const grupSecimi = await secili();
 

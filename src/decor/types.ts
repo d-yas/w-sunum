@@ -12,7 +12,7 @@
  */
 import type { ReactNode } from "react";
 
-export type DecorFamily = "doku" | "isik" | "cerceve" | "sekil" | "ok" | "ikon" | "isaret" | "balon";
+export type DecorFamily = "doku" | "isik" | "cerceve" | "sekil" | "ok" | "ikon" | "isaret" | "balon" | "metin";
 export type DecorKind = "zemin" | "nesne";
 /** Behind the chart, or over it. */
 export type DecorZ = "arka" | "on";
@@ -26,31 +26,39 @@ export const FAMILY_LABELS: Record<DecorFamily, string> = {
   ikon: "İkon",
   isaret: "İşaret",
   balon: "Balon",
+  metin: "Metin",
 };
 
 /** Which background slot a zemin family occupies — one asset per slot. */
 export type ZeminSlot = "doku" | "isik" | "cerceve";
 
-export interface NumParam {
-  type: "sayi";
+interface ParamBase {
   key: string;
   label: string;
+  /**
+   * Panelde çizilmez. Sahnede başka bir tutamakla düzenlenen parametreler
+   * için: bir bağlantının uç noktalarını kaydırıcıyla ayarlamak kimsenin
+   * aklından geçmiyor, ama değerin kayıtlı bir parametre olması şart.
+   */
+  gizli?: boolean;
+}
+
+export interface NumParam extends ParamBase {
+  type: "sayi";
   min: number;
   max: number;
   step: number;
   def: number;
 }
-export interface TextParam {
+export interface TextParam extends ParamBase {
   type: "metin";
-  key: string;
-  label: string;
   def: string;
   maxLength?: number;
+  /** Panelde tek satırlık kutu yerine çok satırlı alan. */
+  multiline?: boolean;
 }
-export interface ChoiceParam {
+export interface ChoiceParam extends ParamBase {
   type: "secim";
-  key: string;
-  label: string;
   options: { value: string; label: string }[];
   def: string;
 }
@@ -101,6 +109,38 @@ export interface AssetDef {
   tone?: "seri" | "murekkep";
   /** Asset reads ctx.color2 as a real second colour, so the panel offers one. */
   twoTone?: boolean;
+  /**
+   * İkinci rengin boş bırakıldığında ne olacağı. Yazılmazsa `tone` ile aynı
+   * mantık yürür ve bu çoğu varlık için doğru; ama mürekkep tonlu bir metin
+   * kutusunun **dolgusu** mürekkep olursa yazı kendi zemininde kaybolur.
+   */
+  tone2?: "seri" | "murekkep" | "kagit";
+  /**
+   * Sahnede çift tıklayınca yerinde düzenlenecek metin parametresinin adı.
+   * Varlık kendi metnini nasıl çizdiğini bilir; sahne yalnız hangi anahtarı
+   * yazacağını bilir.
+   */
+  duzenle?: string;
+  /**
+   * Yüksekliği metne bırakan varlıklar. Genişlik ya da metin değişince sahne
+   * ve panel bunu çağırıp `h`'yi yeniden yazıyor. `null` dönmek "kullanıcı
+   * yüksekliği kendi sabitledi, karışma" demek.
+   */
+  otomatikYukseklik?: (p: ParamValues, w: number) => number | null;
+  /**
+   * İki uçlu varlıklar (bağlantı çizgisi). Uçlar kutunun yüzdesi olarak
+   * parametrede durur; sahne köşe tutamakları yerine iki nokta gösterir ve
+   * uç sürüklenince kutuyu iki noktanın sınırlayıcı dikdörtgeni olarak
+   * yeniden yazar. Döndürme ve aynalama bu varlıklarda anlamsız.
+   */
+  uclar?: {
+    x1: string;
+    y1: string;
+    x2: string;
+    y2: string;
+    /** Uçların kutudan taşma payı (kalınlık, ok başı) — px. */
+    pay?: (p: ParamValues) => number;
+  };
   /**
    * Names the 0–100 parameters that hold this asset's position, which lets the
    * stage offer a draggable dot for them. A background light covers the whole

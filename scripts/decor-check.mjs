@@ -55,6 +55,40 @@ const ITEMS = [
   { name: "ikon-hedef", asset: "ikon/hedef", box: [0, 0, 110, 110], aci: 0, params: { kalinlik: 3.5 } },
   { name: "isaret-konfeti", asset: "isaret/konfeti", box: [0, 0, 110, 110], aci: 0, params: { adet: 120, boy: 14, tohum: 9 } },
   { name: "balon-kurdele-text", asset: "balon/kurdele", box: [0, 0, 110, 110], aci: 0, params: { yazi: "TEST", punto: 40, katlama: 0, derinlik: 0 } },
+  // Metin kutusu: sarma canvas ile olculup <tspan>'lere dagitiliyor; olcum ile
+  // cizim ayrilirsa harf sondanin disina duser ve bu onu yakalar.
+  {
+    name: "metin-kutu-yazi",
+    asset: "metin/kutu",
+    box: [0, 0, 150, 110],
+    aci: 0,
+    params: { yazi: "TEST", punto: 52, kalinlik: "700", hiza: "sol", dikey: "ust", bosluk: 4, kose: 0, dolgu: "yok", boy: "sabit" },
+  },
+  // Dolgu ikinci renkten geliyor: murekkep tonlu bir varlikta ikinci rengin de
+  // murekkep olmasi kutuyu kendi yazisina yutturuyordu.
+  {
+    name: "metin-kutu-dolgu",
+    asset: "metin/kutu",
+    box: [0, 0, 110, 110],
+    aci: 0,
+    params: { yazi: "", punto: 10, dolgu: "dolu", kose: 0, bosluk: 0, boy: "sabit" },
+  },
+  // Baglanti: kutu icinde dondurulen bir ok degil, iki ucu parametrede duran
+  // bir cizgi. Kosegen gectigi icin sondada kesisiyor.
+  {
+    name: "ok-baglanti",
+    asset: "ok/baglanti",
+    box: [0, 0, 110, 110],
+    aci: 0,
+    params: { x1: 0, y1: 0, x2: 100, y2: 100, kalinlik: 18, stil: "duz", bas: "yok", son: "ok", uc: 14, bukum: 0 },
+  },
+  {
+    name: "ok-baglanti-kesik",
+    asset: "ok/baglanti",
+    box: [0, 0, 110, 110],
+    aci: 0,
+    params: { x1: 0, y1: 0, x2: 100, y2: 100, kalinlik: 24, stil: "kesik", bas: "nokta", son: "ok", uc: 16, bukum: 0 },
+  },
 ];
 
 /** Probe point in card pixels — well clear of any chart ink. */
@@ -84,7 +118,7 @@ function baseChart(extra) {
       chartInset: 0,
       titleSize: 10,
     },
-    decor: { zemin: { doku: null, isik: null, cerceve: null }, nesneler: [] },
+    decor: { zemin: { doku: null, isik: null, cerceve: null }, nesneler: [], gruplar: {} },
     ...extra,
   };
 }

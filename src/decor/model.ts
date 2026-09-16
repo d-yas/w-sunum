@@ -17,10 +17,18 @@ export interface DecorSlot {
   renk2: string;
   opaklik: number;
   params: ParamValues;
+  /**
+   * Katman listesindeki göz. Zemin yuvası da bir katman: onu görmemek için
+   * dokuyu silip sonra yeniden seçmek gerekiyordu, oysa sorulan şey "bunu bir
+   * kapat da altını göreyim".
+   */
+  gizli: boolean;
 }
 
 export interface DecorItem extends DecorSlot {
   id: string;
+  /** Kullanıcının verdiği ad; `""` ise varlığın kendi etiketi kullanılır. */
+  ad: string;
   x: number;
   y: number;
   w: number;
@@ -29,7 +37,6 @@ export interface DecorItem extends DecorSlot {
   aci: number;
   aynala: boolean;
   katman: "arka" | "on";
-  gizli: boolean;
   kilit: boolean;
   /**
    * Birlikte taşınan nesnelerin ortak kimliği; `""` gruplanmamış demek.
@@ -40,6 +47,18 @@ export interface DecorItem extends DecorSlot {
   grup: string;
 }
 
+/**
+ * Bir grubun kendine ait olan tek şey: adı.
+ *
+ * Görünürlük ve kilit burada durmuyor, üyelerden okunuyor — iki kaynak olsa
+ * "grup açık ama üyesi kapalı" diye bir hâl doğar ve hangisinin kazandığını
+ * kimse bilemez. Üyesi kalmayan kayıtları `normalizeDecor` süpürüyor, yani
+ * silinen bir nesnenin ardından temizlenecek bir şey elde kalmıyor.
+ */
+export interface GrupBilgi {
+  ad: string;
+}
+
 export interface DecorState {
   zemin: {
     doku: DecorSlot | null;
@@ -47,6 +66,8 @@ export interface DecorState {
     cerceve: DecorSlot | null;
   };
   nesneler: DecorItem[];
+  /** Grup etiketi → adı. Etiketin kendisi `DecorItem.grup` alanında. */
+  gruplar: Record<string, GrupBilgi>;
 }
 
 /* ------------------------------------------------------------------ */
@@ -110,7 +131,7 @@ export function normalizeLayout(input: unknown): CardLayout {
 }
 
 export function emptyDecor(): DecorState {
-  return { zemin: { doku: null, isik: null, cerceve: null }, nesneler: [] };
+  return { zemin: { doku: null, isik: null, cerceve: null }, nesneler: [], gruplar: {} };
 }
 
 function clamp(v: unknown, lo: number, hi: number, fallback: number): number {
@@ -122,7 +143,9 @@ function normalizeParams(input: unknown): ParamValues {
   const out: ParamValues = {};
   for (const [k, v] of Object.entries(input as Record<string, unknown>)) {
     if (typeof v === "number" && Number.isFinite(v)) out[k] = v;
-    else if (typeof v === "string") out[k] = v.slice(0, 200);
+    // 200 karakter bir balon etiketine yetiyordu; metin kutusu bir paragraf
+    // taşıyor.
+    else if (typeof v === "string") out[k] = v.slice(0, 4000);
   }
   return out;
 }
@@ -137,6 +160,7 @@ function normalizeSlot(input: unknown): DecorSlot | null {
     renk2: typeof s.renk2 === "string" ? s.renk2 : "",
     opaklik: clamp(s.opaklik, 0, 1, 1),
     params: normalizeParams(s.params),
+    gizli: s.gizli === true,
   };
 }
 
@@ -146,34 +170,52 @@ export function normalizeDecor(input: unknown): DecorState {
   const d = input as Partial<DecorState>;
   const z = (d.zemin ?? {}) as Partial<DecorState["zemin"]>;
   const items = Array.isArray(d.nesneler) ? d.nesneler : [];
+  const nesneler = items
+    .map((raw, i): DecorItem | null => {
+      const slot = normalizeSlot(raw);
+      if (!slot) return null;
+      const it = raw as Partial<DecorItem>;
+      return {
+        ...slot,
+        id: typeof it.id === "string" && it.id ? it.id : `d${i}-${Math.random().toString(36).slice(2, 8)}`,
+        ad: typeof it.ad === "string" ? it.ad.slice(0, 80) : "",
+        x: clamp(it.x, -5000, 5000, 0),
+        y: clamp(it.y, -5000, 5000, 0),
+        w: clamp(it.w, 4, 5000, 120),
+        h: clamp(it.h, 4, 5000, 120),
+        aci: clamp(it.aci, -360, 360, 0),
+        aynala: it.aynala === true,
+        katman: it.katman === "arka" ? "arka" : "on",
+        kilit: it.kilit === true,
+        grup: typeof it.grup === "string" ? it.grup.slice(0, 40) : "",
+      };
+    })
+    .filter((x): x is DecorItem => x !== null);
   return {
     zemin: {
       doku: normalizeSlot(z.doku),
       isik: normalizeSlot(z.isik),
       cerceve: normalizeSlot(z.cerceve),
     },
-    nesneler: items
-      .map((raw, i): DecorItem | null => {
-        const slot = normalizeSlot(raw);
-        if (!slot) return null;
-        const it = raw as Partial<DecorItem>;
-        return {
-          ...slot,
-          id: typeof it.id === "string" && it.id ? it.id : `d${i}-${Math.random().toString(36).slice(2, 8)}`,
-          x: clamp(it.x, -5000, 5000, 0),
-          y: clamp(it.y, -5000, 5000, 0),
-          w: clamp(it.w, 4, 5000, 120),
-          h: clamp(it.h, 4, 5000, 120),
-          aci: clamp(it.aci, -360, 360, 0),
-          aynala: it.aynala === true,
-          katman: it.katman === "arka" ? "arka" : "on",
-          gizli: it.gizli === true,
-          kilit: it.kilit === true,
-          grup: typeof it.grup === "string" ? it.grup.slice(0, 40) : "",
-        };
-      })
-      .filter((x): x is DecorItem => x !== null),
+    nesneler,
+    gruplar: normalizeGruplar(d.gruplar, nesneler),
   };
+}
+
+/** Kayıtlı grup adları — üyesi kalmamış olanlar burada düşer. */
+function normalizeGruplar(input: unknown, nesneler: DecorItem[]): Record<string, GrupBilgi> {
+  const canli = new Set(nesneler.map((n) => n.grup).filter(Boolean));
+  const out: Record<string, GrupBilgi> = {};
+  if (input && typeof input === "object") {
+    for (const [k, v] of Object.entries(input as Record<string, unknown>)) {
+      if (!canli.has(k)) continue;
+      const ad = v && typeof v === "object" ? (v as Partial<GrupBilgi>).ad : undefined;
+      out[k] = { ad: typeof ad === "string" ? ad.slice(0, 80) : "" };
+    }
+  }
+  // Adı hiç kaydedilmemiş bir grup (eski dosya) yine de gruptur.
+  for (const g of canli) if (!out[g]) out[g] = { ad: "" };
+  return out;
 }
 
 /* ------------------------------------------------------------------ */
@@ -269,9 +311,10 @@ export function grupGenislet(items: DecorItem[], ids: string[]): string[] {
  * diye bir şey olamazdı, araya başka nesneler girerdi. Toplanma noktası
  * grubun en öndeki üyesi — grup öne çıkmış gibi görünmesin diye.
  */
-export function grupla(items: DecorItem[], ids: string[]): DecorItem[] {
+export function grupla(decor: DecorState, ids: string[]): DecorState {
+  const items = decor.nesneler;
   const uyeler = items.filter((n) => ids.includes(n.id));
-  if (uyeler.length < 2) return items;
+  if (uyeler.length < 2) return decor;
   grupSayaci += 1;
   const grup = `g${Date.now().toString(36)}${grupSayaci.toString(36)}`;
   // Katman da ortaklaşıyor: yarısı grafiğin önünde yarısı arkasında duran bir
@@ -287,14 +330,26 @@ export function grupla(items: DecorItem[], ids: string[]): DecorItem[] {
     }
     out.push(n);
   });
-  return out;
+  return { ...decor, nesneler: out, gruplar: { ...decor.gruplar, [grup]: { ad: yeniGrupAdi(decor.gruplar) } } };
+}
+
+/** "Grup 1", "Grup 2"… — kullanılan en büyük numaranın bir fazlası. */
+function yeniGrupAdi(gruplar: Record<string, GrupBilgi>): string {
+  let en = 0;
+  for (const g of Object.values(gruplar)) {
+    const m = /^Grup (\d+)$/.exec(g.ad);
+    if (m) en = Math.max(en, Number(m[1]));
+  }
+  return `Grup ${en + 1}`;
 }
 
 /** Seçili nesnelerin grup etiketini siler. */
-export function grubuCoz(items: DecorItem[], ids: string[]): DecorItem[] {
-  const gruplar = new Set(items.filter((n) => ids.includes(n.id) && n.grup).map((n) => n.grup));
-  if (gruplar.size === 0) return items;
-  return items.map((n) => (n.grup && gruplar.has(n.grup) ? { ...n, grup: "" } : n));
+export function grubuCoz(decor: DecorState, ids: string[]): DecorState {
+  const items = decor.nesneler;
+  const hedef = new Set(items.filter((n) => ids.includes(n.id) && n.grup).map((n) => n.grup));
+  if (hedef.size === 0) return decor;
+  const gruplar = Object.fromEntries(Object.entries(decor.gruplar).filter(([k]) => !hedef.has(k)));
+  return { ...decor, nesneler: items.map((n) => (n.grup && hedef.has(n.grup) ? { ...n, grup: "" } : n)), gruplar };
 }
 
 /** True when a card carries nothing — lets the panel and the layer skip work. */

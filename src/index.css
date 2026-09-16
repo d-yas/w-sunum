@@ -417,6 +417,9 @@ body.suruklerken [data-drag-row]:not([data-dragging]) { transition: transform .1
 /* El aracı: sahne sürüklenerek kaydırılır. */
 .stage[data-arac="el"] { cursor: grab; }
 .stage[data-arac="el"]:active { cursor: grabbing; }
+/* Metin ve çizgi araçları: imleç ne yapılacağını söylüyor. */
+.stage[data-arac="metin"] { cursor: text; }
+.stage[data-arac="cizgi"] { cursor: crosshair; }
 
 /* Müfettişin başlığı: panelin ne gösterdiğini söyleyen tek satır. Sekme
    çubuğunun yerini aldı. */
@@ -557,4 +560,119 @@ body.suruklerken [data-drag-row]:not([data-dragging]) { transition: transform .1
 }
 @media (max-width: 1099px) {
   .chart-thumb { display: none; }
+}
+
+/* ------------------------------------------------------------------ */
+/* Katmanlar paneli                                                     */
+/*                                                                      */
+/* Satırlar dar ve sık: bir kartta kırk nesne olabiliyor ve listenin    */
+/* boyu sol sütunun üçte biri. Göz ile kilit yalnız hover/seçim/odakta  */
+/* çıkıyor — ama kapalı ya da kilitli olan hep duruyor, yoksa bir       */
+/* katmanın neden görünmediğini anlamak için satır satır gezmek gerek.  */
+/* ------------------------------------------------------------------ */
+.katman-arama {
+  display: flex; align-items: center; gap: 6px; margin: 0 8px 4px; padding: 0 6px;
+  border: 1px solid var(--border); border-radius: 7px; background: var(--muted);
+  color: var(--muted-foreground);
+}
+.katman-arama input {
+  flex: 1; min-width: 0; height: 26px; border: 0; background: transparent; outline: none;
+  font-family: inherit; font-size: 12px; color: var(--foreground);
+}
+.katman-arama input::placeholder { color: var(--muted-foreground); }
+
+.katman-liste { padding: 0 4px 4px; outline: none; }
+.katman-liste:focus-visible { box-shadow: inset 0 0 0 2px color-mix(in oklab, var(--ring) 45%, transparent); border-radius: 6px; }
+
+.katman-satir {
+  position: relative; display: flex; align-items: center; gap: 4px;
+  height: 26px; padding-right: 4px; border-radius: 5px;
+  border: 1px solid transparent; background: transparent; cursor: default;
+  font-size: 12px; color: var(--foreground);
+}
+.katman-satir:hover { background: var(--accent); }
+.katman-satir[aria-selected="true"] { background: color-mix(in oklab, var(--ring) 22%, transparent); border-color: var(--ring); }
+/* Kart parçaları ile zemin yuvaları süsleme değil; sürüklenemezler.
+   Parçalar bitişik bir şerit oluşturuyor ve şeridin üstü ön, altı arka
+   katman — bu yüzden ayrı ayrı çizgilerle değil, tek bir zeminle işaretli:
+   üç satır arasına çizilen üç çizgi listeyi tarıyordu. */
+.katman-satir[data-tur="parca"], .katman-satir[data-tur="zemin"] { color: var(--muted-foreground); }
+.katman-satir[data-tur="parca"] { background: color-mix(in oklab, var(--muted) 55%, transparent); }
+.katman-satir[data-tur="parca"]:hover { background: var(--accent); }
+.katman-satir[data-gizli] .katman-ad, .katman-satir[data-gizli] .katman-ikon { opacity: .42; }
+.katman-satir[data-kilit] .katman-ad { font-style: italic; }
+
+.katman-ok { width: 14px; flex-shrink: 0; display: inline-flex; justify-content: center; }
+.katman-ok .icon-btn { height: 14px; width: 14px; border-radius: 3px; }
+.katman-ikon { flex-shrink: 0; display: inline-flex; color: var(--muted-foreground); }
+.katman-satir[aria-selected="true"] .katman-ikon { color: var(--foreground); }
+.katman-ad { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; line-height: 1.2; }
+.katman-ad-giris {
+  min-width: 0; height: 19px; padding: 0 3px; border-radius: 3px;
+  border: 1px solid var(--ring); background: var(--background); color: var(--foreground);
+  font-family: inherit; font-size: 12px; outline: none;
+}
+
+.katman-acts { display: flex; flex-shrink: 0; gap: 0; opacity: 0; transition: opacity .1s; }
+.katman-satir:hover .katman-acts,
+.katman-satir[aria-selected="true"] .katman-acts,
+.katman-satir:focus-within .katman-acts { opacity: 1; }
+/* Kapalı göz ve kapalı kilit her zaman görünür — durum bilgisi, hover süsü değil. */
+.katman-acts .icon-btn[data-acik] { opacity: 1; color: var(--foreground); }
+.katman-satir .katman-acts .icon-btn[data-acik] { position: relative; z-index: 1; }
+.katman-satir:not(:hover):not([aria-selected="true"]) .katman-acts:has(.icon-btn[data-acik]) { opacity: 1; }
+.katman-satir:not(:hover):not([aria-selected="true"]) .katman-acts .icon-btn:not([data-acik]) { opacity: 0; }
+.katman-acts .icon-btn { height: 18px; width: 18px; border-radius: 4px; }
+
+.katman-ipucu {
+  padding: 5px 10px 7px; border-top: 1px solid var(--border);
+  font-size: 10px; line-height: 1.35; color: var(--muted-foreground);
+}
+.katman-ipucu kbd {
+  padding: 0 3px; border-radius: 3px; border: 1px solid var(--border);
+  background: var(--muted); font-family: inherit; font-size: 9px;
+}
+
+/* Sağ tık menüsü — pencereye göre konumlanır, o yüzden fixed. */
+.katman-menu {
+  position: fixed; z-index: 80; min-width: 190px; padding: 4px;
+  border-radius: 9px; border: 1px solid var(--border); background: var(--popover);
+  box-shadow: 0 12px 32px rgba(0,0,0,.24);
+}
+.katman-menu-oge {
+  display: flex; align-items: center; gap: 7px; width: 100%; padding: 5px 7px;
+  border: 0; border-radius: 6px; background: transparent; color: var(--foreground);
+  cursor: pointer; font-family: inherit; font-size: 12px; text-align: left;
+}
+.katman-menu-oge:hover { background: var(--accent); }
+.katman-menu-oge.danger:hover { background: color-mix(in oklab, var(--destructive) 16%, transparent); color: var(--destructive); }
+.katman-menu-oge .grow { flex: 1; min-width: 0; }
+.katman-menu-oge kbd {
+  padding: 0 4px; border-radius: 3px; border: 1px solid var(--border);
+  background: var(--muted); color: var(--muted-foreground); font-family: inherit; font-size: 9px;
+}
+
+/* Metin ve bağlantı araçları — süsleme katmanı normalde olayları geçiriyor,
+   bu iki araçta ise **kendisi** yakalamalı: basış kartın parçalarına ya da
+   altındaki bir kutuya gitmemeli, yeni nesne tam bastığınız yere düşmeli. */
+.decor-overlay[data-arac="metin"], .decor-overlay[data-arac="cizgi"] { pointer-events: auto; }
+.decor-overlay[data-arac="metin"] { cursor: text; }
+.decor-overlay[data-arac="cizgi"] { cursor: crosshair; }
+.decor-overlay:not([data-arac="sec"]) .decor-box { pointer-events: none; }
+
+/* Bağlantının uçları. Köşe tutamacından yuvarlak olmasıyla ayrılıyor: biri
+   kutuyu, öteki çizginin bir ucunu taşır. */
+.decor-uc {
+  width: 12px; height: 12px; border-radius: 50%; cursor: crosshair;
+  background: var(--card); border: 2px solid var(--ring);
+}
+
+/* Yerinde metin düzenleme. Kutunun tamamını kaplıyor ve opak: altındaki SVG
+   metni zaten aynı şeyi yazıyor, ikisi üst üste binince okunmuyordu. */
+.decor-edit {
+  position: absolute; inset: 0; z-index: 3; width: 100%; height: 100%;
+  margin: 0; border: 1px solid var(--ring); border-radius: 3px;
+  background: var(--card); color: var(--foreground);
+  font-family: var(--font-sans); resize: none; outline: none; overflow: hidden;
+  box-shadow: 0 2px 10px rgba(0,0,0,.14);
 }

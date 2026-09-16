@@ -9,6 +9,7 @@ import { DecorPanel } from "@/components/DecorPanel";
 import { DecorStage } from "@/components/DecorStage";
 import { DataGrid } from "@/components/DataGrid";
 import { Inspector } from "@/components/Inspector";
+import { LayersPanel } from "@/components/LayersPanel";
 import { ColorsPanel, ExportPanel, SectionScope } from "@/components/Panels";
 import { Toolbar, type Arac } from "@/components/Toolbar";
 import { copyBlobToClipboard, serializeElement, snapshotElement } from "@/lib/export-png";
@@ -33,6 +34,7 @@ export function App() {
   const stageRef = useRef<HTMLDivElement>(null);
   const [stageSize, setStageSize] = useState({ w: 800, h: 600 });
   const [listHeight, setListHeight] = useState(() => loadPrefs().listHeight);
+  const [layerHeight, setLayerHeight] = useState(() => loadPrefs().layerHeight);
 
   const active = ws.charts.find((c) => c.id === ws.activeId) ?? ws.charts[0];
 
@@ -440,18 +442,23 @@ export function App() {
 
   /* ---------------- sol panel bölmesi ---------------- */
 
-  const dragSplit = (e: React.PointerEvent<HTMLDivElement>) => {
-    const startY = e.clientY;
-    const startH = listHeight;
-    const clamp = (h: number) => Math.max(120, Math.min(Math.max(200, stageSize.h - 40), h));
-    const move = (ev: PointerEvent) => setListHeight(clamp(startH + ev.clientY - startY));
-    const up = (ev: PointerEvent) => {
-      window.removeEventListener("pointermove", move);
-      savePrefs({ listHeight: clamp(startH + ev.clientY - startY) });
+  /**
+   * Sol sütunda üç bölme var — grafikler, katmanlar, veri — ve aralarında iki
+   * tutamaç. Tek bir üretici, çünkü ikisinin de işi aynı: basıştan bu yana
+   * kaç piksel gidildiyse o bölmenin yüksekliğine ekle.
+   */
+  const splitDrag =
+    (h: number, setH: (v: number) => void, key: "listHeight" | "layerHeight") => (e: React.PointerEvent<HTMLDivElement>) => {
+      const startY = e.clientY;
+      const clamp = (v: number) => Math.max(90, Math.min(Math.max(160, stageSize.h - 40), v));
+      const move = (ev: PointerEvent) => setH(clamp(h + ev.clientY - startY));
+      const up = (ev: PointerEvent) => {
+        window.removeEventListener("pointermove", move);
+        savePrefs({ [key]: clamp(h + ev.clientY - startY) });
+      };
+      window.addEventListener("pointermove", move);
+      window.addEventListener("pointerup", up, { once: true });
     };
-    window.addEventListener("pointermove", move);
-    window.addEventListener("pointerup", up, { once: true });
-  };
 
   const thumbs = useThumbnails(ws, renderStatic, busy);
 
@@ -466,7 +473,10 @@ export function App() {
    * diye. Bir kategoriyi vurgulamak `Alt+tık`.
    */
   const onStageClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (arac === "el") return;
+    // Süsleme katmanının kendi jestleri (metin/çizgi araçları, tutamaçlar) buraya
+    // düşmemeli: yoksa yeni koyduğumuz kutu daha doğar doğmaz altındaki grafiğe
+    // seçim devrediyor.
+    if (arac !== "sec" || (e.target as HTMLElement | null)?.closest(".decor-overlay")) return;
     // Süsleme katmanı kartın üstünde duruyor, o yüzden tıklamanın hedefi çoğu
     // zaman o katmanın kendisi oluyor. Hedef bir parça değilse noktadaki tüm
     // öğelere bakıp altındaki parçayı buluyoruz.
@@ -506,6 +516,8 @@ export function App() {
       if (hedef && hedef.closest("input, textarea, select")) return;
       if (e.key === "v" || e.key === "V") setArac("sec");
       if (e.key === "h" || e.key === "H") setArac("el");
+      if (e.key === "t" || e.key === "T") setArac("metin");
+      if (e.key === "l" || e.key === "L") setArac("cizgi");
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -608,7 +620,25 @@ export function App() {
               onAdd={addChart}
             />
           </div>
-          <div className="split-handle shrink-0" onPointerDown={dragSplit} title="Listeyi yeniden boyutlandır" />
+          <div
+            className="split-handle shrink-0"
+            onPointerDown={splitDrag(listHeight, setListHeight, "listHeight")}
+            title="Listeyi yeniden boyutlandır"
+          />
+          <div className="panel-label shrink-0 px-3 pt-2 pb-1">Katmanlar</div>
+          <div className="flex min-h-0 flex-col" style={{ height: layerHeight }}>
+            <LayersPanel
+              spec={active}
+              selectedIds={sahneSecimi(secim)}
+              onSelect={(ids) => setSecim(sahnedenSecim(ids))}
+              onChange={updateChart}
+            />
+          </div>
+          <div
+            className="split-handle shrink-0"
+            onPointerDown={splitDrag(layerHeight, setLayerHeight, "layerHeight")}
+            title="Katman listesini yeniden boyutlandır"
+          />
           <div className={`veri-panel flex min-h-0 flex-1 flex-col${veriTam ? " veri-tam" : ""}`}>
             <div className="panel-label flex shrink-0 items-center justify-between px-3 pb-1">
               <span>Veri</span>
@@ -692,6 +722,8 @@ export function App() {
                   selectedIds={sahneSecimi(secim)}
                   onSelect={(ids) => setSecim(sahnedenSecim(ids))}
                   onChange={updateChart}
+                  arac={arac}
+                  onArac={setArac}
                 />
               </div>
             </div>

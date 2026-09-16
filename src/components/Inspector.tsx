@@ -10,7 +10,7 @@
  */
 import { DecorPanel } from "@/components/DecorPanel";
 import { KindPicker, OptionsPanel, SectionScope } from "@/components/Panels";
-import { getAsset } from "@/decor/registry";
+import { nesneAdi } from "@/decor/katmanlar";
 import type { Palette } from "@/lib/palettes";
 import { gorunenBolumler, sahneSecimi, sahnedenSecim, secimAdi, type Secim } from "@/lib/selection";
 import type { ChartSpec, Theme } from "@/lib/spec";
@@ -32,7 +32,7 @@ export function Inspector({
 }) {
   const bolumler = gorunenBolumler(secim);
   const nesne = secim.tur === "nesne" && secim.ids.length === 1 ? spec.decor.nesneler.find((n) => n.id === secim.ids[0]) : null;
-  const ad = secimAdi(secim, nesne ? (getAsset(nesne.asset)?.label ?? "Süsleme") : undefined);
+  const ad = secimAdi(secim, nesne ? nesneAdi(nesne) : undefined);
 
   return (
     <>

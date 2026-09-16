@@ -12,9 +12,13 @@
  * Açılır kutular yukarı açılıyor — çubuk sahnenin alt kenarında duruyor.
  */
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { Download, Hand, LayoutTemplate, MousePointer2, Palette, Plus } from "lucide-react";
+import { Download, Hand, LayoutTemplate, MousePointer2, Palette, Plus, Spline, Type } from "lucide-react";
 
-export type Arac = "sec" | "el";
+/**
+ * Etkin araç. `metin` ve `cizgi` birer *jest*: sahneye basınca nesne doğurur
+ * ve kendiliğinden `sec`'e döner — kalıcı bir kip değil.
+ */
+export type Arac = "sec" | "el" | "metin" | "cizgi";
 
 /** Açılır kutusu olan düğmeler. */
 type Kutu = "ekle" | "renk" | "disa";
@@ -83,6 +87,27 @@ export function Toolbar({
       </button>
       <button type="button" className="tool" data-tool="el" aria-pressed={arac === "el"} title="Sahneyi kaydır (H)" onClick={() => onArac("el")}>
         <Hand size={15} />
+      </button>
+      <span className="tool-sep" />
+      <button
+        type="button"
+        className="tool"
+        data-tool="metin"
+        aria-pressed={arac === "metin"}
+        title="Metin kutusu (T) — karta tıklayın"
+        onClick={() => onArac(arac === "metin" ? "sec" : "metin")}
+      >
+        <Type size={15} />
+      </button>
+      <button
+        type="button"
+        className="tool"
+        data-tool="cizgi"
+        aria-pressed={arac === "cizgi"}
+        title="Bağlantı çizgisi (L) — kartta sürükleyin"
+        onClick={() => onArac(arac === "cizgi" ? "sec" : "cizgi")}
+      >
+        <Spline size={15} />
       </button>
       <span className="tool-sep" />
       <button

@@ -8,7 +8,8 @@
 //  3. Çift tıkla yeniden adlandırma çalışma alanına yazıyor.
 //  4. Kopyala / sil / sırala liste düğmeleri doğru grafiği hedefliyor.
 //  5. Ctrl+Z bir düzenlemeyi geri alıyor, Ctrl+Y geri getiriyor.
-//  6. Bölme tutamacı liste yüksekliğini kalıcı kaydediyor.
+//  6. İki bölme tutamacı da (grafikler/katmanlar, katmanlar/veri) kendi
+//     yüksekliğini kalıcı kaydediyor.
 //  7. "Yeni grafik" kutusu panelin yanına açılıyor ve 23 türün hepsi
 //     kaydırmadan görünüyor (eskiden yukarı taşıp kesiliyordu).
 //  8. Satırı sürüklemek listeyi gerçekten yeniden sıralıyor.
@@ -136,14 +137,39 @@ try {
   const redone = (await store()).charts.length;
   report(undone === beforeUndo - 1 && redone === beforeUndo, "geri-al", `${beforeUndo} → geri ${undone} → yinele ${redone}`);
 
-  /* 6 — split handle persists */
-  const h = await rectOf(".split-handle");
-  await mouse("mousePressed", h.x + h.w / 2, h.y + h.h / 2);
-  await mouse("mouseMoved", h.x + h.w / 2, h.y + 90);
-  await mouse("mouseReleased", h.x + h.w / 2, h.y + 90, 0);
-  await sleep(400);
-  const p = await prefs();
-  report(typeof p?.listHeight === "number" && p.listHeight > 300, "bolme", `listHeight=${p?.listHeight}`);
+  /* 6 — iki bölme tutamağı da kendi yüksekliğini kaydediyor */
+  // Sol sütun üç bölmeli: grafikler, katmanlar, veri. Mutlak bir eşik yerine
+  // artış ölçülüyor — varsayılan yükseklikler değiştiğinde test kırılmasın.
+  const bolmeler = [
+    { i: 0, anahtar: "listHeight" },
+    { i: 1, anahtar: "layerHeight" },
+  ];
+  // Yükseklik tercihlerden değil DOM'dan ölçülüyor: tercih dosyası ilk
+  // sürüklemeden önce hiç yazılmamış olabiliyor ve karşılaştıracak bir
+  // "önce" değeri bulunmuyordu.
+  const bolmeBoyu = (i) =>
+    evalIn(`(() => { const e = document.querySelectorAll('.split-handle')[${i}]?.previousElementSibling;
+      return e ? Math.round(e.getBoundingClientRect().height) : null; })()`);
+  for (const b of bolmeler) {
+    const once = await bolmeBoyu(b.i);
+    const h = await evalIn(`(() => { const e = document.querySelectorAll('.split-handle')[${b.i}]; if (!e) return null;
+      const r = e.getBoundingClientRect(); return { x: r.x, y: r.y, w: r.width, h: r.height }; })()`);
+    if (!h || once == null) {
+      report(false, `bolme-${b.anahtar}`, "tutamaç yok");
+      continue;
+    }
+    await mouse("mousePressed", h.x + h.w / 2, h.y + h.h / 2);
+    await mouse("mouseMoved", h.x + h.w / 2, h.y + 60);
+    await mouse("mouseReleased", h.x + h.w / 2, h.y + 60, 0);
+    await sleep(400);
+    const sonra = await bolmeBoyu(b.i);
+    const kayitli = (await prefs())?.[b.anahtar];
+    report(
+      sonra - once > 40 && kayitli === sonra,
+      `bolme-${b.anahtar}`,
+      `${once} → ${sonra} px, kayıtlı ${kayitli}`
+    );
+  }
 
   /* 7 — müfettiş hiçbir şey seçili değilken slaytın ayarlarını gösteriyor */
   await key("Escape", "Escape", 27);
