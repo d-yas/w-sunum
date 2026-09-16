@@ -74,6 +74,23 @@ panelin sekmeleriydi; artık hangi ayardaysanız orada duruyorlar.
    alanıyla birlikte kaydedilir ve açık/koyu temada aynı kalır — kurumsal
    renk bir marka kararıdır, bakımı gereken ikinci bir set değil. Sıra
    önemlidir: seriler bu sırayla boyanır ve süsleme ilk rengi kullanır.
+5a. **Stili kopyala / yapıştır** (slayt ayarlarında **Stil**): bir kartın
+   görünümünü alıp başkasına geçirir. `Ctrl+Alt+C` kopyalar, `Ctrl+Alt+V`
+   yapıştırır, `Tümüne uygula` aktif kartın görünümünü diğer bütün grafiklere
+   verir — "şunu şablon yap" tek düğme.
+
+   Taşınan: palet ve seri renkleri, kart ölçüsü ve kenar boşlukları, eksen /
+   ızgara / gösterge anahtarları, değer etiketleri, sayı biçimi, köşe
+   yarıçapı, kart dekoru, süsleme ve serbest yerleşim. **Taşınmayan:** veri,
+   tür, başlık, alt başlık, dipnot ve *bu karta ait olan* ayarlar — vurgulanan
+   kategori, eksen adları, değer aralığı (`yMin`/`yMax`), referans çizgileri,
+   tahmin başlangıcı. Sınır tek cümleyle: yazdığınız metin, bu kartın
+   verisinden gelen bir ad, bir satır numarası ya da bir değer aralığı biçem
+   değildir. Liste `src/lib/bicem.ts` içinde `ICERIK_ALANLARI` — **dışlama**
+   listesi, yani sonradan eklenen bir ayar varsayılan olarak biçeme dâhil.
+
+   Pano oturumluk: iş dosyasına yazılmıyor, geri al yığınına girmiyor.
+
 5b. **Metin kutusu ve bağlantı** — araç çubuğunun iki jesti:
 
    - **`T`** (Metin kutusu): karta tıklayın, kutu oraya düşer ve **yazma
@@ -219,6 +236,7 @@ pnpm test:yerlesim # serbest yerleşim ve hover anahtarı — gerçek fare olayl
 pnpm test:arayuz  # Del ile kaldırma, katman kısayolu ve sürüklemesi, müfettiş, özel palet, ışık tutamacı
 pnpm test:katman  # katman ağacı, ad değiştirme, göz, gruba sürükleme, arama, sağ tık menüsü
 pnpm test:metin   # T/L araçları, yerinde yazma, otomatik yükseklik, uç sürükleme
+pnpm test:stil    # stili kopyala/yapıştır: neyin taşındığı ve neyin taşınmadığı
 pnpm test:kabuk   # üç sütun, küçük resimler, liste eylemleri, geri al, tıkla-seç, tür kutusu, liste sürükleme
 pnpm test:secenek # ayarlar çizime ulaşıyor mu — köşe, vurgu, aralık, etiket, referans
 pnpm test:svg     # kart SVG'si eksiksiz mi — başlık, gösterge, portal eksenleri
@@ -235,6 +253,10 @@ betik 1 ile çıkar.
 (açmak görüntüyü değiştirmemeli), grafik kutusunu gerçek fare olaylarıyla
 sürükleyip boyutlandırır ve hover anahtarının ipucunu gerçekten kaldırdığını
 doğrular. `pnpm test:arayuz` panelin dört davranışını gerçek tıklamalarla sürer.
+`pnpm test:stil` iki yönlü bakıyor: taşınması gerekenler taşındı mı,
+**taşınmaması** gerekenler yerinde kaldı mı. Sınır yanlış çizilirse kimse fark
+etmez — yalnızca bir gün bir kart başka bir kartın eksen adını taşımaya başlar.
+
 `pnpm test:metin` metin kutusunu ve bağlantıyı gerçek fare ve klavyeyle sürer:
 `T` ile kutu koyma, yerinde yazma, `Esc` ile iptal, kutuyu genişletince
 yüksekliğin düşmesi (sarma satırı azalıyor), `L` ile çizme ve bir ucu çekince
@@ -373,6 +395,11 @@ yazar. pnpm 11'de esbuild'in kurulum betiği `pnpm-workspace.yaml` içindeki
   üyelerden okunur, yoksa "grup açık ama üyesi kapalı" gibi hangisinin
   kazandığı belirsiz bir hâl doğardı. Üyesi kalmamış kayıtları
   `normalizeDecor` süpürür.
+- `src/lib/bicem.ts` — "biçem" ile "içerik" arasındaki sınır, tek yerde.
+  `bicemAl`/`bicemUygula` stili kopyala-yapıştırın tamamı; `ICERIK_ALANLARI`
+  dışlama listesi. İzin listesi değil dışlama listesi, çünkü sonradan eklenen
+  ayarların hemen hepsi görünümle ilgili ve "yeni ayar biçeme girmemiş"
+  sessizce yanlış olurdu.
 - `src/decor/text.tsx` — metin kutusu. Satırlara bölmeyi **uygulama** yapıyor:
   SVG `<text>` sarmaz, `foreignObject` ise SVG çıktısını Illustrator'da ve
   PowerPoint'te açılmaz hâle getirirdi. Ölçüm gizli bir canvas ile, kartın

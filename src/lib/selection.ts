@@ -96,7 +96,7 @@ export function sahnedenSecim(ids: string[]): Secim {
 export function gorunenBolumler(s: Secim): string[] {
   switch (s.tur) {
     case "slayt":
-      return ["kart", "zemin", "yerlesim", "dekor", "bicim"];
+      return ["stil", "kart", "zemin", "yerlesim", "dekor", "bicim"];
     case "zemin":
       return ["zemin"];
     case "nesne":

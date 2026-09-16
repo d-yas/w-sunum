@@ -18,6 +18,7 @@ import { createHistory } from "@/lib/history";
 import { buildPptx, type PptxSlide } from "@/lib/pptx";
 import { buildZip } from "@/lib/zip";
 import { KIND_LABELS, dataShape, newChart, type ChartKind, type ChartSpec, type Workspace } from "@/lib/spec";
+import { bicemAl, bicemUygula, type Bicem } from "@/lib/bicem";
 import { setFreeLayout } from "@/lib/free-layout";
 import { SLAYT, parcaya, sahneSecimi, sahnedenSecim, type Secim } from "@/lib/selection";
 import { downloadBlob, downloadText, loadWorkspace, normalizeWorkspace, safeFilename, saveWorkspace } from "@/lib/storage";
@@ -34,6 +35,8 @@ export function App() {
   const stageRef = useRef<HTMLDivElement>(null);
   const [stageSize, setStageSize] = useState({ w: 800, h: 600 });
   const [listHeight, setListHeight] = useState(() => loadPrefs().listHeight);
+  /** Stil panosu — oturumluk; iş dosyasına yazılmıyor, geçmişte yer almıyor. */
+  const [bicemPano, setBicemPano] = useState<Bicem | null>(null);
   const [layerHeight, setLayerHeight] = useState(() => loadPrefs().layerHeight);
 
   const active = ws.charts.find((c) => c.id === ws.activeId) ?? ws.charts[0];
@@ -110,6 +113,27 @@ export function App() {
     },
     [commit]
   );
+
+  /* ---------------- stili kopyala / yapıştır ---------------- */
+
+  const bicemKopyala = useCallback(() => {
+    setBicemPano(bicemAl(active));
+    setMessage(`"${active.name}" stili panoya alındı`);
+    setTimeout(() => setMessage(null), 1800);
+  }, [active]);
+
+  const bicemYapistir = useCallback(() => {
+    if (!bicemPano) return;
+    updateChart(bicemUygula(active, bicemPano));
+  }, [active, bicemPano, updateChart]);
+
+  /** Aktif kartın biçemini ötekilere geçirir — "şunu şablon yap" tek düğme. */
+  const bicemHepsine = useCallback(() => {
+    const b = bicemAl(active);
+    commit((w) => ({ ...w, charts: w.charts.map((c) => (c.id === active.id ? c : bicemUygula(c, b))) }));
+    setMessage(`${ws.charts.length - 1} grafiğe uygulandı`);
+    setTimeout(() => setMessage(null), 1800);
+  }, [active, commit, ws.charts.length]);
 
   const addChart = (kind: ChartKind) => {
     const n = ws.charts.filter((c) => c.kind === kind).length + 1;
@@ -514,6 +538,18 @@ export function App() {
       if (e.key === "Escape") setSecim(SLAYT);
       const hedef = e.target as HTMLElement | null;
       if (hedef && hedef.closest("input, textarea, select")) return;
+      // Ctrl+Alt+C / V: stil panosu. Düz Ctrl+C metin kopyalamayı bozardı.
+      if ((e.ctrlKey || e.metaKey) && e.altKey && (e.key === "c" || e.key === "C" || e.code === "KeyC")) {
+        e.preventDefault();
+        bicemKopyala();
+        return;
+      }
+      if ((e.ctrlKey || e.metaKey) && e.altKey && (e.key === "v" || e.key === "V" || e.code === "KeyV")) {
+        e.preventDefault();
+        bicemYapistir();
+        return;
+      }
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
       if (e.key === "v" || e.key === "V") setArac("sec");
       if (e.key === "h" || e.key === "H") setArac("el");
       if (e.key === "t" || e.key === "T") setArac("metin");
@@ -521,7 +557,7 @@ export function App() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, []);
+  }, [bicemKopyala, bicemYapistir]);
 
   /**
    * El aracı: sahneyi sürükleyerek kaydırır. Sahne zaten `overflow: auto`,
@@ -799,6 +835,13 @@ export function App() {
             palettes={ws.palettes}
             onSecim={setSecim}
             onChange={updateChart}
+            bicem={{
+              pano: bicemPano,
+              kartSayisi: ws.charts.length,
+              onKopyala: bicemKopyala,
+              onYapistir: bicemYapistir,
+              onHepsine: bicemHepsine,
+            }}
           />
         </aside>
       </div>

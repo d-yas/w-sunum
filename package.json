@@ -17,6 +17,7 @@
     "test:arayuz": "node scripts/ui-check.mjs",
     "test:katman": "node scripts/layers-check.mjs",
     "test:metin": "node scripts/text-check.mjs",
+    "test:stil": "node scripts/style-check.mjs",
     "test:kabuk": "node scripts/shell-check.mjs",
     "test:secenek": "node scripts/options-check.mjs",
     "test:svg": "node scripts/svg-check.mjs"

@@ -9,8 +9,9 @@
  * çiziliyor, hangi bölümlerinin görüneceğini `SectionScope` söylüyor.
  */
 import { DecorPanel } from "@/components/DecorPanel";
-import { KindPicker, OptionsPanel, SectionScope } from "@/components/Panels";
+import { BicemPanel, KindPicker, OptionsPanel, SectionScope } from "@/components/Panels";
 import { nesneAdi } from "@/decor/katmanlar";
+import type { Bicem } from "@/lib/bicem";
 import type { Palette } from "@/lib/palettes";
 import { gorunenBolumler, sahneSecimi, sahnedenSecim, secimAdi, type Secim } from "@/lib/selection";
 import type { ChartSpec, Theme } from "@/lib/spec";
@@ -22,6 +23,7 @@ export function Inspector({
   palettes,
   onSecim,
   onChange,
+  bicem,
 }: {
   secim: Secim;
   spec: ChartSpec;
@@ -29,6 +31,13 @@ export function Inspector({
   palettes: Palette[];
   onSecim: (s: Secim) => void;
   onChange: (s: ChartSpec) => void;
+  bicem: {
+    pano: Bicem | null;
+    kartSayisi: number;
+    onKopyala: () => void;
+    onYapistir: () => void;
+    onHepsine: () => void;
+  };
 }) {
   const bolumler = gorunenBolumler(secim);
   const nesne = secim.tur === "nesne" && secim.ids.length === 1 ? spec.decor.nesneler.find((n) => n.id === secim.ids[0]) : null;
@@ -42,6 +51,7 @@ export function Inspector({
       </div>
       <div className="min-h-0 flex-1 overflow-auto">
         <SectionScope show={bolumler}>
+          <BicemPanel {...bicem} />
           {secim.tur === "parca" && secim.part === "chart" && <KindPicker spec={spec} onChange={onChange} />}
           <OptionsPanel spec={spec} onChange={onChange} />
           <DecorPanel

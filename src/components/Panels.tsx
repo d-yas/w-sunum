@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useMemo, useRef, useState, type R
 import { ChevronDown, X } from "lucide-react";
 
 import { GRADIENT_LABELS, PATTERN_LABELS } from "@/decor";
+import type { Bicem } from "@/lib/bicem";
 import { KIND_ICONS, PICTO_ICONS } from "@/lib/chart-icons";
 import { PALETTES, getPalette, isCustom, newPalette, seriesColor, type Palette } from "@/lib/palettes";
 import type { Locale } from "@/lib/format";
@@ -1269,5 +1270,69 @@ export function ExportPanel({
         <div className="px-3 py-2 text-[11px] leading-snug text-muted-foreground">{message}</div>
       )}
     </div>
+  );
+}
+
+/* ---------------- biçem panosu ---------------- */
+
+/**
+ * Stili kopyala / yapıştır.
+ *
+ * Dört grafikte aynı paleti, aynı kart ölçüsünü, aynı süslemeyi elle kurmak
+ * bu aracın en çok tekrar ettirdiği işti. Pano oturumluk: iş dosyasına
+ * yazılmıyor, çünkü kopyalanan şey işin kendisi değil bir jestin ortası.
+ *
+ * `Tümüne uygula` panoya hiç uğramıyor — aktif kartın biçemini doğrudan
+ * ötekilere geçiriyor, yani "şunu şablon yap" tek düğme.
+ */
+export function BicemPanel({
+  pano,
+  kartSayisi,
+  onKopyala,
+  onYapistir,
+  onHepsine,
+}: {
+  pano: Bicem | null;
+  kartSayisi: number;
+  onKopyala: () => void;
+  onYapistir: () => void;
+  onHepsine: () => void;
+}) {
+  return (
+    <Section id="stil" title="Stil">
+      <div className="flex flex-wrap gap-1">
+        <button className="btn btn-sm" type="button" onClick={onKopyala} title="Bu kartın görünümünü panoya al (Ctrl+Alt+C)">
+          Stili kopyala
+        </button>
+        <button
+          className="btn btn-sm"
+          type="button"
+          disabled={!pano}
+          onClick={onYapistir}
+          title={pano ? `"${pano.kaynak}" kartının görünümünü uygula (Ctrl+Alt+V)` : "Önce bir kartın stilini kopyalayın"}
+        >
+          Yapıştır
+        </button>
+        <button
+          className="btn btn-sm"
+          type="button"
+          disabled={kartSayisi < 2}
+          onClick={onHepsine}
+          title="Bu kartın görünümünü diğer bütün grafiklere geçir"
+        >
+          Tümüne uygula
+        </button>
+      </div>
+      <p className="mt-2 text-[11px] leading-snug text-muted-foreground">
+        {pano ? (
+          <>
+            Panoda: <strong>{pano.kaynak}</strong>. Palet, kart ölçüsü, eksen ve gösterge ayarları, süsleme ve serbest
+            yerleşim taşınır; veri, tür, başlık ve dipnot yerinde kalır.
+          </>
+        ) : (
+          <>Palet, kart ölçüsü, eksen ve gösterge ayarları, süsleme ve serbest yerleşim taşınır; veri, tür ve yazdığınız metin yerinde kalır.</>
+        )}
+      </p>
+    </Section>
   );
 }
