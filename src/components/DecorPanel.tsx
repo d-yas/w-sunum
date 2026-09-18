@@ -71,9 +71,40 @@ function ParamEditor({ param, values, onChange }: { param: ParamDef; values: Par
 
 /* ---------------- previews ---------------- */
 
-function Preview({ def, theme, colors, w, h }: { def: AssetDef; theme: Theme; colors: string[]; w: number; h: number }) {
+/** Galeri öngörünümünün tek rengi — varlığın kendi rengi değil, panelin mürekkebi. */
+const SADE_RENK = { light: "#6b6b68", dark: "#a3a39d" } as const;
+
+function Preview({
+  def,
+  theme,
+  colors,
+  w,
+  h,
+  sade = false,
+}: {
+  def: AssetDef;
+  theme: Theme;
+  colors: string[];
+  w: number;
+  h: number;
+  /**
+   * Galeri kipi: varlık tek renk, tam opak çizilir. Renkli minyatür "bu
+   * çıkartmayı al" diyordu; kararı renk değil biçim vermeli, rengi zaten
+   * yerleştirdikten sonra seçiyorsunuz.
+   */
+  sade?: boolean;
+}) {
   const uid = `p${useId().replace(/:/g, "")}`;
-  const slot: DecorSlot = { asset: def.id, renk: "", renk2: "", opaklik: 1, params: defaults(def), gizli: false };
+  const tek = SADE_RENK[theme];
+  const boya = sade ? [tek, tek] : colors;
+  const slot: DecorSlot = {
+    asset: def.id,
+    renk: sade ? tek : "",
+    renk2: sade ? tek : "",
+    opaklik: 1,
+    params: defaults(def),
+    gizli: false,
+  };
   const bos = emptyDecor();
   const decor: DecorState =
     def.kind === "zemin"
@@ -84,7 +115,7 @@ function Preview({ def, theme, colors, w, h }: { def: AssetDef; theme: Theme; co
   const framed: DecorState = def.family === "cerceve" ? { ...bos, zemin: { doku: null, isik: null, cerceve: slot } } : decor;
   return (
     <div style={{ position: "relative", width: w, height: h, overflow: "hidden", borderRadius: 4 }}>
-      <DecorLayer decor={framed} phase={phase} w={w} h={h} uid={uid} colors={colors} theme={theme} />
+      <DecorLayer decor={framed} phase={phase} w={w} h={h} uid={uid} colors={boya} theme={theme} />
     </div>
   );
 }
@@ -227,7 +258,7 @@ export function DecorPanel({
         <div className="decor-grid">
           {assetsOf(family).map((def) => (
             <button key={def.id} type="button" className="decor-cell" onClick={() => addAsset(def.id)} title={`${def.label} — karta ekle`}>
-              <Preview def={def} theme={theme} colors={colors} w={60} h={40} />
+              <Preview def={def} theme={theme} colors={colors} w={56} h={38} sade />
               <span>{def.label}</span>
             </button>
           ))}

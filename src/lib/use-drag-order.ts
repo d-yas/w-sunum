@@ -1,6 +1,10 @@
 /**
  * Bir listenin satırlarını sürükleyerek yeniden sıralama.
  *
+ * İki eksen: katman listesi dikey, sahnenin altındaki grafik şeridi yatay.
+ * Fark tek bir ölçü ekseni — hangi koordinatın okunduğu, hangi kenarın
+ * ölçüldüğü ve hangi `translate`in yazıldığı. Gerisi ortak.
+ *
  * Pointer olayları, HTML5 drag-and-drop değil: sahne zaten pointer ile
  * sürüklüyor, ve başsız kontrol betikleri DnD olaylarını üretemiyor.
  *
@@ -21,16 +25,31 @@
  */
 import { useCallback, useRef, useState } from "react";
 
-/** Bu kadar piksel dikey hareket etmeden sürükleme sayılmaz. */
+/** Bu kadar piksel hareket etmeden sürükleme sayılmaz. */
 const ESIK = 4;
+
+/** Sıralamanın ekseni. */
+export type Eksen = "y" | "x";
+
+/**
+ * Sürüklenen öğe listenin bu kadar yakınına gelince liste kendiliğinden kayar.
+ * Canva'nın slayt şeridindeki davranış: on beş slaydın onuncusunu başa taşımak
+ * için önce kaydırıp sonra sürüklemek gerekmesin.
+ */
+const KENAR = 64;
+
+/** Kenarda en hızlı kaydırma — kare başına piksel. */
+const HIZ = 14;
 
 /** Sürükleme boyunca gövdede duran sınıf; seçimi kapatan CSS buna bakıyor. */
 const GOVDE_SINIFI = "suruklerken";
 
-/** Bir satırın sürükleme başındaki yeri — listenin üst kenarına göre. */
+/** Bir satırın sürükleme başındaki yeri — listenin başlangıç kenarına göre. */
 interface Taban {
-  top: number;
-  h: number;
+  /** Eksen boyunca başlangıç noktası (dikeyde `top`, yatayda `left`). */
+  bas: number;
+  /** Eksen boyunca uzunluk (dikeyde yükseklik, yatayda genişlik). */
+  boy: number;
 }
 
 export interface DragOrder {
@@ -44,7 +63,8 @@ export interface DragOrder {
   dropAt: number | null;
 }
 
-export function useDragOrder(count: number, onReorder: (from: number, to: number) => void): DragOrder {
+export function useDragOrder(count: number, onReorder: (from: number, to: number) => void, eksen: Eksen = "y"): DragOrder {
+  const yatay = eksen === "x";
   const listRef = useRef<HTMLDivElement | null>(null);
   const [dragging, setDragging] = useState<number | null>(null);
   const [dropAt, setDropAt] = useState<number | null>(null);
@@ -68,24 +88,28 @@ export function useDragOrder(count: number, onReorder: (from: number, to: number
     const lr = list.getBoundingClientRect();
     const rows = [...list.querySelectorAll<HTMLElement>("[data-drag-row]")].map((el) => {
       const q = el.getBoundingClientRect();
-      return { top: q.top - lr.top, h: q.height };
+      return yatay ? { bas: q.left - lr.left, boy: q.width } : { bas: q.top - lr.top, boy: q.height };
     });
-    return { rows, scroll0: list.scrollTop };
-  }, []);
+    return { rows, scroll0: yatay ? list.scrollLeft : list.scrollTop };
+  }, [yatay]);
 
   /** İmlecin hangi iki satır arasına denk geldiği — taban ölçülerine göre. */
-  const bosluk = useCallback((clientY: number) => {
-    const list = listRef.current;
-    const t = taban.current;
-    if (!list || !t) return null;
-    const lr = list.getBoundingClientRect();
-    const kaydi = list.scrollTop - t.scroll0;
-    for (let i = 0; i < t.rows.length; i++) {
-      const top = lr.top + t.rows[i].top - kaydi;
-      if (clientY < top + t.rows[i].h / 2) return i;
-    }
-    return t.rows.length;
-  }, []);
+  const bosluk = useCallback(
+    (nokta: number) => {
+      const list = listRef.current;
+      const t = taban.current;
+      if (!list || !t) return null;
+      const lr = list.getBoundingClientRect();
+      const kenar = yatay ? lr.left : lr.top;
+      const kaydi = (yatay ? list.scrollLeft : list.scrollTop) - t.scroll0;
+      for (let i = 0; i < t.rows.length; i++) {
+        const bas = kenar + t.rows[i].bas - kaydi;
+        if (nokta < bas + t.rows[i].boy / 2) return i;
+      }
+      return t.rows.length;
+    },
+    [yatay]
+  );
 
   const begin = useCallback(
     (index: number, e: React.PointerEvent) => {
@@ -95,33 +119,80 @@ export function useDragOrder(count: number, onReorder: (from: number, to: number
       if (!t || index >= t.rows.length) return;
       yut.current = false;
       taban.current = t;
-      drag.current = { from: index, y0: e.clientY, canli: false };
+      drag.current = { from: index, y0: yatay ? e.clientX : e.clientY, canli: false };
 
       // Satırların yüksekliği eşit değil (dekor listesindeki grafik ayıracı
       // daha kısa), o yüzden yuva komşuya olan mesafeden hesaplanıyor.
       const r = t.rows;
       const aralik =
         index + 1 < r.length
-          ? r[index + 1].top - r[index].top - r[index].h
+          ? r[index + 1].bas - r[index].bas - r[index].boy
           : index > 0
-            ? r[index].top - r[index - 1].top - r[index - 1].h
+            ? r[index].bas - r[index - 1].bas - r[index - 1].boy
             : 0;
+
+      /** İmlecin son yeri — kenarda kaydırırken hedef yeniden hesaplanıyor. */
+      let sonNokta = yatay ? e.clientX : e.clientY;
+      /** Kare başına kaydırma; 0 ise döngü uyumuyor. */
+      let hiz = 0;
+      let kare = 0;
+
+      const hedefiTazele = () => {
+        const g = bosluk(sonNokta);
+        hedef.current = g;
+        setDropAt(g);
+      };
+
+      /**
+       * Kenara yaklaşınca listeyi kaydır. Tek bir `pointermove` ile olmuyor:
+       * imleç kenarda durduğunda yeni olay gelmiyor, oysa kaydırmanın sürmesi
+       * gerekiyor. O yüzden kendi karesi var.
+       */
+      const doner = () => {
+        kare = 0;
+        const list = listRef.current;
+        if (!list || hiz === 0) return;
+        const once = yatay ? list.scrollLeft : list.scrollTop;
+        if (yatay) list.scrollLeft = once + hiz;
+        else list.scrollTop = once + hiz;
+        const sonra = yatay ? list.scrollLeft : list.scrollTop;
+        if (sonra !== once) {
+          // Sürüklenen öğe parmağın altında kalmalı: liste kaydıkça öğenin
+          // listeye göre yeri değişiyor, kaymayı yer değiştirmeye ekliyoruz.
+          setOffsetY((v) => v + (sonra - once));
+          hedefiTazele();
+        }
+        kare = requestAnimationFrame(doner);
+      };
 
       const move = (ev: PointerEvent) => {
         const st = drag.current;
         if (!st) return;
-        const dy = ev.clientY - st.y0;
+        const dy = (yatay ? ev.clientX : ev.clientY) - st.y0;
         if (!st.canli) {
           if (Math.abs(dy) < ESIK) return;
           st.canli = true;
           document.body.classList.add(GOVDE_SINIFI);
-          setYuva(r[st.from].h + aralik);
+          setYuva(r[st.from].boy + aralik);
           setDragging(st.from);
         }
+        sonNokta = yatay ? ev.clientX : ev.clientY;
         setOffsetY(dy);
-        const g = bosluk(ev.clientY);
-        hedef.current = g;
-        setDropAt(g);
+        hedefiTazele();
+
+        const list = listRef.current;
+        if (list) {
+          const lr = list.getBoundingClientRect();
+          const bas = yatay ? lr.left : lr.top;
+          const son = yatay ? lr.right : lr.bottom;
+          hiz =
+            sonNokta < bas + KENAR
+              ? -Math.min(HIZ, Math.ceil((bas + KENAR - sonNokta) / 4))
+              : sonNokta > son - KENAR
+                ? Math.min(HIZ, Math.ceil((sonNokta - (son - KENAR)) / 4))
+                : 0;
+          if (hiz !== 0 && kare === 0) kare = requestAnimationFrame(doner);
+        }
       };
 
       const up = () => {
@@ -129,6 +200,9 @@ export function useDragOrder(count: number, onReorder: (from: number, to: number
         document.removeEventListener("pointerup", up);
         document.removeEventListener("pointercancel", up);
         document.body.classList.remove(GOVDE_SINIFI);
+        hiz = 0;
+        if (kare) cancelAnimationFrame(kare);
+        kare = 0;
         const st = drag.current;
         const to = hedef.current;
         drag.current = null;
@@ -157,7 +231,7 @@ export function useDragOrder(count: number, onReorder: (from: number, to: number
       document.addEventListener("pointerup", up);
       document.addEventListener("pointercancel", up);
     },
-    [bosluk, olc, onReorder]
+    [bosluk, olc, onReorder, yatay]
   );
 
   /**
@@ -185,7 +259,7 @@ export function useDragOrder(count: number, onReorder: (from: number, to: number
         "data-drop-before": dropAt === index ? "" : undefined,
         // Son boşluk için satırın altına — öncesi diye işaretlenecek satır yok.
         "data-drop-after": dropAt === count && index === count - 1 ? "" : undefined,
-        style: dy === 0 ? undefined : { transform: `translateY(${dy}px)` },
+        style: dy === 0 ? undefined : { transform: yatay ? `translateX(${dy}px)` : `translateY(${dy}px)` },
         ...(sabit
           ? {}
           : {
@@ -199,7 +273,7 @@ export function useDragOrder(count: number, onReorder: (from: number, to: number
             }),
       };
     },
-    [begin, count, dragging, dropAt, kayma]
+    [begin, count, dragging, dropAt, kayma, yatay]
   );
 
   return { listRef, rowProps, dragging, dropAt };

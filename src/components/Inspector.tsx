@@ -14,13 +14,15 @@ import { nesneAdi } from "@/decor/katmanlar";
 import type { Bicem } from "@/lib/bicem";
 import type { Palette } from "@/lib/palettes";
 import { gorunenBolumler, sahneSecimi, sahnedenSecim, secimAdi, type Secim } from "@/lib/selection";
-import type { ChartSpec, Theme } from "@/lib/spec";
+import type { ChartKind, ChartSpec, Theme } from "@/lib/spec";
 
 export function Inspector({
   secim,
   spec,
   theme,
   palettes,
+  previews,
+  onPreviewHover,
   onSecim,
   onChange,
   bicem,
@@ -29,6 +31,8 @@ export function Inspector({
   spec: ChartSpec;
   theme: Theme;
   palettes: Palette[];
+  previews?: Partial<Record<ChartKind, string>>;
+  onPreviewHover?: (kind: ChartKind | null) => void;
   onSecim: (s: Secim) => void;
   onChange: (s: ChartSpec) => void;
   bicem: {
@@ -52,8 +56,10 @@ export function Inspector({
       <div className="min-h-0 flex-1 overflow-auto">
         <SectionScope show={bolumler}>
           <BicemPanel {...bicem} />
-          {secim.tur === "parca" && secim.part === "chart" && <KindPicker spec={spec} onChange={onChange} />}
-          <OptionsPanel spec={spec} onChange={onChange} />
+          {secim.tur === "parca" && secim.part === "chart" && (
+            <KindPicker spec={spec} previews={previews} onPreviewHover={onPreviewHover} onChange={onChange} />
+          )}
+          <OptionsPanel spec={spec} theme={theme} onChange={onChange} />
           <DecorPanel
             spec={spec}
             theme={theme}

@@ -9,7 +9,7 @@
  * Serbest yerleşim de burada: bir mod, bir panel bölümü değil. Eskiden
  * "Süsle" sekmesinin içindeydi ve orada olduğu bilinmiyordu.
  *
- * Açılır kutular yukarı açılıyor — çubuk sahnenin alt kenarında duruyor.
+ * Açılır kutular aşağı açılıyor — çubuk sahnenin üst kenarında duruyor.
  */
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Download, Hand, LayoutTemplate, MousePointer2, Palette, Plus, Spline, Type } from "lucide-react";

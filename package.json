@@ -9,6 +9,7 @@
     "typecheck": "tsc --noEmit",
     "preview": "vite preview",
     "check": "node scripts/cdp-check.mjs",
+    "gen:il": "node --max-old-space-size=4096 scripts/gen-tr-il.mjs",
     "test:parse": "node --experimental-strip-types --no-warnings scripts/parse-test.mjs",
     "kontrol": "node scripts/cdp-check.mjs",
     "test:pptx": "node --experimental-strip-types scripts/pptx-test.mts",
@@ -79,6 +80,8 @@
     "@types/topojson-specification": "^1.0.5",
     "@vitejs/plugin-react": "^4.3.4",
     "tailwindcss": "^4.0.0",
+    "topojson-server": "^3.0.1",
+    "topojson-simplify": "^3.0.3",
     "typescript": "^5.7.2",
     "vite": "^6.0.0",
     "vite-plugin-singlefile": "^2.1.0"

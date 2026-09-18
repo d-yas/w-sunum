@@ -89,6 +89,9 @@ export const ChartCard = forwardRef<HTMLDivElement, ChartCardProps>(function Cha
     cssVars[`--chart-${i + 1}`] = c;
     cssVars[`--series-${i + 1}`] = c;
   });
+  // Özel kart zemini. Şeffaf dışa aktarımda hiç yazılmıyor: `[data-transparent]`
+  // kuralı bir sınıf seçicisi, satır içi değişkeni ezemezdi.
+  if (o.cardBackground && !transparent) cssVars["--card-bg"] = o.cardBackground;
 
   const body = (
     <ChartBody spec={spec} colors={colors} isStatic={isStatic} theme={theme} />
@@ -98,7 +101,17 @@ export const ChartCard = forwardRef<HTMLDivElement, ChartCardProps>(function Cha
   // card are alive at the same time, and url(#id) resolves per *document*, so
   // pattern and gradient ids must not collide between the two.
   const decorUid = `d${useId().replace(/:/g, "")}`;
-  const decorProps = { decor: spec.decor, w: o.width, h: o.height, uid: decorUid, colors, theme } as const;
+  const decorProps = {
+    decor: spec.decor,
+    w: o.width,
+    h: o.height,
+    uid: decorUid,
+    colors,
+    theme,
+    // Süslemenin "kâğıt" tonu kartın gerçek zemini olmalı: özel bir zeminde
+    // oyma dolgular tema beyazıyla çizilirse kartın üstünde leke bırakır.
+    paper: transparent ? undefined : o.cardBackground || undefined,
+  } as const;
 
   /**
    * Free layout: a slot with a saved box becomes absolutely positioned, and

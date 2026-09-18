@@ -75,6 +75,7 @@ export const BALLOONS: AssetDef[] = [
     label: "Konuşma balonu",
     family: "balon",
     kind: "nesne",
+    gizli: true,
     size: { w: 200, h: 86 },
     params: [
       ...TEXT_PARAMS,
@@ -109,7 +110,7 @@ export const BALLOONS: AssetDef[] = [
     id: "balon/aciklama",
     duzenle: "yazi",
     label: "Açıklama kutusu",
-    family: "balon",
+    family: "metin",
     kind: "nesne",
     size: { w: 220, h: 120 },
     params: [
@@ -143,7 +144,7 @@ export const BALLOONS: AssetDef[] = [
     id: "balon/etiket",
     duzenle: "yazi",
     label: "Etiket bayrağı",
-    family: "balon",
+    family: "metin",
     kind: "nesne",
     size: { w: 170, h: 40 },
     params: [
@@ -180,6 +181,7 @@ export const BALLOONS: AssetDef[] = [
     label: "Kurdele",
     family: "balon",
     kind: "nesne",
+    gizli: true,
     size: { w: 240, h: 44 },
     params: [
       ...TEXT_PARAMS,

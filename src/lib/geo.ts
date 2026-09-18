@@ -6,11 +6,14 @@ import type { Topology } from "topojson-specification";
 // literaline göre hem küçük hem de tsc'nin 108 KB'lık JSON'u tip olarak
 // çözmesine gerek kalmaz). Ayrıştırma ilk kullanımda bir kez yapılır.
 import topologyText from "world-atlas/countries-110m.json?raw";
+// Türkiye'nin illeri aynı yolla: `scripts/gen-tr-il.mjs` üretiyor, kimlik
+// plaka kodu, ad Türkçe yazımıyla. (≈62 KB)
+import provinceText from "./tr-il.json?raw";
 import { NUMERIC_TO_ALPHA2 } from "./country-codes";
 import type { MapScope } from "./spec";
 
 export interface CountryProps {
-  /** Natural Earth'ün İngilizce adı. */
+  /** Natural Earth'ün İngilizce adı; il haritasında Türkçe il adı. */
   name: string;
 }
 
@@ -29,6 +32,21 @@ export function countryFeatures(): CountryFeature[] {
     cached = fc.features as CountryFeature[];
   }
   return cached;
+}
+
+/**
+ * Türkiye'nin 81 ili. Sınırlar tek dosyaya gömülüdür; dönüşüm ilk kullanımda
+ * bir kez yapılır.
+ */
+let cachedIl: CountryFeature[] | null = null;
+
+export function provinceFeatures(): CountryFeature[] {
+  if (!cachedIl) {
+    const topo = JSON.parse(provinceText) as Topology;
+    const fc = feature(topo, topo.objects.iller) as unknown as FeatureCollection<Geometry, CountryProps>;
+    cachedIl = fc.features as CountryFeature[];
+  }
+  return cachedIl;
 }
 
 /* ------------------------------------------------------------------ */
@@ -150,6 +168,49 @@ export function resolveCountry(key: string): string | null {
   return resolver.get(normalize(key)) ?? null;
 }
 
+/**
+ * İl adlarının gündelik yazımları. Resmî ad tablodan geliyor; burada yalnız
+ * kısaltmalar ve eski adlar var.
+ */
+const IL_ALIASES: Record<string, string> = {
+  afyon: "03",
+  maras: "46",
+  kmaras: "46",
+  urfa: "63",
+  antep: "27",
+  icel: "33",
+};
+
+let ilResolver: Map<string, string> | null = null;
+
+function buildIlResolver(): Map<string, string> {
+  const map = new Map<string, string>();
+  const put = (key: string, id: string) => {
+    const k = normalize(key);
+    if (k && !map.has(k)) map.set(k, id);
+  };
+  for (const f of provinceFeatures()) {
+    if (f.id == null) continue;
+    const id = String(f.id);
+    put(id, id);
+    // Baştaki sıfırsız plaka: kullanıcı "6" yazdığında Ankara.
+    put(String(Number(id)), id);
+    put(`tr${id}`, id);
+    put(f.properties.name, id);
+  }
+  for (const [alias, id] of Object.entries(IL_ALIASES)) put(alias, id);
+  return map;
+}
+
+/**
+ * Kullanıcının yazdığı il adı ya da plaka kodu → geometri kimliği.
+ * Kabul edilenler: "İstanbul", "istanbul", "34", "TR-34", "Afyon".
+ */
+export function resolveProvince(key: string): string | null {
+  if (!ilResolver) ilResolver = buildIlResolver();
+  return ilResolver.get(normalize(key)) ?? null;
+}
+
 /* ------------------------------------------------------------------ */
 /* Görünüm pencereleri                                                  */
 /* ------------------------------------------------------------------ */
@@ -186,6 +247,12 @@ const SCOPE_BOUNDS: Record<MapScope, [[number, number], [number, number]]> = {
     [18, 30],
     [56, 49],
   ],
+  // Yalnız Türkiye: sınırın birkaç derece dışı pay bırakılıyor, yoksa Hatay ve
+  // Edirne kartın kenarına yapışıyor.
+  turkeyProvinces: [
+    [25.2, 35.4],
+    [45.2, 42.6],
+  ],
 };
 
 export const SCOPE_LABELS: Record<MapScope, string> = {
@@ -195,7 +262,36 @@ export const SCOPE_LABELS: Record<MapScope, string> = {
   africa: "Afrika",
   americas: "Amerika",
   turkeyRegion: "Türkiye ve çevresi",
+  turkeyProvinces: "Türkiye (iller)",
 };
+
+/**
+ * Bir kapsamın hangi sınırlardan çizileceği. Harita iki kaynaktan besleniyor —
+ * dünya ülkeleri ve Türkiye'nin illeri — ve tek fark hangi tabloya bakıldığı.
+ */
+export function regionSource(scope: MapScope): {
+  features: CountryFeature[];
+  resolve: (key: string) => string | null;
+  /** Tablo boşken gösterilen yönerge. */
+  ipucu: string;
+  /** Eşleşmeyen satırlar için açıklama. */
+  tanimsiz: string;
+} {
+  if (scope === "turkeyProvinces") {
+    return {
+      features: provinceFeatures(),
+      resolve: resolveProvince,
+      ipucu: "İl ve değer girin (örn. İstanbul ; 540).",
+      tanimsiz: "İl adı ya da plaka kodu (İstanbul / 34) yazabilirsiniz.",
+    };
+  }
+  return {
+    features: countryFeatures(),
+    resolve: resolveCountry,
+    ipucu: "Ülke ve değer girin (örn. Türkiye ; 540).",
+    tanimsiz: "Türkçe ad, İngilizce ad ya da ISO kodu (TR / 792) yazabilirsiniz.",
+  };
+}
 
 /**
  * Kapsam penceresini `fitExtent` için GeoJSON dikdörtgenine çevirir.

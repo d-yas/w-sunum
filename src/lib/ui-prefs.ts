@@ -2,7 +2,7 @@
  * Studio UI tercihleri — çalışma alanının **dışında** duran ayarlar.
  *
  * `spec.ts`/`storage.ts` kullanıcının işini (grafikler, paletler, veri) tutar
- * ve `Kaydet (JSON)` ile taşınır. Panelin hangi bölümü açık, sol listenin
+ * ve `Kaydet (JSON)` ile taşınır. Panelin hangi bölümü açık, katman listesinin
  * yüksekliği ne — bunlar işin parçası değil, o makinedeki pencere hâli. Ayrı
  * anahtarda durmaları çalışma alanı JSON'unu taşınabilir tutuyor: başka bir
  * ekranda açtığınızda panel sizin ekranınıza göre değil kendi ekranına göre
@@ -11,15 +11,13 @@
 const KEY = "data-gorsel.ui.v1";
 
 export interface UiPrefs {
-  /** Sol paneldeki grafik listesinin yüksekliği (px). */
-  listHeight: number;
   /** Sol paneldeki katman listesinin yüksekliği (px). */
   layerHeight: number;
   /** Bölüm id → açık mı. Yazılmayan bölüm açık sayılır. */
   sections: Record<string, boolean>;
 }
 
-const DEFAULTS: UiPrefs = { listHeight: 170, layerHeight: 300, sections: {} };
+const DEFAULTS: UiPrefs = { layerHeight: 300, sections: {} };
 
 let cache: UiPrefs | null = null;
 
@@ -29,7 +27,6 @@ export function loadPrefs(): UiPrefs {
     const raw = localStorage.getItem(KEY);
     const p = raw ? (JSON.parse(raw) as Partial<UiPrefs>) : {};
     cache = {
-      listHeight: clampHeight(typeof p.listHeight === "number" ? p.listHeight : DEFAULTS.listHeight),
       layerHeight: clampHeight(typeof p.layerHeight === "number" ? p.layerHeight : DEFAULTS.layerHeight),
       sections: isRecord(p.sections) ? p.sections : {},
     };
@@ -41,7 +38,6 @@ export function loadPrefs(): UiPrefs {
 
 export function savePrefs(patch: Partial<UiPrefs>) {
   const next = { ...loadPrefs(), ...patch };
-  if (patch.listHeight != null) next.listHeight = clampHeight(patch.listHeight);
   if (patch.layerHeight != null) next.layerHeight = clampHeight(patch.layerHeight);
   cache = next;
   try {

@@ -4,7 +4,7 @@ import { createRoot } from "react-dom/client";
 import { FolderOpen, Maximize2, Minimize2, Redo2, Save, Undo2 } from "lucide-react";
 
 import { ChartCard } from "@/components/ChartCard";
-import { ChartList } from "@/components/ChartList";
+import { ChartStrip } from "@/components/ChartStrip";
 import { DecorPanel } from "@/components/DecorPanel";
 import { DecorStage } from "@/components/DecorStage";
 import { DataGrid } from "@/components/DataGrid";
@@ -23,6 +23,7 @@ import { bicemAl, bicemUygula, type Bicem } from "@/lib/bicem";
 import { setFreeLayout } from "@/lib/free-layout";
 import { SLAYT, parcaya, sahneSecimi, sahnedenSecim, type Secim } from "@/lib/selection";
 import { downloadBlob, downloadText, loadWorkspace, normalizeWorkspace, safeFilename, saveWorkspace } from "@/lib/storage";
+import { useKindPreviews } from "@/lib/kind-previews";
 import { useThumbnails } from "@/lib/thumbnails";
 import { loadPrefs, savePrefs } from "@/lib/ui-prefs";
 
@@ -35,7 +36,6 @@ export function App() {
   const [secim, setSecim] = useState<Secim>(SLAYT);
   const stageRef = useRef<HTMLDivElement>(null);
   const [stageSize, setStageSize] = useState({ w: 800, h: 600 });
-  const [listHeight, setListHeight] = useState(() => loadPrefs().listHeight);
   /** Stil panosu — oturumluk; iş dosyasına yazılmıyor, geçmişte yer almıyor. */
   const [bicemPano, setBicemPano] = useState<Bicem | null>(null);
   const [layerHeight, setLayerHeight] = useState(() => loadPrefs().layerHeight);
@@ -136,10 +136,16 @@ export function App() {
     setTimeout(() => setMessage(null), 1800);
   }, [active, commit, ws.charts.length]);
 
-  const addChart = (kind: ChartKind) => {
+  /** `index` verilmezse sona eklenir; şeritteki ara noktalar yer belirtiyor. */
+  const addChart = (kind: ChartKind, index?: number) => {
     const n = ws.charts.filter((c) => c.kind === kind).length + 1;
     const c = newChart(kind, n);
-    commit((w) => ({ ...w, charts: [...w.charts, c], activeId: c.id }));
+    commit((w) => {
+      const at = index == null ? w.charts.length : Math.max(0, Math.min(w.charts.length, index));
+      const charts = [...w.charts];
+      charts.splice(at, 0, c);
+      return { ...w, charts, activeId: c.id };
+    });
   };
   const duplicateChart = (id: string) => {
     const src = ws.charts.find((c) => c.id === id);
@@ -474,12 +480,12 @@ export function App() {
   /* ---------------- sol panel bölmesi ---------------- */
 
   /**
-   * Sol sütunda üç bölme var — grafikler, katmanlar, veri — ve aralarında iki
-   * tutamaç. Tek bir üretici, çünkü ikisinin de işi aynı: basıştan bu yana
-   * kaç piksel gidildiyse o bölmenin yüksekliğine ekle.
+   * Sol sütunda iki bölme var — katmanlar ve veri — aralarında bir tutamaç:
+   * basıştan bu yana kaç piksel gidildiyse üstteki bölmenin yüksekliğine ekle.
+   * (Grafik listesi artık sahnenin altındaki şeritte, bkz. `ChartStrip`.)
    */
   const splitDrag =
-    (h: number, setH: (v: number) => void, key: "listHeight" | "layerHeight") => (e: React.PointerEvent<HTMLDivElement>) => {
+    (h: number, setH: (v: number) => void, key: "layerHeight") => (e: React.PointerEvent<HTMLDivElement>) => {
       const startY = e.clientY;
       const clamp = (v: number) => Math.max(90, Math.min(Math.max(160, stageSize.h - 40), v));
       const move = (ev: PointerEvent) => setH(clamp(h + ev.clientY - startY));
@@ -492,6 +498,21 @@ export function App() {
     };
 
   const thumbs = useThumbnails(ws, renderStatic, busy);
+
+  /**
+   * Tür seçicideki örnek çizimler. Üretim tür ızgarası ilk kez göründüğünde
+   * başlıyor (`istendi`), küçük resimlerle aynı hattı paylaştığı için dışa
+   * aktarım sürerken duruyor.
+   */
+  const [turIstendi, setTurIstendi] = useState(false);
+  const { previews: turResimleri, onHover: turHover } = useKindPreviews(renderStatic, ws.theme, turIstendi, busy);
+  const onTurHover = useCallback(
+    (k: ChartKind | null) => {
+      setTurIstendi(true);
+      turHover(k);
+    },
+    [turHover]
+  );
 
   /* ---------------- sahnede seçim ---------------- */
 
@@ -643,32 +664,9 @@ export function App() {
       </header>
 
       <div className="flex min-h-0 flex-1">
-        {/* Sol: grafik listesi + veri */}
+        {/* Sol: katmanlar + veri */}
         <aside className="left flex w-[300px] shrink-0 flex-col border-r border-border bg-card">
-          <div className="panel-label shrink-0 px-3 pt-2.5 pb-1">Grafikler</div>
-          <div className="flex min-h-0 flex-col" style={{ height: listHeight }}>
-            <ChartList
-              charts={ws.charts}
-              activeId={active.id}
-              thumbs={thumbs}
-              onSelect={(id) => setWs((w) => ({ ...w, activeId: id }))}
-              onRename={(id, name) => {
-                const c = ws.charts.find((x) => x.id === id);
-                if (c) updateChart({ ...c, name });
-              }}
-              onDuplicate={duplicateChart}
-              onDelete={deleteChart}
-              onMove={moveChart}
-              onReorder={reorderCharts}
-              onAdd={addChart}
-            />
-          </div>
-          <div
-            className="split-handle shrink-0"
-            onPointerDown={splitDrag(listHeight, setListHeight, "listHeight")}
-            title="Listeyi yeniden boyutlandır"
-          />
-          <div className="panel-label shrink-0 px-3 pt-2 pb-1">Katmanlar</div>
+          <div className="panel-label shrink-0 px-3 pt-2.5 pb-1">Katmanlar</div>
           <div className="flex min-h-0 flex-col" style={{ height: layerHeight }}>
             <LayersPanel
               spec={active}
@@ -772,7 +770,7 @@ export function App() {
             </div>
           </div>
           {message && (
-            <div className="pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2 rounded-md border border-border bg-card px-3 py-1.5 text-[12px] shadow">
+            <div className="pointer-events-none absolute bottom-[104px] left-1/2 -translate-x-1/2 rounded-md border border-border bg-card px-3 py-1.5 text-[12px] shadow">
               {message}
             </div>
           )}
@@ -835,6 +833,23 @@ export function App() {
               </SectionScope>
             }
           />
+          <ChartStrip
+            charts={ws.charts}
+            activeId={active.id}
+            thumbs={thumbs}
+            previews={turResimleri}
+            onPreviewHover={onTurHover}
+            onSelect={(id) => setWs((w) => ({ ...w, activeId: id }))}
+            onRename={(id, name) => {
+              const c = ws.charts.find((x) => x.id === id);
+              if (c) updateChart({ ...c, name });
+            }}
+            onDuplicate={duplicateChart}
+            onDelete={deleteChart}
+            onMove={moveChart}
+            onReorder={reorderCharts}
+            onAdd={addChart}
+          />
         </main>
 
         {/* Sağ: seçili öğenin özellikleri */}
@@ -844,6 +859,8 @@ export function App() {
             spec={active}
             theme={ws.theme}
             palettes={ws.palettes}
+            previews={turResimleri}
+            onPreviewHover={onTurHover}
             onSecim={setSecim}
             onChange={updateChart}
             bicem={{

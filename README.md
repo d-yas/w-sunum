@@ -8,14 +8,15 @@ Paylaşmak için yalnız bu dosyayı gönderin.
 
 ## Kullanım (son kullanıcı)
 
-Pencere üç sütun: **solda** grafik listesi, katman listesi ve veri tablosu,
-**ortada** kart, **sağda** seçili olan neyse onun ayarları. Sağ panelde sekme yok: karttaki bir
+Pencere üç sütun: **solda** katman listesi ve veri tablosu, **ortada** kart,
+**sağda** seçili olan neyse onun ayarları. Kartın **altında** grafik şeridi,
+**üstünde** yüzen araç çubuğu durur. Sağ panelde sekme yok: karttaki bir
 parçaya tıklamak onu seçer ve panel o parçanın ayarlarını gösterir — başlığa
 tıklayın, yalnız Metin görünür; grafiğe tıklayın, tür, eksen, gösterge ve
 etiket ayarları gelir; boşluğa tıklayın (ya da `Esc`), slaytın kendi ayarları
 kalır. Bir kategoriyi vurgulamak `Alt+tık`.
 
-Kartın altında **yüzen araç çubuğu** durur: seçim ve el araçları, serbest
+Kartın üstünde **yüzen araç çubuğu** durur: seçim ve el araçları, serbest
 yerleşim modu, `+` ile süsleme galerisi, palet ve dışa aktarım. Eskiden sağ
 panelin sekmeleriydi; artık hangi ayardaysanız orada duruyorlar.
 
@@ -27,24 +28,37 @@ panelin sekmeleriydi; artık hangi ayardaysanız orada duruyorlar.
    - **Pay ve bileşim** — Halka, Gösterge, Ağaç haritası, Güneş patlaması,
      Daire yığını, Piktogram
    - **İlişki ve dağılım** — Dağılım, Balon, Radar, Akış (Sankey), Akor, Ağ, Yay
-   - **Coğrafya** — Harita (boyalı ya da kabarcık; dünya / kıta / Türkiye ve çevresi)
+   - **Coğrafya** — Harita (boyalı ya da kabarcık; dünya / kıta / Türkiye ve
+     çevresi / **Türkiye'nin 81 ili**)
+
+   Tür düğmesinin üstünde durmak o türün **örnek çizimini** gösterir; hangi
+   ikonun neye karşılık geldiğini aramak gerekmez.
 
    Aynı tablo biçimini paylaşan türler arasında geçerken veriniz korunur
    (örneğin Sankey → Akor → Ağ → Yay, ya da Sütun → Radar → Marimekko);
    biçim değişince örnek veri gelir.
 3. **Sol alttaki tabloyu** doldurun. Excel'den kopyalayıp doğrudan hücreye
    yapıştırabilirsiniz (çok satırlı yapıştırma tabloyu genişletir); `Yapıştır`
-   düğmesi tüm tabloyu değiştirir; CSV/JSON yükleme ve indirme var. Liste ile
-   tablo arasındaki çizgiyi sürükleyerek ikisinin payını değiştirebilirsiniz.
+   düğmesi tüm tabloyu değiştirir; CSV/JSON yükleme ve indirme var. Katman
+   listesi ile tablo arasındaki çizgiyi sürükleyerek ikisinin payını
+   değiştirebilirsiniz.
 
-   Sol üstteki listede her grafiğin küçük resmi duruyor — resim gerçek dışa
-   aktarım çıktısı, yani listede gördüğünüz şey indireceğiniz şey. Ada çift
-   tıklayarak yeniden adlandırın, satır üzerindeki düğmelerle kopyalayın,
-   silin ya da `↑`/`↓` ile sırasını değiştirin. Sırayı tek hamlede değiştirmek
-   için satırı sürükleyin; bırakma yeri araya düşen çizgiyle gösterilir.
+   **Kartın altındaki şeritte** her grafiğin küçük resmi duruyor — resim
+   gerçek dışa aktarım çıktısı, yani şeritte gördüğünüz şey indireceğiniz şey.
+   Ada çift tıklayarak yeniden adlandırın, kartın üzerindeki düğmelerle
+   kopyalayın, silin ya da `←`/`→` düğmeleriyle sırasını değiştirin.
 
-   `+ Yeni grafik` kutusu listenin yanına, sahnenin üstüne açılır: 23 türün
-   hepsi tek bakışta görünür, kaydırmak gerekmez.
+   Şerit sunum araçlarının slayt şeridi gibi davranır:
+
+   - **Sürükleyin**, sıra değişir; aradaki kartlar yer açar, bırakma yeri dikey
+     bir çizgiyle gösterilir. Şeridin kenarına geldiğinizde şerit kendiliğinden
+     kayar, yani onuncu slaydı başa taşımak için önce kaydırmak gerekmez.
+   - **Tekerlek** şeridi yatay kaydırır.
+   - **Ok tuşları** kartlar arasında gezer (`Home`/`End` uçlara gider), seçilen
+     kart görünür alana kendiliğinden gelir.
+   - **İki kartın arasına** gelince çıkan `+` yeni grafiği tam oraya ekler;
+     sona eklemek için şeridin sonundaki düğme duruyor. İkisi de aynı tür
+     kutusunu yukarı açar: 23 türün hepsi tek bakışta görünür.
 4. **Grafik seçiliyken**: başlık, alt başlık, dipnot, kart boyutu (16:9 hazır oranlar),
    gösterge konumu, sayı biçimi (1.250,5 / 1,250.5, ondalık, ön ek/son ek,
    kısaltma). Tür-özel bölümler de burada:
@@ -111,7 +125,7 @@ panelin sekmeleriydi; artık hangi ayardaysanız orada duruyorlar.
    yazılarının ilk satırıyla adlanır.
 
 6. **Süsleme**: doku, ışık ve çerçeve slayt ayarlarından zemin olarak seçilir
-   (üçü aynı anda durabilir); şekil, ışık, ok, ikon, işaret ve balonlar araç
+   (üçü aynı anda durabilir); metin, şekil, ok ve ikonlar araç
    çubuğundaki `+` galerisinden tıklanıp karta düşer,
    sahnede sürüklenir, köşeden boyutlandırılır, üstteki tutamaçtan
    döndürülür. Renkleri varsayılan olarak grafiğin paletinden gelir.
@@ -345,9 +359,13 @@ yazar. pnpm 11'de esbuild'in kurulum betiği `pnpm-workspace.yaml` içindeki
 - `src/lib/chart-icons.ts` — tür seçicideki simgeler ve piktogram ikon
   kataloğu. **Lucide**'dan (ISC) gelir; dosya yalnız kullanılan ikonları
   adlandırır, kalan 1.500 ikon ağaç sarsmayla düşer.
-- `src/lib/geo.ts` — harita sınırları (`world-atlas` 110m TopoJSON, ham metin
-  olarak gömülü) ve ülke adı çözümleyici. Türkçe/İngilizce ülke adları
-  tarayıcının kendi `Intl.DisplayNames`'inden gelir, tabloya gömülü değildir;
+- `src/lib/geo.ts` — harita sınırları ve ad çözümleyiciler. İki kaynak var,
+  ikisi de ham metin olarak gömülü: dünya için `world-atlas` 110m TopoJSON,
+  "Türkiye (iller)" kapsamı için `src/lib/tr-il.json` (81 il, ≈62 KB,
+  Natural Earth 10m admin-1'den `scripts/gen-tr-il.mjs` ile üretilir; kimlik
+  plaka kodu, ad Türkçe yazımıyla tablodan). Hangi kaynağın okunacağını
+  `regionSource(scope)` söyler. Türkçe/İngilizce ülke adları tarayıcının kendi
+  `Intl.DisplayNames`'inden gelir, tabloya gömülü değildir;
   `src/lib/country-codes.ts` yalnız ISO numeric → alpha-2 eşlemesini tutar ve
   `scripts/gen-country-codes.mjs` ile üretilir.
 - `src/ext/` — **Bklit'e eklenen çizim katmanları.** Hepsi aynı kalıp: Bklit'in
@@ -471,9 +489,20 @@ yazar. pnpm 11'de esbuild'in kurulum betiği `pnpm-workspace.yaml` içindeki
   `DecorPanel` olduğu gibi çiziliyor, hangi bölümlerinin görüneceğini
   `SectionScope` bağlamı söylüyor. Paneller yeniden yazılmadı: bölümler zaten
   `<Section id>` olarak ayrılmıştı.
-- `src/components/Toolbar.tsx` — sahnenin üstünde yüzen çubuk: seçim/el
+- `src/components/Toolbar.tsx` — sahnenin üst kenarında yüzen çubuk: seçim/el
   araçları, serbest yerleşim modu, galeri, palet ve dışa aktarım. Son üçü
-  eskiden sağ panelin sekmeleriydi.
+  eskiden sağ panelin sekmeleriydi. Açılır kutuları aşağı açılır.
+- `src/components/ChartStrip.tsx` — sahnenin altındaki grafik şeridi. Küçük
+  resimler gerçek dışa aktarım çıktısıdır (`src/lib/thumbnails.ts`); sıralama
+  `useDragOrder`'ın yatay kipiyle yapılır. Kaydırma kutusu ile sürükleme
+  listesi aynı öğedir — kenarda kendiliğinden kaydırma görünür alanın kenarını
+  okuyor. Kartlar arasındaki ekleme noktaları sürüklerken kaldırılmaz, yalnız
+  görünmez olur: kaldırılsalardı ölçülmüş hedef hesabı sürüklemenin ortasında
+  zıplardı.
+- `src/lib/kind-previews.ts` — tür seçicideki örnek çizimler. Küçük resimlerle
+  aynı hattan geçer (örnek veriyle kurulmuş kart → PNG); üretim tür ızgarası
+  ilk kez göründüğünde başlar ve fareyle üstünde durulan tür sıranın başına
+  alınır.
 - `src/lib/free-layout.ts` — serbest yerleşimin ölçümü ve aç/kapa mantığı.
   Hem araç çubuğu hem slayt müfettişi kullanıyor.
 - `src/components/ChartCard.tsx` — slayt kartı. Sahnede ve ekran dışı dışa
@@ -507,8 +536,9 @@ yazar. pnpm 11'de esbuild'in kurulum betiği `pnpm-workspace.yaml` içindeki
   sessizce bir yığın bağlamı kurar, ekran dışı dışa aktarım kartında kurmaz —
   negatif `z-index` kullanan ilk sürüm ekranda doğru görünüp her PNG'de
   kayboluyordu.
-- Harita 110m çözünürlüktedir (ülke sınırları, il/eyalet yok) ve kapsam bir
-  coğrafi pencereye sığdırılıp kırpılır. `d3-geo` küresel çokgeni sarım yönüne
+- Dünya haritası 110m çözünürlüktedir (ülke sınırları; il/eyalet yalnız
+  Türkiye için, ayrı bir tablodan) ve kapsam bir coğrafi pencereye sığdırılıp
+  kırpılır. `d3-geo` küresel çokgeni sarım yönüne
   göre yorumlar: `scopeExtent` halkası saat yönünde sarılmazsa pencere
   "kürenin geri kalanı" olarak okunur ve yakınlaştırma hiç uygulanmaz.
 - Ağ grafiğinin kuvvet yerleşimi bir kez, senkron çözülür (sabit başlangıç +

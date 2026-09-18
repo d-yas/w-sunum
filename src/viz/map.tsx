@@ -6,7 +6,7 @@ import { useMemo } from "react";
 
 import { toRegion } from "@/lib/adapters";
 import { formatNumber } from "@/lib/format";
-import { countryFeatures, resolveCountry, scopeExtent, type CountryFeature } from "@/lib/geo";
+import { regionSource, scopeExtent, type CountryFeature } from "@/lib/geo";
 import { Empty, Reveal, VIZ, VizFrame, contrastText, ellipsize, mix, type VizProps } from "./common";
 import { WithLegend } from "./with-legend";
 
@@ -18,27 +18,29 @@ const PROJECTIONS = {
 };
 
 /**
- * Flourish'in "Projection map" ailesi: choropleth (ülke boyama) ve kabarcık
- * haritası. Sınırlar `world-atlas` 110m TopoJSON'undan gelir ve tek dosyaya
- * gömülüdür; ülke adı çözümlemesi tarayıcının `Intl`'i üzerinden yapılır, yani
- * kullanıcı "Almanya", "Germany", "DE" ya da "276" yazabilir.
+ * Flourish'in "Projection map" ailesi: choropleth (bölge boyama) ve kabarcık
+ * haritası. Sınırlar tek dosyaya gömülü TopoJSON'dan gelir — dünya için
+ * `world-atlas` 110m, "Türkiye (iller)" kapsamı için 81 ilin kendi tablosu.
+ * Ad çözümlemesi kapsamla birlikte değişiyor: dünyada "Almanya / Germany / DE /
+ * 276", illerde "İstanbul / 34 / TR-34".
  */
 export function MapViz({ spec, colors, isStatic, theme }: VizProps) {
   const o = spec.options;
-  const features = useMemo(() => countryFeatures(), []);
-  const model = useMemo(() => toRegion(spec, resolveCountry), [spec]);
+  const kaynak = useMemo(() => regionSource(o.mapScope), [o.mapScope]);
+  const features = kaynak.features;
+  const model = useMemo(() => toRegion(spec, kaynak.resolve), [spec, kaynak]);
 
-  if (model.count === 0) {
-    return (
-      <Empty
-        text={
-          model.unmatched.length > 0
-            ? `Hiçbir ülke eşleşmedi. Tanınmayan: ${model.unmatched.slice(0, 4).join(", ")}. Türkçe ad, İngilizce ad ya da ISO kodu (TR / 792) yazabilirsiniz.`
-            : "Ülke ve değer girin (örn. Türkiye ; 540)."
-        }
-      />
-    );
+  // Tablo tamamen boşken çizecek bir şey yok; yönerge gösteriliyor.
+  //
+  // Ama satırlar **varsa** harita çiziliyor, hiçbiri eşleşmese bile: kapsamı
+  // "Türkiye (iller)" yapan kullanıcının elinde ülke adları kalmış olabilir ve
+  // o durumda tek bir uyarı cümlesi göstermek "iller gelmedi" gibi okunuyordu.
+  // Boş boyalı harita ile altındaki uyarı birlikte hem neyin çizileceğini hem
+  // de ne yazılması gerektiğini söylüyor.
+  if (model.count === 0 && model.unmatched.length === 0) {
+    return <Empty text={kaynak.ipucu} />;
   }
+  const bosVeri = model.count === 0;
 
   const base = colors[0];
   const empty = theme === "dark" ? "#26261f" : "#e8e8e4";
@@ -67,7 +69,7 @@ export function MapViz({ spec, colors, isStatic, theme }: VizProps) {
   });
 
   return (
-    <WithLegend spec={spec} items={o.mapMode === "choropleth" ? items : []}>
+    <WithLegend spec={spec} items={o.mapMode === "choropleth" && !bosVeri ? items : []}>
       <VizFrame clip>
         {({ width, height }) => {
           const rs = scaleSqrt<number>({ domain: [0, model.max], range: [2, o.mapBubbleMax] });
@@ -155,7 +157,13 @@ export function MapViz({ spec, colors, isStatic, theme }: VizProps) {
 
               {model.unmatched.length > 0 && (
                 <text className={VIZ.label} x={2} y={height - 2} fontSize={10}>
-                  {ellipsize(`Eşleşmeyen: ${model.unmatched.join(", ")}`, 10, width - 8)}
+                  {ellipsize(
+                    bosVeri
+                      ? `Hiçbiri eşleşmedi (${model.unmatched.slice(0, 3).join(", ")}). ${kaynak.tanimsiz}`
+                      : `Eşleşmeyen: ${model.unmatched.join(", ")}`,
+                    10,
+                    width - 8
+                  )}
                 </text>
               )}
             </Reveal>

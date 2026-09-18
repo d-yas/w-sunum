@@ -93,6 +93,11 @@ export interface AssetDef {
   label: string;
   family: DecorFamily;
   kind: DecorKind;
+  /**
+   * Galeride listelenmez ama yüklenmeye devam eder. Kaydedilmiş işler bu
+   * varlıkları hâlâ çiziyor; yalnız yeni eklemek için sunulmuyorlar.
+   */
+  gizli?: boolean;
   params?: ParamDef[];
   /** Default placed size in card px — nesne only. */
   size?: { w: number; h: number };

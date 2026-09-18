@@ -319,11 +319,29 @@ textarea.inp { height: auto; padding: 6px 8px; resize: vertical; }
 }
 .chip:hover { border-color: var(--destructive); color: var(--destructive); }
 
-/* Sol paneldeki grafik listesi */
+/* Sahnenin altındaki grafik şeridi.
+
+   Kartlar 16:9; dikey listede her satır ya minicik bir küçük resim ya da yarım
+   sütun demekti. Yatay şeritte küçük resim kartın kendi oranında duruyor ve
+   sıralama hareketi slaytların gerçek sırasıyla aynı yöne gidiyor. */
+.strip { height: 92px; }
 .chart-row {
   display: flex; align-items: center; gap: 8px; width: 100%; padding: 4px 6px; margin-bottom: 2px;
   border-radius: 7px; border: 1px solid transparent; background: transparent; cursor: pointer; text-align: left;
 }
+.strip-card {
+  position: relative; flex-direction: column; align-items: stretch; gap: 3px; flex-shrink: 0;
+  width: 116px; margin-bottom: 0; padding: 4px; cursor: grab;
+}
+.strip-card[data-dragging] { cursor: grabbing; }
+/* Şeritte kaydırma çubuğu yok.
+
+   Yatayda çubuğun yapacağı işi tekerlek, ok tuşları ve sürüklerken kenarda
+   kendiliğinden kaydırma zaten yapıyor; 92 px'lik bir şeritte çubuk kartların
+   altını yiyordu. Dikey taşma da kapalı: `overflow-x` verilince tarayıcı
+   dikeyi de `auto` sayıyor ve bir piksellik taşma sağda bir çubuk çıkarıyordu. */
+.strip-kaydir { overflow-y: hidden; scrollbar-width: none; overscroll-behavior-x: contain; }
+.strip-kaydir::-webkit-scrollbar { width: 0; height: 0; }
 .chart-row:hover { background: var(--accent); }
 .chart-row[aria-selected="true"] { border-color: var(--foreground); background: var(--accent); }
 .chart-row:focus-visible { outline: 2px solid var(--ring); outline-offset: -1px; }
@@ -333,13 +351,64 @@ textarea.inp { height: auto; padding: 6px 8px; resize: vertical; }
   width: 56px; height: 32px; border-radius: 4px; border: 1px solid var(--border);
   background: var(--muted); overflow: hidden; color: var(--muted-foreground);
 }
+.strip-card .chart-thumb { width: 100%; height: 58px; }
 .chart-thumb img { width: 100%; height: 100%; object-fit: contain; display: block; }
 .chart-name { font-size: 12px; line-height: 1.25; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.strip-card .chart-name { font-size: 11px; color: var(--muted-foreground); }
+.chart-row[aria-selected="true"] .chart-name { color: var(--foreground); }
 .chart-kind { font-size: 10px; color: var(--muted-foreground); line-height: 1.2; }
-/* Satır eylemleri yalnız hover/seçim/odakta: dört ikon her satırda dursa liste
+/* Sıra numarası küçük resmin köşesinde: kaçıncı slayt olduğu şeritte tek
+   bakışta okunmalı, ad için ayrılan satırı yemeden. */
+.strip-no {
+  position: absolute; left: 8px; top: 8px; z-index: 1; min-width: 15px; height: 15px; padding: 0 3px;
+  border-radius: 4px; background: color-mix(in oklab, var(--background) 80%, transparent);
+  color: var(--muted-foreground); font-size: 9px; line-height: 15px; text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+/* Satır eylemleri yalnız hover/seçim/odakta: dört ikon her kartta dursa şerit
    bir araç çubuğu tarlasına dönüyor. */
 .chart-acts { display: flex; gap: 0; flex-shrink: 0; opacity: 0; transition: opacity .1s; }
+.strip-card .chart-acts {
+  position: absolute; right: 5px; top: 6px; z-index: 1; border-radius: 6px;
+  background: color-mix(in oklab, var(--background) 88%, transparent);
+}
 .chart-row:hover .chart-acts, .chart-row[aria-selected="true"] .chart-acts, .chart-row:focus-within .chart-acts { opacity: 1; }
+/* Şeritte seçili olmak düğmeleri açmıyor: kart 116 px ve düğmeler küçük
+   resmin üstüne biniyor — aktif slaydın resmini sürekli örtmesinler. */
+.strip .chart-row[aria-selected="true"]:not(:hover):not(:focus-within) .chart-acts { opacity: 0; }
+/* Kartlar arasındaki ekleme noktası. Boşken görünmez bir şerit, üstüne
+   gelince ince bir çizgi ve `+`: yeni slayt nereye gireceğini söyleyerek
+   giriyor, sona eklenip sonra sürüklenmiyor.
+
+   Sürüklerken yerinde kalıp görünmez oluyor (`data-sessiz`): kaldırılsaydı
+   kartlar sürüklemenin ortasında kayardı. */
+.strip-slot {
+  position: relative; flex-shrink: 0; width: 14px; height: 72px; padding: 0;
+  border: 0; background: transparent; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+}
+.strip-slot[data-sessiz] { pointer-events: none; opacity: 0; }
+.strip-slot-cizgi {
+  width: 2px; height: 0; border-radius: 2px; background: var(--ring);
+  transition: height .12s ease;
+}
+.strip-slot-arti {
+  position: absolute; display: flex; align-items: center; justify-content: center;
+  width: 18px; height: 18px; border-radius: 999px; border: 1px solid var(--border);
+  background: var(--popover); color: var(--foreground);
+  opacity: 0; transform: scale(.7); transition: opacity .12s ease, transform .12s ease;
+}
+.strip-slot:hover .strip-slot-cizgi, .strip-slot:focus-visible .strip-slot-cizgi { height: 60px; }
+.strip-slot:hover .strip-slot-arti, .strip-slot:focus-visible .strip-slot-arti { opacity: 1; transform: scale(1); }
+
+/* Şeridin sonundaki "yeni grafik" — bir kart değil, bir eylem. */
+.strip-add {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+  width: 78px; height: 72px; border-radius: 8px; border: 1px dashed var(--border);
+  background: transparent; color: var(--muted-foreground); cursor: pointer;
+  font-family: inherit; font-size: 10px; line-height: 1.15;
+}
+.strip-add:hover { background: var(--accent); border-color: var(--muted-foreground); color: var(--foreground); }
 .icon-btn:disabled { opacity: .3; cursor: not-allowed; }
 .icon-btn.danger:hover { color: var(--destructive); }
 /* Tür kutusu panelin yanına açılır: 300 px'lik sol sütuna sıkışınca yukarı
@@ -354,6 +423,29 @@ textarea.inp { height: auto; padding: 6px 8px; resize: vertical; }
    ortadan bölünmesin diye break-inside kapalı. */
 .kind-groups { columns: 200px; column-gap: 14px; }
 .kind-groups > div { break-inside: avoid; margin-bottom: 10px; }
+
+/* Tür seçicideki örnek çizim — ızgaranın kendi içinde, sabit bir bölmede.
+
+   İlk sürümde ızgaranın yanına, sahnenin üstüne yüzen bir kutu olarak
+   çiziliyordu; orada kartın üstünde asılı kalmış ikinci bir slayt gibi
+   görünüyordu. Bölme hep yerinde duruyor ve yüksekliği sabit: imleç türler
+   arasında gezerken kutu zıplamıyor. */
+.kind-picker { display: flex; flex-direction: column; gap: 10px; }
+.kind-preview {
+  display: flex; flex-direction: column; align-items: center; gap: 4px; flex-shrink: 0;
+  padding: 8px; border-radius: 10px; background: var(--muted);
+}
+.kind-preview-kart {
+  width: 100%; max-width: 230px; aspect-ratio: 16 / 9; overflow: hidden;
+  border-radius: 6px; border: 1px solid var(--border); background: var(--card);
+}
+.kind-preview[data-wide] .kind-preview-kart { max-width: 300px; }
+.kind-preview-kart img { width: 100%; height: 100%; object-fit: contain; display: block; }
+.kind-preview-ad { font-size: 11px; font-weight: 600; color: var(--foreground); }
+.kind-preview-bos {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+  width: 100%; height: 100%; color: var(--muted-foreground); font-size: 11px;
+}
 
 /* Sürükleyerek sıralama — iki liste de aynı göstergeyi kullanır.
 
@@ -378,6 +470,13 @@ body.suruklerken [data-drag-row]:not([data-dragging]) { transition: transform .1
 }
 [data-drag-row][data-drop-before]::before { top: -1px; }
 [data-drag-row][data-drop-after]::after { bottom: -1px; }
+/* Yatay şeritte çizgi de yatar: kartın üstüne değil, yanına düşer. */
+.strip [data-drag-row][data-drop-before]::before,
+.strip [data-drag-row][data-drop-after]::after {
+  left: auto; right: auto; top: 2px; bottom: 2px; width: 2px; height: auto;
+}
+.strip [data-drag-row][data-drop-before]::before { left: -2px; }
+.strip [data-drag-row][data-drop-after]::after { right: -2px; }
 /* Grafiğin listedeki yeri: taşınmaz, ama ön ile arkayı ayıran çizgi o. */
 .decor-row-grafik {
   cursor: default; border-style: dashed; border-color: var(--border);
@@ -391,9 +490,10 @@ body.suruklerken [data-drag-row]:not([data-dragging]) { transition: transform .1
 
    Buradaki üç açılır kutu eskiden sağ panelin sekmeleriydi (galeri, palet,
    dışa aktarım); sağ panel artık yalnız seçili öğeye ayrıldı. Çubuk sahnenin
-   alt kenarında durduğu için kutular yukarı açılıyor. */
+   üst kenarında durduğu için kutular aşağı açılıyor. Üstteki 36 px'lik ölçü
+   şeridinin altına konuyor — onunla çakışmasın. */
 .toolbar {
-  position: absolute; bottom: 14px; left: 50%; transform: translateX(-50%); z-index: 40;
+  position: absolute; top: 48px; left: 50%; transform: translateX(-50%); z-index: 40;
   display: flex; align-items: center; gap: 2px; padding: 4px;
   border-radius: 12px; border: 1px solid var(--border); background: var(--popover);
   box-shadow: 0 10px 30px rgba(0,0,0,.20);
@@ -407,7 +507,7 @@ body.suruklerken [data-drag-row]:not([data-dragging]) { transition: transform .1
 .tool[aria-pressed="true"] { background: var(--foreground); color: var(--background); }
 .tool-sep { width: 1px; height: 18px; margin: 0 3px; background: var(--border); }
 .tool-pop {
-  position: absolute; bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%);
+  position: absolute; top: calc(100% + 8px); left: 50%; transform: translateX(-50%);
   max-height: 60vh; overflow: auto; border-radius: 10px;
   border: 1px solid var(--border); background: var(--popover); box-shadow: 0 12px 32px rgba(0,0,0,.22);
 }
@@ -438,15 +538,18 @@ body.suruklerken [data-drag-row]:not([data-dragging]) { transition: transform .1
 }
 
 /* Decoration gallery */
-.decor-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+/* Galeri ızgarası. Hücrenin kendi kenarlığı ve dolu zemini yok: ekranda otuz
+   tane kutucuk yan yana durunca çerçeveler ızgaranın kendisinden daha çok göze
+   çarpıyordu. Kalan tek işaret hover zemini. */
+.decor-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 2px; }
 .decor-cell {
-  display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 5px 3px 4px;
-  border-radius: 8px; border: 1px solid var(--border); background: var(--card); cursor: pointer;
-  font-size: 9px; line-height: 1.15; color: var(--muted-foreground); font-family: inherit; text-align: center;
+  display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 7px 3px 5px;
+  border-radius: 8px; border: 1px solid transparent; background: transparent; cursor: pointer;
+  font-size: 10px; line-height: 1.15; color: var(--muted-foreground); font-family: inherit; text-align: center;
 }
-.decor-cell:hover { background: var(--accent); border-color: var(--muted-foreground); }
+.decor-cell:hover { background: var(--accent); color: var(--foreground); }
 .decor-cell[aria-pressed="true"] { border-color: var(--foreground); color: var(--foreground); }
-.decor-cell svg { display: block; border-radius: 4px; background: var(--muted); }
+.decor-cell svg { display: block; border-radius: 4px; background: transparent; }
 .decor-cell span { display: block; width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .decor-row {
   display: flex; align-items: center; gap: 6px; padding: 4px 6px; border-radius: 6px; width: 100%;
@@ -559,7 +662,6 @@ body.suruklerken [data-drag-row]:not([data-dragging]) { transition: transform .1
   .right { width: 284px; }
 }
 @media (max-width: 1099px) {
-  .chart-thumb { display: none; }
 }
 
 /* ------------------------------------------------------------------ */

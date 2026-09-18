@@ -1,5 +1,5 @@
 /**
- * Sol listedeki küçük resimler.
+ * Sahnenin altındaki şeritteki küçük resimler.
  *
  * Küçük resim canlı bir `ChartCard` değil, **gerçek dışa aktarım hattından
  * geçmiş bir PNG**. İki gerekçe:
@@ -11,7 +11,7 @@
  * 2. On tane canlı visx/Bklit ağacı (her biri kendi ResizeObserver'ı ve
  *    animasyonuyla) bir düzenleme başına bir 0,25× rasterleştirmeden pahalı.
  *
- * Yan faydası: küçük resim tam olarak "PNG indir"in ürettiği şey, yani listede
+ * Yan faydası: küçük resim tam olarak "PNG indir"in ürettiği şey, yani şeritte
  * gördüğünüz çıktının kendisi.
  */
 import { useEffect, useRef, useState } from "react";

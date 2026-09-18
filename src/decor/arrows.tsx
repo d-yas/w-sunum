@@ -286,6 +286,7 @@ export const ARROWS: AssetDef[] = [
     label: "Döngü",
     family: "ok",
     kind: "nesne",
+    gizli: true,
     size: { w: 120, h: 120 },
     square: true,
     params: [...COMMON, { type: "sayi", key: "acilik", label: "Açıklık", min: 10, max: 180, step: 5, def: 60 }],
@@ -423,6 +424,7 @@ export const ARROWS: AssetDef[] = [
     label: "Fırça darbesi",
     family: "ok",
     kind: "nesne",
+    gizli: true,
     size: { w: 260, h: 90 },
     params: [
       { type: "sayi", key: "kalinlik", label: "En kalın", min: 2, max: 50, step: 1, def: 14 },

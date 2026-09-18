@@ -48,7 +48,7 @@ export type DecorGradient = "none" | "soft" | "vivid" | "edge" | "wash";
 
 export type FunnelShape = "funnel" | "pyramid" | "bar";
 export type MapProjection = "mercator" | "naturalEarth" | "equalEarth" | "orthographic";
-export type MapScope = "world" | "europe" | "asia" | "africa" | "americas" | "turkeyRegion";
+export type MapScope = "world" | "europe" | "asia" | "africa" | "americas" | "turkeyRegion" | "turkeyProvinces";
 export type MapMode = "choropleth" | "bubble";
 export type GlyphKind = "circle" | "square" | "diamond" | "triangle" | "star" | "cross" | "wye";
 
@@ -235,6 +235,12 @@ export interface ChartOptions {
   padding: number;
   titleSize: number;
   chartInset: number;
+  /**
+   * Kartın zemini. Boş = temanın kart rengi. Somut bir değer yazılır (hex),
+   * CSS değişkeni değil: aynı DOM dışa aktarılıyor ve dışa aktarım hesaplanmış
+   * stili gömerken özel özellikleri düşürüyor.
+   */
+  cardBackground: string;
 }
 
 export interface ChartSpec {
@@ -467,6 +473,7 @@ export const DEFAULT_OPTIONS: ChartOptions = {
   padding: 32,
   titleSize: 22,
   chartInset: 8,
+  cardBackground: "",
 };
 
 export function uid(): string {
@@ -711,6 +718,45 @@ const TITLES: Record<ChartKind, [string, string]> = {
   map: ["Ülke bazında dağılım", "Avrupa ve Türkiye"],
 };
 
+/**
+ * "Türkiye (iller)" kapsamının örnek tablosu. Ülke örneğiyle aynı işi görüyor:
+ * kapsamı değiştiren kullanıcı boş bir haritayla kalmasın.
+ */
+export function provinceSample(): TableData {
+  return {
+    columns: ["İl", "Değer"],
+    rows: [
+      ["İstanbul", "540"],
+      ["Ankara", "310"],
+      ["İzmir", "265"],
+      ["Bursa", "180"],
+      ["Antalya", "165"],
+      ["Konya", "120"],
+      ["Adana", "115"],
+      ["Gaziantep", "95"],
+      ["Kayseri", "70"],
+      ["Trabzon", "45"],
+    ],
+  };
+}
+
+/**
+ * Kapsam değişince tabloyu uyarla.
+ *
+ * Yalnız **el değmemiş örnek tablo** değiştirilir: ülke örneğinden il
+ * kapsamına geçen kullanıcı il örneğini görür, kendi verisini girmiş olan
+ * kullanıcı verisini korur. Ölçüt tek: tablo, o kapsamın örneğiyle birebir
+ * aynı mı.
+ */
+export function mapDataForScope(data: TableData, scope: MapScope): TableData {
+  const il = scope === "turkeyProvinces";
+  const ayni = (a: TableData, b: TableData) =>
+    JSON.stringify(a.columns) === JSON.stringify(b.columns) && JSON.stringify(a.rows) === JSON.stringify(b.rows);
+  if (il && ayni(data, sampleData("map"))) return provinceSample();
+  if (!il && ayni(data, provinceSample())) return sampleData("map");
+  return data;
+}
+
 export function newChart(kind: ChartKind, index = 1): ChartSpec {
   const [title, subtitle] = TITLES[kind];
   const radial = kind === "ring" || kind === "gauge";
@@ -773,7 +819,7 @@ export function columnRoles(kind: ChartKind): { fixed: string[]; seriesLabel: st
     case "arc":
       return { fixed: ["Kaynak", "Hedef", "Değer"], seriesLabel: null };
     case "map":
-      return { fixed: ["Ülke / kod", "Değer"], seriesLabel: null };
+      return { fixed: ["Ülke / il / kod", "Değer"], seriesLabel: null };
     default:
       return { fixed: ["Kategori / Tarih"], seriesLabel: "Seri" };
   }

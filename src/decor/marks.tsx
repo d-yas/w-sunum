@@ -14,6 +14,7 @@ export const MARKS: AssetDef[] = [
     label: "Nabız noktası",
     family: "isaret",
     kind: "nesne",
+    gizli: true,
     size: { w: 56, h: 56 },
     square: true,
     params: [
@@ -52,6 +53,7 @@ export const MARKS: AssetDef[] = [
     label: "Halka nokta",
     family: "isaret",
     kind: "nesne",
+    gizli: true,
     size: { w: 40, h: 40 },
     square: true,
     params: [
@@ -75,6 +77,7 @@ export const MARKS: AssetDef[] = [
     label: "Nişangâh",
     family: "isaret",
     kind: "nesne",
+    gizli: true,
     size: { w: 64, h: 64 },
     square: true,
     params: [
@@ -102,7 +105,7 @@ export const MARKS: AssetDef[] = [
   {
     id: "isaret/parantez",
     label: "Kucaklayan parantez",
-    family: "isaret",
+    family: "sekil",
     kind: "nesne",
     size: { w: 200, h: 40 },
     params: [
@@ -127,7 +130,7 @@ export const MARKS: AssetDef[] = [
   {
     id: "isaret/altcizgi",
     label: "Fosforlu alt çizgi",
-    family: "isaret",
+    family: "sekil",
     kind: "nesne",
     size: { w: 220, h: 26 },
     opacity: 0.45,
@@ -152,7 +155,7 @@ export const MARKS: AssetDef[] = [
   {
     id: "isaret/daire-vurgu",
     label: "Daire vurgusu",
-    family: "isaret",
+    family: "sekil",
     kind: "nesne",
     size: { w: 200, h: 110 },
     params: [
@@ -188,6 +191,7 @@ export const MARKS: AssetDef[] = [
     label: "Rozet",
     family: "isaret",
     kind: "nesne",
+    gizli: true,
     size: { w: 70, h: 34 },
     params: [
       { type: "metin", key: "yazi", label: "Yazı", def: "+12%", maxLength: 24 },
@@ -220,6 +224,7 @@ export const MARKS: AssetDef[] = [
     label: "Yıldız patlaması",
     family: "isaret",
     kind: "nesne",
+    gizli: true,
     size: { w: 80, h: 80 },
     square: true,
     params: [
@@ -250,6 +255,7 @@ export const MARKS: AssetDef[] = [
     label: "Noktalı bağlantı",
     family: "isaret",
     kind: "nesne",
+    gizli: true,
     size: { w: 180, h: 40 },
     params: [
       { type: "sayi", key: "kalinlik", label: "Kalınlık", min: 0.5, max: 6, step: 0.5, def: 1.5 },
@@ -285,6 +291,7 @@ export const MARKS: AssetDef[] = [
     label: "Konfeti",
     family: "isaret",
     kind: "nesne",
+    gizli: true,
     size: { w: 220, h: 140 },
     opacity: 0.8,
     twoTone: true,

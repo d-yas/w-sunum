@@ -23,8 +23,9 @@ export function getAsset(id: string): AssetDef | null {
   return BY_ID.get(id) ?? null;
 }
 
+/** Galeride görünenler. `getAsset` süzmez — kayıtlı iş her zaman açılır. */
 export function assetsOf(family: DecorFamily): AssetDef[] {
-  return ASSETS.filter((a) => a.family === family);
+  return ASSETS.filter((a) => a.family === family && !a.gizli);
 }
 
 /** Families that live in a background slot, and which slot each one fills. */
@@ -35,11 +36,16 @@ export const ZEMIN_SLOTS: { slot: ZeminSlot; family: DecorFamily; label: string 
 ];
 
 /**
- * Families you place by hand, in the order the gallery shows them. Lights are
- * in both lists on purpose: as a background slot they wash the card, and as a
- * placed object they glow over one region.
+ * Elle yerleştirilen aileler, galerideki sırasıyla.
+ *
+ * Dört tane: bir sunum kartına gereken şey metin, şekil, ok ve ikon. Balon,
+ * işaret ve serbest ışık aileleri galeriden kaldırıldı — kart süslemesi değil
+ * çıkartma üretiyorlardı. Varlıklar duruyor (`gizli`), yani eski işler aynen
+ * açılıyor; işe yarayan üçü (alt çizgi, daire vurgu, parantez) ve iki etiket
+ * balonu kendi ailelerinden şekil/metin altına taşındı. Işık zemin yuvasında
+ * kalmaya devam ediyor.
  */
-export const NESNE_FAMILIES: DecorFamily[] = ["metin", "sekil", "ok", "ikon", "isaret", "balon", "isik"];
+export const NESNE_FAMILIES: DecorFamily[] = ["metin", "sekil", "ok", "ikon"];
 
 /**
  * Yüksekliğini metnine bırakan varlıklarda `h`'yi yeniden hesaplar.

@@ -16,6 +16,8 @@ import {
   KIND_LABELS,
   adaptDataForKind,
   dataShape,
+  mapDataForScope,
+  type ChartKind,
   type ChartOptions,
   type ChartSpec,
   type ExportBackground,
@@ -208,7 +210,17 @@ export function ColorWell({ value, fallback, onChange }: { value: string; fallba
  * ayarlarla uğraşıyor. 23 kartlık ızgara sürekli açık kalsa panelin üst
  * yarısını yiyor, altındaki ayarlar da göz hizasının dışında kalıyordu.
  */
-export function KindPicker({ spec, onChange }: { spec: ChartSpec; onChange: (s: ChartSpec) => void }) {
+export function KindPicker({
+  spec,
+  previews,
+  onPreviewHover,
+  onChange,
+}: {
+  spec: ChartSpec;
+  previews?: Partial<Record<ChartKind, string>>;
+  onPreviewHover?: (kind: ChartKind | null) => void;
+  onChange: (s: ChartSpec) => void;
+}) {
   const [open, setOpen] = useState(false);
   const Icon = KIND_ICONS[spec.kind];
   return (
@@ -225,6 +237,8 @@ export function KindPicker({ spec, onChange }: { spec: ChartSpec; onChange: (s: 
           <KindGrid
             current={spec.kind}
             keepsDataOf={spec.kind}
+            previews={previews}
+            onHover={onPreviewHover}
             onPick={(k) => {
               if (k === spec.kind) return;
               onChange({ ...spec, kind: k, data: adaptDataForKind(spec.data, spec.kind, k) });
@@ -238,7 +252,7 @@ export function KindPicker({ spec, onChange }: { spec: ChartSpec; onChange: (s: 
 
 /* ---------------- options ---------------- */
 
-export function OptionsPanel({ spec, onChange }: { spec: ChartSpec; onChange: (s: ChartSpec) => void }) {
+export function OptionsPanel({ spec, theme, onChange }: { spec: ChartSpec; theme: Theme; onChange: (s: ChartSpec) => void }) {
   const o = spec.options;
   const set = (patch: Partial<ChartOptions>) => onChange({ ...spec, options: { ...o, ...patch } });
   const setFmt = (patch: Partial<ChartOptions["format"]>) => set({ format: { ...o.format, ...patch } });
@@ -306,6 +320,16 @@ export function OptionsPanel({ spec, onChange }: { spec: ChartSpec; onChange: (s
               </button>
             ))}
           </div>
+        </Field>
+        <Field
+          label="Arka plan"
+          hint="Boş = temanın kart rengi. Koyu bir zemin seçerseniz yazılar için Koyu temaya geçin."
+        >
+          <ColorWell
+            value={o.cardBackground}
+            fallback={theme === "dark" ? "#1a1a19" : "#ffffff"}
+            onChange={(cardBackground) => set({ cardBackground })}
+          />
         </Field>
         <Field label="Kenar boşluğu">
           <Num value={o.padding} min={0} max={200} onChange={(v) => set({ padding: v ?? 32 })} />
@@ -812,7 +836,18 @@ export function OptionsPanel({ spec, onChange }: { spec: ChartSpec; onChange: (s
       {spec.kind === "map" && (
         <Section id="tur" title="Harita">
           <Field label="Kapsam">
-            <select className="inp w-36" value={o.mapScope} onChange={(e) => set({ mapScope: e.target.value as MapScope })}>
+            <select
+              className="inp w-36"
+              value={o.mapScope}
+              onChange={(e) => {
+                // Kapsam sınırları değiştirmekle kalmıyor, hangi tablonun
+                // okunacağını da söylüyor: iller plaka koduyla, ülkeler ISO
+                // koduyla eşleşiyor. El değmemiş örnek tablo değişsin ki
+                // kullanıcı boş bir haritayla kalmasın.
+                const mapScope = e.target.value as MapScope;
+                onChange({ ...spec, data: mapDataForScope(spec.data, mapScope), options: { ...o, mapScope } });
+              }}
+            >
               {(Object.keys(SCOPE_LABELS) as MapScope[]).map((s) => (
                 <option key={s} value={s}>
                   {SCOPE_LABELS[s]}
@@ -844,8 +879,9 @@ export function OptionsPanel({ spec, onChange }: { spec: ChartSpec; onChange: (s
             <Switch checked={o.mapLabels} onChange={(v) => set({ mapLabels: v })} />
           </Field>
           <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
-            Ülke sütununa Türkçe ad ("Almanya"), İngilizce ad ("Germany"), ISO kodu ("DE") ya da sayısal kod ("276")
-            yazabilirsiniz. Eşleşmeyenler grafiğin altında listelenir.
+            {o.mapScope === "turkeyProvinces"
+              ? 'İlk sütuna il adı ("İstanbul"), plaka kodu ("34") ya da ISO kodu ("TR-34") yazabilirsiniz. 81 ilin hepsi tanınır; eşleşmeyenler grafiğin altında listelenir.'
+              : 'İlk sütuna Türkçe ad ("Almanya"), İngilizce ad ("Germany"), ISO kodu ("DE") ya da sayısal kod ("276") yazabilirsiniz. Eşleşmeyenler grafiğin altında listelenir.'}
           </p>
         </Section>
       )}

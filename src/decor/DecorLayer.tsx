@@ -32,6 +32,8 @@ export interface DecorLayerProps {
   /** Resolved series colours, already palette- and theme-corrected. */
   colors: string[];
   theme: Theme;
+  /** Kartın gerçek zemini; verilmezse temanın kâğıt tonu. */
+  paper?: string;
 }
 
 /** Concrete values, not CSS variables — the export inlines computed styles
@@ -40,8 +42,18 @@ function tones(theme: Theme) {
   return theme === "dark" ? { ink: "#ffffff", paper: "#1a1a19" } : { ink: "#0b0b0b", paper: "#ffffff" };
 }
 
-function ctxFor(slot: DecorSlot, def: AssetDef, uid: string, w: number, h: number, colors: string[], theme: Theme): AssetCtx {
-  const { ink, paper } = tones(theme);
+function ctxFor(
+  slot: DecorSlot,
+  def: AssetDef,
+  uid: string,
+  w: number,
+  h: number,
+  colors: string[],
+  theme: Theme,
+  kagit?: string
+): AssetCtx {
+  const { ink, paper: temaKagidi } = tones(theme);
+  const paper = kagit || temaKagidi;
   const fallback = def.tone === "murekkep" ? ink : colors[0] ?? ink;
   // İkinci renk kendi tonunu taşıyabiliyor: mürekkep tonlu bir metin kutusunun
   // yazısı mürekkep ama dolgusu seri rengi olmalı, yoksa kutu kendi yazısını
@@ -60,14 +72,26 @@ function ctxFor(slot: DecorSlot, def: AssetDef, uid: string, w: number, h: numbe
   };
 }
 
-function Zemin({ slot, uid, w, h, colors, theme }: { slot: DecorSlot | null } & Omit<DecorLayerProps, "decor" | "phase">) {
+function Zemin({ slot, uid, w, h, colors, theme, paper }: { slot: DecorSlot | null } & Omit<DecorLayerProps, "decor" | "phase">) {
   if (!slot || slot.gizli) return null;
   const def = getAsset(slot.asset);
   if (!def) return null;
-  return <g opacity={round(slot.opaklik, 3)}>{def.render(ctxFor(slot, def, uid, w, h, colors, theme))}</g>;
+  return <g opacity={round(slot.opaklik, 3)}>{def.render(ctxFor(slot, def, uid, w, h, colors, theme, paper))}</g>;
 }
 
-function Nesne({ item, uid, colors, theme }: { item: DecorItem; uid: string; colors: string[]; theme: Theme }) {
+function Nesne({
+  item,
+  uid,
+  colors,
+  theme,
+  paper,
+}: {
+  item: DecorItem;
+  uid: string;
+  colors: string[];
+  theme: Theme;
+  paper?: string;
+}) {
   const def = getAsset(item.asset);
   if (!def || item.gizli) return null;
   // Rotate and mirror about the item's own centre, then hand the asset a
@@ -83,18 +107,18 @@ function Nesne({ item, uid, colors, theme }: { item: DecorItem; uid: string; col
       ` translate(${round(-item.w / 2)} ${round(-item.h / 2)})`;
   return (
     <g transform={t} opacity={round(item.opaklik, 3)}>
-      {def.render(ctxFor(item, def, uid, item.w, item.h, colors, theme))}
+      {def.render(ctxFor(item, def, uid, item.w, item.h, colors, theme, paper))}
     </g>
   );
 }
 
-export function DecorLayer({ decor, phase, w, h, uid, colors, theme }: DecorLayerProps) {
+export function DecorLayer({ decor, phase, w, h, uid, colors, theme, paper }: DecorLayerProps) {
   const items = decor.nesneler.filter((n) => n.katman === phase && !n.gizli);
   const back = phase === "arka";
   const gorunur = (s: DecorSlot | null) => (s && !s.gizli ? s : null);
   const hasZemin = back ? gorunur(decor.zemin.isik) || gorunur(decor.zemin.doku) : gorunur(decor.zemin.cerceve);
   if (items.length === 0 && !hasZemin) return null;
-  const shared = { uid, w, h, colors, theme };
+  const shared = { uid, w, h, colors, theme, paper };
   return (
     <svg
       width={w}
@@ -121,7 +145,7 @@ export function DecorLayer({ decor, phase, w, h, uid, colors, theme }: DecorLaye
         </>
       )}
       {items.map((it) => (
-        <Nesne key={it.id} item={it} uid={`${uid}-n${it.id}`} colors={colors} theme={theme} />
+        <Nesne key={it.id} item={it} uid={`${uid}-n${it.id}`} colors={colors} theme={theme} paper={paper} />
       ))}
       {!back && <Zemin slot={decor.zemin.cerceve} {...shared} uid={`${uid}-zc`} />}
     </svg>

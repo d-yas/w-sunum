@@ -1,20 +1,20 @@
-// Üç sütunlu kabuk: sol liste, sahne, sağ panel — gerçek tıklamalarla.
+// Kabuk: sol panel, sahne, sağ panel ve sahnenin altındaki grafik şeridi —
+// gerçek tıklamalarla.
 //
-// Buradaki altı davranışın hiçbirinin birim testi yok; hepsi ancak bir tıklama
+// Buradaki davranışların hiçbirinin birim testi yok; hepsi ancak bir tıklama
 // React durumuna, React durumu da localStorage'a ulaştığında var oluyor:
 //
 //  1. Üç sütun gerçekten üç sütun (genişlikler ve sıra).
-//  2. Küçük resimler üretiliyor (liste ikonla değil PNG ile dolu).
+//  2. Küçük resimler üretiliyor (şerit ikonla değil PNG ile dolu).
 //  3. Çift tıkla yeniden adlandırma çalışma alanına yazıyor.
-//  4. Kopyala / sil / sırala liste düğmeleri doğru grafiği hedefliyor.
+//  4. Kopyala / sil / sırala şerit düğmeleri doğru grafiği hedefliyor.
 //  5. Ctrl+Z bir düzenlemeyi geri alıyor, Ctrl+Y geri getiriyor.
-//  6. İki bölme tutamacı da (grafikler/katmanlar, katmanlar/veri) kendi
-//     yüksekliğini kalıcı kaydediyor.
-//  7. "Yeni grafik" kutusu panelin yanına açılıyor ve 23 türün hepsi
-//     kaydırmadan görünüyor (eskiden yukarı taşıp kesiliyordu).
-//  8. Satırı sürüklemek listeyi gerçekten yeniden sıralıyor.
-//  9. Sürükleme sırasında metin seçimi kapalı ve satır havalanmış görünüyor.
-// 10. Sürüklerken aradaki satırlar kayıp bırakılacak yeri açıyor.
+//  6. Katman/veri bölme tutamacı kendi yüksekliğini kalıcı kaydediyor.
+//  7. "Yeni grafik" kutusu şeridin üstüne açılıyor ve 23 türün hepsi
+//     kaydırmadan görünüyor.
+//  8. Kartı yatay sürüklemek şeridi gerçekten yeniden sıralıyor.
+//  9. Sürükleme sırasında metin seçimi kapalı ve kart havalanmış görünüyor.
+// 10. Sürüklerken aradaki kartlar kayıp bırakılacak yeri açıyor.
 // 11. Veri alanı tam ekrana açılıp Esc ile geri dönüyor.
 //
 //   node scripts/shell-check.mjs
@@ -116,7 +116,7 @@ try {
   report(renamed?.name === "Yeniden", "yeniden-adlandir", `ad="${renamed?.name}"`);
 
   /* 4 — reorder, duplicate */
-  await clickSel('.chart-row[data-id="c"] [title="Yukarı taşı"]');
+  await clickSel('.chart-row[data-id="c"] [title="Sola taşı"]');
   await sleep(400);
   const order = (await store()).charts.map((c) => c.id).join(",");
   report(order === "a,c,b", "sirala", `sıra ${order}`);
@@ -137,13 +137,10 @@ try {
   const redone = (await store()).charts.length;
   report(undone === beforeUndo - 1 && redone === beforeUndo, "geri-al", `${beforeUndo} → geri ${undone} → yinele ${redone}`);
 
-  /* 6 — iki bölme tutamağı da kendi yüksekliğini kaydediyor */
-  // Sol sütun üç bölmeli: grafikler, katmanlar, veri. Mutlak bir eşik yerine
-  // artış ölçülüyor — varsayılan yükseklikler değiştiğinde test kırılmasın.
-  const bolmeler = [
-    { i: 0, anahtar: "listHeight" },
-    { i: 1, anahtar: "layerHeight" },
-  ];
+  /* 6 — bölme tutamağı kendi yüksekliğini kaydediyor */
+  // Sol sütun iki bölmeli: katmanlar ve veri. Mutlak bir eşik yerine artış
+  // ölçülüyor — varsayılan yükseklikler değiştiğinde test kırılmasın.
+  const bolmeler = [{ i: 0, anahtar: "layerHeight" }];
   // Yükseklik tercihlerden değil DOM'dan ölçülüyor: tercih dosyası ilk
   // sürüklemeden önce hiç yazılmamış olabiliyor ve karşılaştıracak bir
   // "önce" değeri bulunmuyordu.
@@ -247,13 +244,12 @@ try {
     `açık=${serbestAcik?.serbest}, kutu=${Object.keys(serbestAcik?.kutular ?? {}).join(",")} → kapalı=${serbestKapali}`
   );
 
-  /* 12 — "Yeni grafik" kutusu panelin yanında açılıyor ve tamamı görünüyor */
-  const btnR = await evalIn(`(() => { const b = [...document.querySelectorAll('aside.left button')].find((x) => x.textContent.includes('Yeni grafik'));
-    const r = b.getBoundingClientRect(); return { x: r.x, y: r.y, h: r.height }; })()`);
-  await evalIn(`[...document.querySelectorAll('aside.left button')].find((b) => b.textContent.includes('Yeni grafik')).click(); true`);
+  /* 12 — "Yeni grafik" kutusu şeridin üstüne açılıyor ve tamamı görünüyor */
+  const btnR = await rectOf(".strip-add");
+  await clickSel(".strip-add");
   await sleep(400);
   const pop = await rectOf(".kind-pop");
-  const leftCol = await rectOf("aside.left");
+  const seritR = await rectOf(".strip");
   const popFacts = await evalIn(`(() => {
     const p = document.querySelector('.kind-pop');
     if (!p) return null;
@@ -273,44 +269,46 @@ try {
   report(
     !!pop &&
       !!popFacts &&
-      pop.x >= leftCol.x + leftCol.w - 2 &&
+      // Ölçüt düğme, şeridin kendisi değil: kutu düğmenin üstünde durmalı,
+      // şeridin dolgusuna birkaç piksel binmesi sorun değil.
+      pop.y + pop.h <= btnR.y + 2 &&
+      pop.y < seritR.y &&
       popFacts.count === 23 &&
       !popFacts.scrolls &&
       popFacts.inside &&
-      popFacts.onScreen &&
-      pop.y >= btnR.y - 2,
-    "tur-kutusu-yan",
-    `x=${Math.round(pop?.x ?? -1)} (panel biter ${Math.round(leftCol.x + leftCol.w)}) · üst ${Math.round(pop?.y ?? -1)} ≥ düğme ${Math.round(btnR.y)} · ${popFacts?.count} tür · kayar=${popFacts?.scrolls} · hepsi içeride=${popFacts?.inside} · ekranda=${popFacts?.onScreen}`
+      popFacts.onScreen,
+    "tur-kutusu-ust",
+    `alt ${Math.round((pop?.y ?? 0) + (pop?.h ?? 0))} \u2264 düğme ${Math.round(btnR.y)} / şerit ${Math.round(seritR.y)} · ${popFacts?.count} tür · kayar=${popFacts?.scrolls} · hepsi içeride=${popFacts?.inside} · ekranda=${popFacts?.onScreen}`
   );
   await key("Escape", "Escape", 27);
   await sleep(300);
 
-  /* 13 — listede satırı sürükleyerek sıralama */
+  /* 13 — şeritte kartı sürükleyerek sıralama */
   const idsBefore = await names();
   const first = idsBefore[0];
   const last = idsBefore[idsBefore.length - 1];
   const rFirst = await rectOf(`.chart-row[data-id="${first}"]`);
   const rLast = await rectOf(`.chart-row[data-id="${last}"]`);
-  await mouse("mousePressed", rFirst.x + 70, rFirst.y + rFirst.h / 2);
-  await mouse("mouseMoved", rFirst.x + 70, rFirst.y + rFirst.h / 2 + 14);
-  await mouse("mouseMoved", rLast.x + 70, rLast.y + rLast.h - 2);
-  await mouse("mouseReleased", rLast.x + 70, rLast.y + rLast.h - 2, 0);
+  await mouse("mousePressed", rFirst.x + rFirst.w / 2, rFirst.y + rFirst.h - 12);
+  await mouse("mouseMoved", rFirst.x + rFirst.w / 2 + 14, rFirst.y + rFirst.h - 12);
+  await mouse("mouseMoved", rLast.x + rLast.w - 2, rLast.y + rLast.h - 12);
+  await mouse("mouseReleased", rLast.x + rLast.w - 2, rLast.y + rLast.h - 12, 0);
   await sleep(600);
   const idsAfter = await names();
   const storedOrder = (await store()).charts.map((c) => c.id).join(",");
   report(
     idsAfter.length === idsBefore.length && idsAfter[idsAfter.length - 1] === first && storedOrder === idsAfter.join(","),
-    "liste-surukle",
+    "serit-surukle",
     `${idsBefore.join(",")} → ${idsAfter.join(",")} (kayıtlı ${storedOrder})`
   );
 
-  /* 14 — sürüklerken metin seçilmiyor, satır havalanıyor */
+  /* 14 — sürüklerken metin seçilmiyor, kart havalanıyor */
   const idsNow = await names();
   const rA = await rectOf(`.chart-row[data-id="${idsNow[0]}"]`);
   const rB = await rectOf(`.chart-row[data-id="${idsNow[idsNow.length - 1]}"]`);
-  await mouse("mousePressed", rA.x + 70, rA.y + rA.h / 2);
-  await mouse("mouseMoved", rA.x + 70, rA.y + rA.h / 2 + 10);
-  await mouse("mouseMoved", rB.x + 70, rB.y + rB.h / 2);
+  await mouse("mousePressed", rA.x + rA.w / 2, rA.y + rA.h - 12);
+  await mouse("mouseMoved", rA.x + rA.w / 2 + 10, rA.y + rA.h - 12);
+  await mouse("mouseMoved", rB.x + rB.w / 2, rB.y + rB.h - 12);
   await sleep(250);
   const mid = await evalIn(`(() => {
     const el = document.querySelector('[data-drag-row][data-dragging]');
@@ -324,7 +322,7 @@ try {
       secimKapali: (body.userSelect || body.webkitUserSelect) === 'none',
     };
   })()`);
-  await mouse("mouseReleased", rB.x + 70, rB.y + rB.h / 2, 0);
+  await mouse("mouseReleased", rB.x + rB.w / 2, rB.y + rB.h - 12, 0);
   await sleep(400);
   const secimSonra = await evalIn(`getComputedStyle(document.body).userSelect`);
   report(
@@ -333,22 +331,22 @@ try {
     `seçili metin ${mid?.secim ?? "?"} karakter · havada=${mid?.kalkti} · gölge=${mid?.golge} · seçim kapalı=${mid?.secimKapali} → bırakınca ${secimSonra}`
   );
 
-  /* 15 — sürüklerken aradaki satırlar kayıp yer açıyor */
+  /* 15 — sürüklerken aradaki kartlar kayıp yer açıyor */
   const ids12 = await names();
   const rTop = await rectOf(`.chart-row[data-id="${ids12[0]}"]`);
   const rMid = await rectOf(`.chart-row[data-id="${ids12[1]}"]`);
   const rEnd = await rectOf(`.chart-row[data-id="${ids12[ids12.length - 1]}"]`);
-  const yuva = Math.round(rMid.y - rTop.y);
-  await mouse("mousePressed", rTop.x + 70, rTop.y + rTop.h / 2);
-  await mouse("mouseMoved", rTop.x + 70, rTop.y + rTop.h / 2 + 10);
-  await mouse("mouseMoved", rEnd.x + 70, rEnd.y + rEnd.h - 2);
+  const yuva = Math.round(rMid.x - rTop.x);
+  await mouse("mousePressed", rTop.x + rTop.w / 2, rTop.y + rTop.h - 12);
+  await mouse("mouseMoved", rTop.x + rTop.w / 2 + 10, rTop.y + rTop.h - 12);
+  await mouse("mouseMoved", rEnd.x + rEnd.w - 2, rEnd.y + rEnd.h - 12);
   await sleep(450);
   const kayma = await evalIn(`(() => {
     const el = document.querySelector('.chart-row[data-id=${JSON.stringify(ids12[1])}]');
     if (!el) return null;
-    return Math.round(new DOMMatrixReadOnly(getComputedStyle(el).transform).m42);
+    return Math.round(new DOMMatrixReadOnly(getComputedStyle(el).transform).m41);
   })()`);
-  await mouse("mouseReleased", rEnd.x + 70, rEnd.y + rEnd.h - 2, 0);
+  await mouse("mouseReleased", rEnd.x + rEnd.w - 2, rEnd.y + rEnd.h - 12, 0);
   await sleep(500);
   report(kayma === -yuva, "kayan-komsu", `komşu ${kayma}px kaydı, yuva ${yuva}px`);
 
