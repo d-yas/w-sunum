@@ -530,6 +530,12 @@ yazar. pnpm 11'de esbuild'in kurulum betiği `pnpm-workspace.yaml` içindeki
 
 ### Bilinen sınırlar
 
+- `.viz-*` ve `.chart-axis-text` sınıfları puntoyu ve dolguyu yalnız öznitelik
+  **yazılmamışken** veriyor (`:not([font-size])`, `:not([fill])`). SVG sunum
+  öznitelikleri CSS'te özgüllük 0'ın altındadır: düz bir sınıf kuralı onları
+  sessizce eziyordu, yani `valueLabelSize` hiçbir etiketin puntosunu
+  değiştirmiyor, göstergenin merkez sayısı 46px yerine 12px çiziliyor ve
+  içteki etiketlerin kontrast rengi hiç uygulanmıyordu.
 - Yazı tipi sistem yığını (Segoe UI / system-ui); PNG ekrandakiyle aynı çıkar
   ama makineler arasında yazı tipi farkı olabilir.
 - Halka merkezi düz metin çizer (Bklit'in NumberFlow'u shadow DOM kullanır,

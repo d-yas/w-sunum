@@ -673,13 +673,33 @@ body.suruklerken [data-drag-row]:not([data-dragging]) { transition: transform .1
 .slide-title { font-weight: 600; letter-spacing: -0.01em; line-height: 1.2; color: var(--ink-primary); }
 .slide-subtitle { color: var(--ink-secondary); line-height: 1.3; }
 .slide-note { color: var(--ink-muted); }
-.chart-axis-text { fill: var(--chart-label); font-family: var(--font-sans); font-size: 11px; }
+/* src/viz/ ve src/ext/ grafiklerinin tema renkleri. Sunum niteliğinde var()
+   yerine sınıf kullanılır; PNG dışa aktarımı hesaplanmış stili gömdüğü için
+   sınıf kesin.
+ *
+ * Punto ve dolgu **öznitelik varsa** ona bırakılıyor. SVG sunum öznitelikleri
+ * CSS'te özgüllük 0'ın da altındadır, yani düz bir `.viz-value { font-size }`
+ * kuralı `font-size="24"` özniteliğini sessizce eziyordu: `valueLabelSize`
+ * ayarı hiçbir etiketin puntosunu değiştirmiyor (yalnız kenar boşluğunu
+ * büyütüyor), göstergenin merkez sayısı 46px yerine 12px çiziliyor ve
+ * `contrastText()` ile hesaplanan "içteki etiket" rengi hiç uygulanmıyordu.
+ * `:not([…])` ile öznitelik yazılmamış olanlar varsayılanı alıyor, yazılmış
+ * olanlar kendi değerini kullanıyor. */
+.chart-axis-text { font-family: var(--font-sans); }
+.chart-axis-text:not([fill]) { fill: var(--chart-label); }
+.chart-axis-text:not([font-size]) { font-size: 11px; }
 
-/* src/viz/ grafiklerinin tema renkleri. Sunum niteliğinde var() yerine sınıf
-   kullanılır; PNG dışa aktarımı hesaplanmış stili gömdüğü için sınıf kesin. */
-.viz-label { fill: var(--chart-label); font-family: var(--font-sans); font-size: 11px; }
-.viz-value { fill: var(--ink-primary); font-family: var(--font-sans); font-size: 12px; font-variant-numeric: tabular-nums; }
-.viz-strong { fill: var(--ink-secondary); font-family: var(--font-sans); font-size: 12px; font-weight: 600; }
+.viz-label { font-family: var(--font-sans); }
+.viz-label:not([fill]) { fill: var(--chart-label); }
+.viz-label:not([font-size]) { font-size: 11px; }
+
+.viz-value { font-family: var(--font-sans); font-variant-numeric: tabular-nums; }
+.viz-value:not([fill]) { fill: var(--ink-primary); }
+.viz-value:not([font-size]) { font-size: 12px; }
+
+.viz-strong { font-family: var(--font-sans); font-weight: 600; }
+.viz-strong:not([fill]) { fill: var(--ink-secondary); }
+.viz-strong:not([font-size]) { font-size: 12px; }
 .viz-grid { stroke: var(--chart-grid); fill: none; }
 .viz-hair { stroke: var(--hairline); fill: none; }
 .viz-track { fill: var(--chart-segment-background); }
