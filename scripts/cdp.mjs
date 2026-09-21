@@ -107,8 +107,9 @@ export async function launch({ width = 1400, height = 900 } = {}) {
     await sleep(2500);
   };
 
-  const mouse = (type, x, y, buttons = 1) =>
-    send("Input.dispatchMouseEvent", { type, x, y, button: "left", buttons, clickCount: 1, pointerType: "mouse" });
+  // `modifiers`: Alt=1, Ctrl=2, Meta=4, Shift=8 — DevTools protokolünün maskesi.
+  const mouse = (type, x, y, buttons = 1, modifiers = 0) =>
+    send("Input.dispatchMouseEvent", { type, x, y, button: "left", buttons, clickCount: 1, pointerType: "mouse", modifiers });
 
   const key = async (k, code, vk, modifiers = 0) => {
     await send("Input.dispatchKeyEvent", { type: "rawKeyDown", key: k, code, windowsVirtualKeyCode: vk, modifiers });

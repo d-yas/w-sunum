@@ -563,7 +563,12 @@ export function App() {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setSecim(SLAYT);
+      // Esc önce araçtan çıkarıyor: bir kipte sıkışıp kalmanın çıkışı, seçimi
+      // düşürmekten daha acil.
+      if (e.key === "Escape") {
+        setArac("sec");
+        setSecim(SLAYT);
+      }
       const hedef = e.target as HTMLElement | null;
       if (hedef && hedef.closest("input, textarea, select")) return;
       // Ctrl+Alt+C / V: stil panosu. Düz Ctrl+C metin kopyalamayı bozardı.
@@ -724,6 +729,17 @@ export function App() {
             </button>
           </div>
           <div ref={stageRef} className="stage min-h-0 flex-1 overflow-auto" data-arac={arac} onPointerDown={onStagePointerDown}>
+            {/* Seçim aracı dışındaki her kipte süsleme kutuları tıklamayı
+                almıyor. Tek işaret imlecin değişmesiydi; `H`'ye basıp unutan
+                kullanıcı için bu "hiçbir şey seçilmiyor" demek oluyordu. */}
+            {arac !== "sec" && (
+              <div className="arac-kip">
+                <span>
+                  {arac === "el" ? "Kaydırma aracı" : arac === "metin" ? "Metin aracı" : "Bağlantı aracı"}
+                  <kbd>Esc</kbd>
+                </span>
+              </div>
+            )}
             <div
               style={{
                 width: Math.max(stageSize.w, active.options.width * scale + pad),

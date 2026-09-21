@@ -492,6 +492,25 @@ body.suruklerken [data-drag-row]:not([data-dragging]) { transition: transform .1
    dışa aktarım); sağ panel artık yalnız seçili öğeye ayrıldı. Çubuk sahnenin
    üst kenarında durduğu için kutular aşağı açılıyor. Üstteki 36 px'lik ölçü
    şeridinin altına konuyor — onunla çakışmasın. */
+/* Etkin araç kipi rozeti. Seçim dışındaki kiplerde süsleme kutuları tıklamayı
+   almıyor; kullanıcı bunu imlecin `grab` olmasından anlamak zorunda kalmasın. */
+/* Yüksekliği sıfır: rozet akışa girerse araç değiştikçe kart zıplar ve
+   tıkladığınız yer ile vurduğunuz yer ayrışır. Sticky, çünkü sahne kayıyor. */
+.arac-kip {
+  position: sticky; top: 8px; z-index: 41; height: 0;
+  display: flex; justify-content: center; pointer-events: none;
+}
+.arac-kip > span {
+  display: flex; align-items: center; gap: 6px;
+  padding: 3px 8px; border-radius: 999px; font-size: 11px;
+  background: var(--foreground); color: var(--background);
+  box-shadow: 0 2px 8px rgb(0 0 0 / 0.18);
+}
+.arac-kip kbd {
+  font: inherit; padding: 0 4px; border-radius: 4px;
+  background: color-mix(in oklab, var(--background) 28%, transparent);
+}
+
 .toolbar {
   position: absolute; top: 48px; left: 50%; transform: translateX(-50%); z-index: 40;
   display: flex; align-items: center; gap: 2px; padding: 4px;
@@ -577,10 +596,23 @@ body.suruklerken [data-drag-row]:not([data-dragging]) { transition: transform .1
 .decor-overlay { position: absolute; inset: 0; pointer-events: none; }
 .decor-box, .decor-handle, .decor-anchor, .decor-guide { pointer-events: auto; }
 .decor-guide { pointer-events: none; }
+/* Kutular artık açık `z-index` taşıyor (bkz. DecorStage `Handle.z`); nişan
+   noktası ve hizalama kılavuzları onların üstünde kalmak zorunda, yoksa zemin
+   ışığının tutamacı kartı kaplayan bir kutunun altında kalıyor. */
+.decor-anchor { z-index: 3000; }
+.decor-guide { z-index: 3001; }
 /* Sahnede sürüklenen her şey seçilemez: tutamacı kavramak kartın metnini
    seçmeye başlıyordu. */
 .decor-box { position: absolute; box-sizing: border-box; cursor: move; user-select: none; -webkit-user-select: none; }
-.decor-box[data-locked="true"] { cursor: default; }
+/* Kilitli kutu tıklamayı yutmuyor: "yoldan çekilsin diye kilitle" jesti ancak
+   böyle işe yarıyor. Seçmek için katman listesi duruyor. */
+.decor-box[data-locked="true"] { cursor: default; pointer-events: none; }
+/* İnce nesnelerin (bağlantı çizgisi, ok gövdesi) hit alanı görsel kutusundan
+   büyük: kutuyu büyütmek çerçeveyi de büyütürdü, oysa sorun yalnız tutulacak
+   yerin darlığı. Çerçeve `outline` olduğu için `::before` onu bozmuyor. */
+.decor-box[data-ince="true"]::before {
+  content: ""; position: absolute; inset: -6px; pointer-events: auto;
+}
 .decor-box[data-selected="true"] { outline: 1px solid var(--ring); outline-offset: 0; }
 /* Gruplanmış bir üye seçiliyken kesik çerçeve: "bu tek başına değil" demenin
    en kısa yolu, ve seçili olmayan gruplarda hiç iz bırakmıyor. */

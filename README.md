@@ -135,6 +135,13 @@ panelin sekmeleriydi; artık hangi ayardaysanız orada duruyorlar.
    biçem anahtarını paylaşır (dolu / yalnız kenar / ikisi), kenar rengi
    ikinci renkten gelir, yani "gri dolgu + koyu kenar" tek nesneyle kurulur.
 
+   **Üst üste binenler**: bir nesne başkasının altında kaldıysa aynı noktaya
+   `Ctrl`+tık bir alt kata iner, dibe varınca başa döner — kaç nesnenin üst
+   üste bindiğini saymak gerekmez. Kilitli bir katman tıklamayı **geçirir**,
+   yani bir şeyi yoldan çekmek için kilitlemek işe yarar; onu seçmek için
+   Katmanlar listesi duruyor. Seçim aracı dışındaki kiplerde sahnenin üstünde
+   bir rozet çıkıyor (`Esc` seçime döner): o kiplerde tıklamak seçmez, çizer.
+
    **Gruplama**: `Shift`+tık seçime ekler (sahnede ya da katman listesinde),
    `Ctrl+G` gruplar, `Ctrl+Shift+G` çözer. Gruplanmış nesneler birlikte
    taşınır ve birine tıklamak hepsini seçer; yığında da yan yana toplanırlar,
@@ -258,6 +265,7 @@ pnpm test:susle   # süslemeler dışa aktarımda hayatta kalıyor mu — piksel
 pnpm test:yerlesim # serbest yerleşim ve hover anahtarı — gerçek fare olaylarıyla
 pnpm test:arayuz  # Del ile kaldırma, katman kısayolu ve sürüklemesi, müfettiş, özel palet, ışık tutamacı
 pnpm test:katman  # katman ağacı, ad değiştirme, göz, gruba sürükleme, arama, sağ tık menüsü
+pnpm test:secim   # sahnede seçim: grafiğin üstündeki ok, Ctrl+tık, kilitli katman
 pnpm test:metin   # T/L araçları, yerinde yazma, otomatik yükseklik, uç sürükleme
 pnpm test:stil    # stili kopyala/yapıştır: neyin taşındığı ve neyin taşınmadığı
 pnpm test:sunu    # .pptx paketi: metin kutuları, resimde yazı yokluğu, slayt ölçüsü
@@ -291,6 +299,15 @@ etmez — yalnızca bir gün bir kart başka bir kartın eksen adını taşımay
 `T` ile kutu koyma, yerinde yazma, `Esc` ile iptal, kutuyu genişletince
 yüksekliğin düşmesi (sarma satırı azalıyor), `L` ile çizme ve bir ucu çekince
 ötekinin yerinde kalması.
+
+`pnpm test:secim` sahnedeki hit-test'i gerçek fare olaylarıyla sürüyor. Seçim
+kutuları uzun süre `z-index` taşımıyordu, yani tıklamayı **DOM sırası**
+belirliyordu; nesnelerin görünen sırası ise `DecorLayer`'ın `arka/kart/ön`
+üçlemesinden geliyordu. İki sıra ayrışınca, serbest yerleşimde en son üretilen
+`slot:grafik` kutusu — görselde en altta durmasına rağmen — hit-test'te en üste
+çıkıyor ve grafiğin üstüne düşen her süslemeyi tıklanamaz kılıyordu. Betik
+kasten `data-id` ile değil kart koordinatıyla nişan alıyor: düzeltmeden önceki
+kodda da koşabilsin ve gerçekten düşsün diye.
 
 `pnpm test:katman` Katmanlar panelini sürer: grubun açılıp kapanması, çift tıkla
 ad değiştirme, gözün karttan gerçekten bir şey kaldırması, bir satırı sürükleyip
@@ -531,6 +548,10 @@ yazar. pnpm 11'de esbuild'in kurulum betiği `pnpm-workspace.yaml` içindeki
 - Küçük resimler grafik başına bir ekran dışı çizim demek; on grafikli bir
   çalışma alanında ilk açılışta hepsi sırayla üretilirken liste birkaç saniye
   ikonla durur.
+- Sahnedeki seçim kutuları (`.decor-box`) da açık `z-index` taşır ve sırası
+  `decorStack()`'ten okunur — yani tıklama sırası ile görünen sıra tek
+  kaynaktan gelir. İkisi ayrı yürüdüğü sürece, görselde en altta duran grafik
+  hit-test'te en üstte olabiliyordu.
 - Süsleme katmanları `z-index` ile sıralanır ve kartın kendi içeriği
   `z-index: 1`'e sabitlenmiştir. Bu şart: sahnedeki kartta `scale()` dönüşümü
   sessizce bir yığın bağlamı kurar, ekran dışı dışa aktarım kartında kurmaz —

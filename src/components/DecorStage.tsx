@@ -14,7 +14,7 @@
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 
 import type { Box, DecorItem, DecorSlot, SlotKey } from "@/decor/model";
-import { SLOT_KEYS, SLOT_LABELS, grubuCoz, grupGenislet, grupla, restack, restackEnd } from "@/decor/model";
+import { SLOT_KEYS, SLOT_LABELS, decorStack, grubuCoz, grupGenislet, grupla, restack, restackEnd } from "@/decor/model";
 import { getAsset, newItem, otomatikBoy } from "@/decor/registry";
 import { defaults, num, str, type AssetDef, type ZeminSlot } from "@/decor/types";
 import type { ChartSpec } from "@/lib/spec";
@@ -63,7 +63,19 @@ interface Handle {
   label: string;
   /** Süsleme nesnesinin tanımı — tutamaç setini o belirliyor. Kart parçalarında `null`. */
   def: AssetDef | null;
+  /**
+   * Kutunun yığın katı. Bunu yazmak zorundayız: kutular `z-index: auto` kardeş
+   * olduğunda tıklamayı **DOM sırası** belirliyor, oysa nesnelerin görünen
+   * sırası `DecorLayer`'ın `arka=0 / kart=1 / ön=2` üçlemesinden geliyordu.
+   * İki sıra ayrışınca, görsel olarak en altta duran grafik kutusu (listenin
+   * sonunda üretildiği için) üstündeki her oku yutuyordu.
+   */
+  z: number;
 }
+
+/** Kart parçaları iki süsleme katının arasında; `DecorLayer`'ın `zIndex: 1`'i. */
+const Z_KART = 1000;
+const Z_ON = 2000;
 
 interface Drag {
   mode: Mode;
@@ -146,6 +158,15 @@ export function DecorStage({ spec, scale, selectedIds, onSelect, onChange, arac,
   const free = spec.yerlesim.serbest;
   const hiddenSlots = spec.yerlesim.gizli;
 
+  // Tıklama sırası, görünen sıra olmak zorunda. `decorStack` kartın yığınını
+  // zaten alttan üste veriyor; kutuların `zIndex`'i doğrudan oradan okunuyor.
+  const { stack, boundary } = decorStack(items);
+  const zOf = (id: string) => {
+    const i = stack.findIndex((n) => n.id === id);
+    if (i < 0) return 1;
+    return i < boundary ? 1 + i : Z_ON + (i - boundary);
+  };
+
   const handles: Handle[] = [
     ...items
       .filter((n) => !n.gizli)
@@ -162,12 +183,15 @@ export function DecorStage({ spec, scale, selectedIds, onSelect, onChange, arac,
         min: 8,
         label: getAsset(n.asset)?.label ?? n.asset,
         def: getAsset(n.asset),
+        z: zOf(n.id),
       })),
     ...(free
       ? SLOT_KEYS.flatMap((k) => {
           const b = spec.yerlesim.kutular[k];
           if (!b || hiddenSlots.includes(k)) return [];
-          return [{ id: slotId(k), ...b, aci: 0, kilit: false, slot: k, square: false, min: 24, label: SLOT_LABELS[k], def: null }];
+          return [
+            { id: slotId(k), ...b, aci: 0, kilit: false, slot: k, square: false, min: 24, label: SLOT_LABELS[k], def: null, z: Z_KART },
+          ];
         })
       : []),
   ];
@@ -392,6 +416,44 @@ export function DecorStage({ spec, scale, selectedIds, onSelect, onChange, arac,
     return grupGenislet(items, [id]);
   };
 
+  /**
+   * Üst üste binen nesnelerde alttakine inmek — Figma'nın `Ctrl`+tık jesti.
+   *
+   * `elementsFromPoint` noktadaki kutuları boyama sırasıyla, üstten alta
+   * veriyor; kutuların `zIndex`'i artık görsel yığına eşit olduğu için bu sıra
+   * kullanıcının gördüğü sıra. Her basış bir alt kata geçiyor, dibe varınca
+   * başa dönüyor: kaç nesnenin üst üste bindiğini saymak gerekmesin.
+   */
+  const altiniSec = (e: ReactPointerEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const idler = document
+      .elementsFromPoint(e.clientX, e.clientY)
+      .map((el) => (el instanceof HTMLElement && el.classList.contains("decor-box") ? el.dataset.id : null))
+      .filter((x): x is string => !!x);
+    if (idler.length === 0) return;
+    const simdi = idler.findIndex((id) => selectedIds.includes(id));
+    onSelect(sec(idler[(simdi + 1) % idler.length], false));
+  };
+
+  /**
+   * Sürüklemeden sonra gelen `click`'i yutar.
+   *
+   * `begin()` yalnız `pointerdown`'ı durduruyor. Sürükleme sırasında imleç
+   * kutudan çıkarsa `click`'in hedefi `.inspect` oluyor, sahnenin guard'ı
+   * düşüyor ve tıkla-seç az önce yapılan süsleme seçimini eziyor.
+   */
+  const clickiYut = () => {
+    const yut = (ev: MouseEvent) => {
+      ev.stopPropagation();
+      ev.preventDefault();
+      window.clearTimeout(zamanlayici);
+    };
+    window.addEventListener("click", yut, { capture: true, once: true });
+    // Tıklama hiç gelmezse dinleyici asılı kalmasın.
+    const zamanlayici = window.setTimeout(() => window.removeEventListener("click", yut, { capture: true }), 300);
+  };
+
   const begin = (e: ReactPointerEvent, id: string, mode: Mode) => {
     const h = handles.find((b) => b.id === id);
     if (!h || h.kilit) return;
@@ -593,6 +655,7 @@ export function DecorStage({ spec, scale, selectedIds, onSelect, onChange, arac,
     dragAnchor.current = null;
     if (cizim.current) cizimiBitir();
     if (!dragRef.current) return;
+    clickiYut();
     try {
       (e.target as Element).releasePointerCapture(e.pointerId);
     } catch {
@@ -630,16 +693,22 @@ export function DecorStage({ spec, scale, selectedIds, onSelect, onChange, arac,
           <div
             key={h.id}
             className="decor-box"
+            data-id={h.id}
             data-selected={coklu ? "true" : undefined}
             data-grup={items.find((n) => n.id === h.id)?.grup || undefined}
             data-locked={h.kilit ? "true" : undefined}
             data-slot={h.slot ?? undefined}
+            // İnce bir kutu ekranda eriyor: varsayılan yatay bağlantının kutusu
+            // 22 kart-px, "sığdır" yakınlaştırmasında ~12 ekran px. CSS bu
+            // işareti görünce görsel boyutu değiştirmeden hit alanını büyütüyor.
+            data-ince={!h.slot && Math.min(h.w, h.h) * scale < 24 ? "true" : undefined}
             title={h.label}
             style={{
               left: h.x * scale,
               top: h.y * scale,
               width: h.w * scale,
               height: h.h * scale,
+              zIndex: h.z,
               transform: h.aci ? `rotate(${h.aci}deg)` : undefined,
               transformOrigin: "center",
             }}
@@ -649,7 +718,11 @@ export function DecorStage({ spec, scale, selectedIds, onSelect, onChange, arac,
               const n = items.find((q) => q.id === h.id);
               if (n) setDuzenleme({ id: h.id, ilk: str(n.params, h.def.duzenle, "") });
             }}
-            onPointerDown={(e) => (h.kilit ? onSelect(sec(h.id, e.shiftKey)) : begin(e, h.id, { kind: "tasi" }))}
+            onPointerDown={(e) => {
+              // Ctrl/Cmd: seçimi taşımak değil, bir alt kata inmek.
+              if ((e.ctrlKey || e.metaKey) && !e.shiftKey) return altiniSec(e);
+              return h.kilit ? onSelect(sec(h.id, e.shiftKey)) : begin(e, h.id, { kind: "tasi" });
+            }}
           >
             {sel && !h.kilit && duzenleme?.id !== h.id && (
               <>
