@@ -15,7 +15,9 @@
 //  8. Kartı yatay sürüklemek şeridi gerçekten yeniden sıralıyor.
 //  9. Sürükleme sırasında metin seçimi kapalı ve kart havalanmış görünüyor.
 // 10. Sürüklerken aradaki kartlar kayıp bırakılacak yeri açıyor.
-// 11. Veri alanı tam ekrana açılıp Esc ile geri dönüyor.
+// 11. Küçük resmin **üstünden** sürüklemek de sıralıyor — resim kendi
+//     native sürüklemesini başlatmıyor.
+// 12. Veri alanı tam ekrana açılıp Esc ile geri dönüyor.
 //
 //   node scripts/shell-check.mjs
 import { writeFileSync } from "node:fs";
@@ -350,7 +352,39 @@ try {
   await sleep(500);
   report(kayma === -yuva, "kayan-komsu", `komşu ${kayma}px kaydı, yuva ${yuva}px`);
 
-  /* 16 — veri alanı tam ekran olup geri dönüyor */
+  /* 16 — küçük resmin üstünden sürüklemek
+     Diğer sürükleme testleri kartın alt kenarından 12px yukarı, yani isim
+     satırına basıyor ve küçük resme hiç dokunmuyordu. Resimler tarayıcıda
+     varsayılan olarak sürüklenebilir: resmin üstünden çekilince Chrome kendi
+     HTML5 sürüklemesini başlatıp pointer akışını `pointercancel` ile kesiyor
+     ve sıralama sessizce ölüyor. Bu yüzden basış noktası burada resmin tam
+     ortası, ve `dragstart` sayılıyor. */
+  await evalIn(`window.__ds = 0; document.addEventListener('dragstart', () => { window.__ds++; }, true); true`);
+  const idsImg = await names();
+  const ilkImg = idsImg[0];
+  const sonImg = idsImg[idsImg.length - 1];
+  const resim = await rectOf(`.chart-row[data-id="${ilkImg}"] .chart-thumb img`);
+  const rSonImg = await rectOf(`.chart-row[data-id="${sonImg}"]`);
+  let resimSonuc = "küçük resim bulunamadı";
+  let resimTamam = false;
+  if (resim && rSonImg) {
+    const px = resim.x + resim.w / 2;
+    const py = resim.y + resim.h / 2;
+    await mouse("mousePressed", px, py);
+    await mouse("mouseMoved", px + 14, py);
+    await mouse("mouseMoved", rSonImg.x + rSonImg.w - 2, py);
+    await sleep(250);
+    const canli = await evalIn(`!!document.querySelector('[data-drag-row][data-dragging]')`);
+    await mouse("mouseReleased", rSonImg.x + rSonImg.w - 2, py, 0);
+    await sleep(600);
+    const sonrasi = await names();
+    const ds = await evalIn(`window.__ds`);
+    resimTamam = canli && ds === 0 && sonrasi[sonrasi.length - 1] === ilkImg;
+    resimSonuc = `dragstart ${ds} · sürükleme canlı=${canli} · ${idsImg.join(",")} → ${sonrasi.join(",")}`;
+  }
+  report(resimTamam, "resimden-surukle", resimSonuc);
+
+  /* 17 — veri alanı tam ekran olup geri dönüyor */
   const vp = await evalIn(`({ w: innerWidth, h: innerHeight })`);
   const acildi = await clickSel("[data-veri-tam]");
   await sleep(450);

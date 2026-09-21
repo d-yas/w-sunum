@@ -200,7 +200,16 @@ export function ChartStrip({
                     {i + 1}
                   </span>
                   <div className="chart-thumb" aria-hidden>
-                    {thumbs[c.id] ? <img src={thumbs[c.id]} alt="" /> : <Icon size={20} strokeWidth={1.6} />}
+                    {/*
+                      `draggable={false}` şart: resimler tarayıcıda varsayılan
+                      olarak sürüklenebilir. Küçük resimden çekilince Chrome
+                      kendi HTML5 resim sürüklemesini başlatıyor, imlece PNG
+                      hayaletini yapıştırıyor ve pointer akışını
+                      `pointercancel` ile kesiyor — sıralama daha eşiği
+                      aşamadan ölüyordu. CSS'teki `user-select: none` bunu
+                      durdurmuyor, o ayrı bir mekanizma.
+                    */}
+                    {thumbs[c.id] ? <img src={thumbs[c.id]} alt="" draggable={false} /> : <Icon size={20} strokeWidth={1.6} />}
                   </div>
                   {editing === c.id ? (
                     <input
