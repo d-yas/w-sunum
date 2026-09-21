@@ -18,6 +18,7 @@
     "test:arayuz": "node scripts/ui-check.mjs",
     "test:katman": "node scripts/layers-check.mjs",
     "test:secim": "node scripts/secim-check.mjs",
+    "test:bosluk": "node scripts/padding-check.mjs",
     "test:metin": "node scripts/text-check.mjs",
     "test:stil": "node scripts/style-check.mjs",
     "test:sunu": "node scripts/pptx-check.mjs",

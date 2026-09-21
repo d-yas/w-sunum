@@ -4,6 +4,7 @@ import { useMemo } from "react";
 
 import { toCartesian, toCategoryValue, toWaterfall } from "@/lib/adapters";
 import { formatNumber, formatTick } from "@/lib/format";
+import { enGenis, olcSatir } from "@/lib/olcu";
 import { Empty, Reveal, VIZ, VizFrame, contrastText, ellipsize, type VizProps } from "./common";
 import { WithLegend } from "./with-legend";
 
@@ -191,7 +192,7 @@ export function FunnelViz({ spec, colors, isStatic }: VizProps) {
                     <g key={i}>
                       <path d={d} fill={fill} />
                       <text className={VIZ.strong} x={-10} y={y + bodyH / 2} dy="0.34em" textAnchor="end" fontSize={12}>
-                        {ellipsize(it.label, 12, labelW - 14)}
+                        {ellipsize(it.label, 12, labelW - 14, 600)}
                       </text>
                       <text
                         className={VIZ.value}
@@ -249,7 +250,18 @@ export function MarimekkoViz({ spec, colors, isStatic }: VizProps) {
     <WithLegend spec={spec} items={items}>
       <VizFrame>
         {({ width, height }) => {
-          const margin = { top: o.xAxis ? 20 : 4, right: 2, bottom: 4, left: o.yAxis ? 36 : 2 };
+          // Yüzde etiketleri çizim alanının tam kenarına yazılıyor: `%100`
+          // y=0'da, `%0` y=ih'te, ikisi de `dy="0.32em"`. Sabit {20,2,4,36}
+          // ile alttaki `%0`'ın inişi dışarı taşıyordu.
+          const yuzdeCik = Math.ceil(olcSatir(11).cik - 0.32 * 11);
+          const yuzdeIn = Math.ceil(0.32 * 11 + olcSatir(11).in);
+          const dipnotPayi = o.legendValues ? Math.ceil(2 + 0.9 * 10.5 + olcSatir(10.5).in) : 0;
+          const margin = {
+            top: Math.max(o.xAxis ? Math.ceil(6 + olcSatir(11, 600).cik) : 4, o.yAxis ? yuzdeCik : 0),
+            right: 2,
+            bottom: Math.max(4, o.yAxis ? yuzdeIn : 0, dipnotPayi),
+            left: o.yAxis ? Math.ceil(8 + enGenis(["%100"], 11)) : 2,
+          };
           const iw = width - margin.left - margin.right;
           const ih = height - margin.top - margin.bottom;
           if (iw <= 20 || ih <= 20) return null;
@@ -304,7 +316,7 @@ export function MarimekkoViz({ spec, colors, isStatic }: VizProps) {
                           textAnchor="middle"
                           fontSize={11}
                         >
-                          {ellipsize(row.label, 11, w)}
+                          {ellipsize(row.label, 11, w, 600)}
                         </text>
                       )}
                     </g>

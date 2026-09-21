@@ -266,6 +266,7 @@ pnpm test:yerlesim # serbest yerleşim ve hover anahtarı — gerçek fare olayl
 pnpm test:arayuz  # Del ile kaldırma, katman kısayolu ve sürüklemesi, müfettiş, özel palet, ışık tutamacı
 pnpm test:katman  # katman ağacı, ad değiştirme, göz, gruba sürükleme, arama, sağ tık menüsü
 pnpm test:secim   # sahnede seçim: grafiğin üstündeki ok, Ctrl+tık, kilitli katman
+pnpm test:bosluk  # kenar boşlukları: 22 tür × 3 varyant, hiçbir etiket kesilmiyor
 pnpm test:metin   # T/L araçları, yerinde yazma, otomatik yükseklik, uç sürükleme
 pnpm test:stil    # stili kopyala/yapıştır: neyin taşındığı ve neyin taşınmadığı
 pnpm test:sunu    # .pptx paketi: metin kutuları, resimde yazı yokluğu, slayt ölçüsü
@@ -299,6 +300,15 @@ etmez — yalnızca bir gün bir kart başka bir kartın eksen adını taşımay
 `T` ile kutu koyma, yerinde yazma, `Esc` ile iptal, kutuyu genişletince
 yüksekliğin düşmesi (sarma satırı azalıyor), `L` ile çizme ve bir ucu çekince
 ötekinin yerinde kalması.
+
+`pnpm test:bosluk` 22 türü üç varyantta (uzun Türkçe etiketler, büyük punto +
+eksen adları, dar kart) çizip karttaki **her** metnin ekran kutusunu ölçüyor.
+Dört değişmez: metin kartın içinde, metin kendi `<svg>`'sinin içinde,
+`overflow: hidden` taşıyan HTML kutularında sessiz kırpma yok, ve ölçüm
+gerçekten canvas'tan geliyor. `getBBox` değil `getBoundingClientRect`
+kullanıyor: `getBBox` yerel kullanıcı birimindedir, ata `transform`'ları
+(sankey'in `translate(margin…)`, sahnenin `scale()`'i) saymaz ve ısı takvimi
+ile yatay çubuğun HTML portal etiketlerini hiç göremez.
 
 `pnpm test:secim` sahnedeki hit-test'i gerçek fare olaylarıyla sürüyor. Seçim
 kutuları uzun süre `z-index` taşımıyordu, yani tıklamayı **DOM sırası**
@@ -348,12 +358,23 @@ yazar. pnpm 11'de esbuild'in kurulum betiği `pnpm-workspace.yaml` içindeki
 - `src/charts/` — **Bklit** kaynağı, coretex-hub'daki kopyadan alındı
   (üç hata düzeltmesi dâhil: yatay yığılı bar genişliği, giriş animasyonu,
   Sankey kaynak düğüm etiketi). Elden geldiğince dokunulmaz; bugüne kadarki
-  dört ek şunlar:
+  yedi ek şunlar:
   - `bar.tsx` — `highlightCategories` ve `fillFor` propları, `isFaded`e bir OR
     terimi, ve dört rect biçiminin hepsine `data-part="bar" data-category`
     (tıkla-seç bunu okuyor).
   - `bar-chart.tsx` — `valueDomain` prop'u. Alt sınır 0'a kilitli: `Bar`
     çubuğu `innerHeight`tan büyütüyor, negatif tabanın karşılığı yok.
+  - `sankey/sankey-node.tsx` — `LABEL_OFFSET`, `VALUE_LABEL_GAP` ve etiket
+    puntoları `export const`. Kenar boşluğunu `ChartCard` hesaplıyor; sayıları
+    orada yeniden yazmak, biri buradakini değiştirince sessizce ayrışan iki
+    kaynak demekti. Davranış değişmedi, yalnız görünürlük arttı.
+  - `bar-y-axis.tsx` — kategori etiketinin `maxWidth`'i sabit 70 px yerine
+    `margin.left - 8`. ChartCard sol boşluğu en uzun etikete göre açıyordu ama
+    etiket her hâlükârda 70'te üç noktaya iniyordu: hem boşluk israfı hem
+    kırpılmış etiket.
+  - `time-series-chart-shell.tsx`, `heatmap/heatmap-chart.tsx`,
+    `sankey/sankey-chart.tsx` — `<svg>`'lere `overflow-visible`
+    (`bar-chart.tsx`'in zaten yaptığı şey). Emniyet ağı; bkz. Bilinen sınırlar.
   - `area-chart.tsx` + `time-series-chart-shell.tsx` — `yDomain` /
     `yDomainOverride`. `nice`tan **sonra** uygulanıyor, yoksa kullanıcının
     yazdığı 95 sessizce 100 olurdu.
@@ -385,6 +406,21 @@ yazar. pnpm 11'de esbuild'in kurulum betiği `pnpm-workspace.yaml` içindeki
   `Intl.DisplayNames`'inden gelir, tabloya gömülü değildir;
   `src/lib/country-codes.ts` yalnız ISO numeric → alpha-2 eşlemesini tutar ve
   `scripts/gen-country-codes.mjs` ile üretilir.
+- `src/lib/olcu.ts` — **metin ölçümü, tek kaynak.** `canvas.measureText` ile
+  ve kartın kendi `--font-sans`'ıyla. Kenar boşlukları uzun süre "karakter ×
+  sabit" ile tahmin edildi ve projede beş ayrı sabit birikti (6.2 / 7 / 7.2 /
+  7.5 ve fontSize×0.55); tahmin eksik kalınca etiket kesiliyor, fazla kalınca
+  grafiğe ayrılan yer boşuna daralıyordu. `olcMetin`, `enGenis`, `olcSatir`
+  (dikey boşluk için `fontBoundingBox*`), `kisalt` (ikili aramayla, karakter
+  tahminiyle değil) ve `egikYer`. Ölçüm ile çizim ayrılmıyor: ekran dışı dışa
+  aktarım kartı aynı belgede, aynı `:root` altında duruyor, ve rasterde
+  ölçülen son mürekkep pikseli ölçümün birkaç piksel altında kalıyor — ölçüm
+  güvenli bir üst sınır.
+- `src/ext/sankey-fit.ts` — sankey'in kenar boşluğu. Sorun döngüsel: dış
+  etiketin gereken yeri düğümün `x0`/`x1`'ine bağlı, o da yerleşimden,
+  yerleşim de boşluktan geliyor. `d3-sankey` **kâğıt üzerinde** iki kez
+  koşturuluyor: kaba boşlukla, sonra çıkan gerçek yerlerle. Orta ("landing")
+  düğümlerin etiketi de sayılıyor — eskiden yalnız uçlar ölçülüyordu.
 - `src/ext/` — **Bklit'e eklenen çizim katmanları.** Hepsi aynı kalıp: Bklit'in
   chart context'ini okuyup `<text>`/`<line>` çizerler, Bklit'in kendisine
   dokunmazlar.
@@ -536,6 +572,11 @@ yazar. pnpm 11'de esbuild'in kurulum betiği `pnpm-workspace.yaml` içindeki
   sessizce eziyordu, yani `valueLabelSize` hiçbir etiketin puntosunu
   değiştirmiyor, göstergenin merkez sayısı 46px yerine 12px çiziliyor ve
   içteki etiketlerin kontrast rengi hiç uygulanmıyordu.
+- Grafiklerin `<svg>`'si `overflow: visible`. Kenar boşlukları ölçüye bağlı
+  olduğu için bu bir emniyet ağı, koltuk değneği değil: yarım pikselin bir
+  alt-çıkıntıyı kesmesini önlüyor. Kart zaten `overflow: hidden`, yani
+  slayttan dışarı bir şey çıkamaz. `pnpm test:bosluk` kırpmadan etkilenmeyen
+  `getBoundingClientRect` ile ölçtüğü için gücünü kaybetmiyor.
 - Yazı tipi sistem yığını (Segoe UI / system-ui); PNG ekrandakiyle aynı çıkar
   ama makineler arasında yazı tipi farkı olabilir.
 - Halka merkezi düz metin çizer (Bklit'in NumberFlow'u shadow DOM kullanır,

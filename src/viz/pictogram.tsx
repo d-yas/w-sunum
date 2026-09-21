@@ -3,6 +3,7 @@ import { useMemo } from "react";
 import { pictoIcon } from "@/lib/chart-icons";
 import { toCategoryValue } from "@/lib/adapters";
 import { formatNumber } from "@/lib/format";
+import { enGenis } from "@/lib/olcu";
 import { Empty, type VizProps } from "./common";
 
 /**
@@ -36,8 +37,13 @@ export function PictogramViz({ spec, colors }: VizProps) {
     return <Empty text="Etiket ve değer girin (örn. Uzaktan ; 420)." />;
   }
 
-  const labelWidth = Math.min(180, Math.max(90, o.width * 0.16));
-  const valueWidth = 62;
+  // İkisi de ölçülüyor. Eskiden etiket sütunu genişliğe oranlı, değer sütunu
+  // sabit 62 px'ti; ikisi de `overflow: hidden` taşıdığı için uzun bir ad ya
+  // da yedi haneli bir sayı **sessizce** kırpılıyordu — hata görünmediği için
+  // bugüne dek fark edilmedi.
+  const labelWidth = Math.min(o.width * 0.3, Math.max(60, Math.ceil(enGenis(rows.map((r) => r.label), 12, 600)) + 4));
+  const valueWidth =
+    o.valueLabels === "none" ? 0 : Math.ceil(enGenis(rows.map((r) => formatNumber(r.value, o.format)), o.valueLabelSize + 1, 700)) + 6;
   const totalLines = rows.reduce((a, r) => a + r.lines, 0);
 
   /**

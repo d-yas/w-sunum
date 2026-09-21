@@ -14,6 +14,7 @@ import {
 import { useMemo } from "react";
 
 import { toFlow } from "@/lib/adapters";
+import { egikYer, enGenis, satirYuksekligi } from "@/lib/olcu";
 import { Empty, Reveal, VIZ, VizFrame, ellipsize, type VizProps } from "./common";
 import { WithLegend } from "./with-legend";
 
@@ -103,7 +104,7 @@ function ChordBody({ spec, colors, isStatic, model, width, height }: BodyProps) 
                       dy="0.34em"
                       fontSize={11.5}
                     >
-                      {ellipsize(model.names[i] ?? "", 11.5, 62)}
+                      {ellipsize(model.names[i] ?? "", 11.5, 62, 600)}
                     </text>
                   )}
                 </g>
@@ -203,7 +204,7 @@ function NetworkBody({ spec, colors, isStatic, model, width, height }: BodyProps
               textAnchor="middle"
               fontSize={11.5}
             >
-              {ellipsize(n.name, 11.5, 96)}
+              {ellipsize(n.name, 11.5, 96, 600)}
             </text>
           )}
         </g>
@@ -216,12 +217,21 @@ function NetworkBody({ spec, colors, isStatic, model, width, height }: BodyProps
 
 function ArcBody({ spec, colors, isStatic, model, width, height }: BodyProps) {
   const o = spec.options;
-  const labelH = o.nodeLabels ? 40 : 10;
-  const baseY = height - labelH;
   const n = model.names.length;
+  const egik = n > 8;
+  // Etiket kutusu ölçülüyor. Eskiden `labelH` sabit 40'tı ama etiket
+  // `labelH * 1.8`'e kadar kısaltılıyordu — kendi kendine bağlı bir hesap:
+  // ayrılan yerden daha uzun bir metne izin veriliyordu.
+  const tavan = Math.max(24, height * 0.3);
+  const etiketPx = o.nodeLabels ? Math.min(tavan, enGenis(model.names, 11, 600)) : 0;
+  const labelH = o.nodeLabels ? Math.ceil(12 + (egik ? egikYer(11, 38, etiketPx, 600).dikey : satirYuksekligi(11, 600))) : 10;
+  const baseY = height - labelH;
   if (n < 2 || baseY < 20) return null;
 
-  const pad = 24;
+  // Düz etiketler düğümün üstünde ortalı: yarısı yanlara taşıyor. Eğik
+  // olanlar sağa uzanıyor, onlarda yatay izdüşüm kadar yer gerekiyor.
+  const nokta = 4 + 5;
+  const pad = Math.ceil(Math.max(24, nokta, o.nodeLabels && !egik ? etiketPx / 2 : 0));
   const step = (width - pad * 2) / Math.max(1, n - 1);
   const x = (i: number) => pad + i * step;
   const maxTotal = Math.max(1, ...model.totals);
@@ -259,12 +269,12 @@ function ArcBody({ spec, colors, isStatic, model, width, height }: BodyProps) {
           {o.nodeLabels && (
             <text
               className={VIZ.strong}
-              transform={`translate(${x(i)} ${baseY + 12}) rotate(${n > 8 ? 38 : 0})`}
-              textAnchor={n > 8 ? "start" : "middle"}
-              dy={n > 8 ? "0.32em" : "0.7em"}
+              transform={`translate(${x(i)} ${baseY + 12}) rotate(${egik ? 38 : 0})`}
+              textAnchor={egik ? "start" : "middle"}
+              dy={egik ? "0.32em" : "0.7em"}
               fontSize={11}
             >
-              {ellipsize(name, 11, n > 8 ? labelH * 1.8 : step)}
+              {ellipsize(name, 11, egik ? etiketPx : Math.min(step, tavan), 600)}
             </text>
           )}
         </g>

@@ -5,6 +5,7 @@ import { useMemo } from "react";
 
 import { toXY } from "@/lib/adapters";
 import { formatNumber, formatTick } from "@/lib/format";
+import { enGenis, olcSatir, satirYuksekligi } from "@/lib/olcu";
 import type { GlyphKind } from "@/lib/spec";
 import { Empty, Reveal, VIZ, VizFrame, ellipsize, type VizProps } from "./common";
 import { WithLegend } from "./with-legend";
@@ -48,12 +49,34 @@ export function XYViz({ spec, colors, isStatic }: VizProps) {
     <WithLegend spec={spec} items={items}>
       <VizFrame>
         {({ width, height }) => {
+          // Kenar boşluğu üç şeyin en büyüğü: eksen etiketi, noktanın yarıçapı
+          // ve nokta etiketinin yarısı. Yarıçap eskiden hiç sayılmıyordu —
+          // `bubbleMax` 34 iken kenardaki balonun yarısı dışarıda kalıyordu.
+          const rMax = isBubble ? o.bubbleMax : Math.max(3, o.pointSize ?? 6);
+          const etiketYari = o.pointLabels ? Math.min(110, enGenis(model.points.map((p) => p.label ?? ""), 10.5)) / 2 : 0;
+          // Eksen etiketleri için aday sayılar: ölçek `nice()` uyguladığı için
+          // ekranda görünecek olanlar bunlar. Kutuyu kurmadan önce kaba bir
+          // iç ölçüyle bir kez tahmin ediyoruz.
+          const kabaIw = Math.max(40, width - 60);
+          const kabaIh = Math.max(40, height - 50);
+          const xAday = scaleLinear<number>({ domain: model.xDomain, range: [0, kabaIw], nice: true })
+            .ticks(Math.max(2, Math.min(10, Math.round(kabaIw / 90))))
+            .map(fmt);
+          const yAday = scaleLinear<number>({ domain: model.yDomain, range: [kabaIh, 0], nice: true }).ticks(o.yTicks).map(fmt);
+          const eksenAdi = Math.ceil(satirYuksekligi(11, 600)) + 4;
           const margin = {
-            top: 10,
-            right: 14,
-            bottom: (o.xAxis ? 26 : 8) + (o.xTitle ? 16 : 0),
-            left: (o.yAxis ? 46 : 8) + (o.yTitle ? 16 : 0),
+            top: Math.ceil(Math.max(10, rMax, o.pointLabels ? rMax + 4 + olcSatir(10.5).cik : 0)),
+            right: Math.ceil(Math.max(14, rMax, etiketYari)),
+            bottom: Math.ceil(Math.max(o.xAxis ? 14 + satirYuksekligi(11) : 8, rMax)) + (o.xTitle ? eksenAdi : 0),
+            left: Math.ceil(Math.max(o.yAxis ? 8 + enGenis(yAday, 11) : 8, rMax, etiketYari)) + (o.yTitle ? eksenAdi : 0),
           };
+          // Yatay eksenin uçtaki etiketi de ortalı yazılıyor; yarısı dışarı
+          // taşmasın.
+          if (o.xAxis) {
+            const uc = Math.ceil(enGenis(xAday, 11) / 2);
+            margin.right = Math.max(margin.right, uc);
+            margin.left = Math.max(margin.left, uc);
+          }
           const iw = width - margin.left - margin.right;
           const ih = height - margin.top - margin.bottom;
           if (iw <= 10 || ih <= 10) return null;

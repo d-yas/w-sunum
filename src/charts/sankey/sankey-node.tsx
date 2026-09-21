@@ -64,8 +64,21 @@ interface NodeLabelLayout {
   initialY: number;
 }
 
-const LABEL_OFFSET = 12;
-const VALUE_LABEL_GAP = 16;
+/**
+ * Dış etiketin düğüme uzaklığı ve değer satırının ad satırına uzaklığı.
+ *
+ * Dışa veriliyor çünkü kenar boşluğunu `ChartCard` hesaplıyor: sayıları orada
+ * yeniden yazmak, bir gün biri buradakini değiştirince sessizce ayrışan iki
+ * kaynak demekti. Değer etiketi **tek yönlü** aşağı gidiyor — alt boşluğun
+ * üstten büyük olması bundan.
+ */
+export const LABEL_OFFSET = 12;
+export const VALUE_LABEL_GAP = 16;
+/** Ad ve değer satırlarının puntosu/ağırlığı (`text-[13px]`, `text-[11px]`). */
+export const AD_PUNTO = 13;
+export const AD_KALINLIK = 500;
+export const DEGER_PUNTO = 11;
+export const DEGER_KALINLIK = 400;
 
 function getNodeLabelLayouts({
   labelOrientation,

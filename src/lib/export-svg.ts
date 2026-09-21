@@ -49,6 +49,10 @@ const SVG_PROPS = [
   "filter",
   "visibility",
   "color",
+  // İç içe `<svg>` UA kuralıyla (`svg:not(:root) { overflow: hidden }`)
+  // kırpıyor. Taşınmazsa indirilen SVG, ekranda ve PNG'de görünen bir
+  // etiketi sessizce keser — üçüncü bir kırpma yüzeyi.
+  "overflow",
 ];
 
 export interface CardSvgOptions {

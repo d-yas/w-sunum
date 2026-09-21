@@ -103,7 +103,7 @@ export function RadarViz({ spec, colors, isStatic }: VizProps) {
                   const anchor = Math.abs(Math.cos(a)) < 0.25 ? "middle" : Math.cos(a) > 0 ? "start" : "end";
                   return (
                     <text key={`ax${i}`} className={VIZ.strong} x={x} y={y} textAnchor={anchor} dy="0.34em" fontSize={11.5}>
-                      {ellipsize(label, 11.5, labelPad - 4)}
+                      {ellipsize(label, 11.5, labelPad - 4, 600)}
                     </text>
                   );
                 })}

@@ -657,7 +657,10 @@ const TimeSeriesChartCore = memo(function TimeSeriesChartCore({
       value={referenceAreaRegistration}
     >
       <ChartProvider value={contextValue}>
-        <svg aria-hidden="true" height={height} width={width}>
+        {/* `overflow-visible`: kenar boşlukları artık ölçüye bağlı, bu yalnız
+            emniyet ağı — yarım pikselin bir alt-çıkıntıyı kesmesini önlüyor.
+            Kart zaten `overflow: hidden`, yani slayttan dışarı bir şey çıkamaz. */}
+        <svg aria-hidden="true" className="overflow-visible" height={height} width={width}>
           <defs>
             {defsChildren}
             {useClipReveal ? (

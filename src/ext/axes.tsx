@@ -9,6 +9,7 @@
  */
 import { useChartStable, useYScale } from "@/charts/chart-context";
 import { formatDate, formatTick, type DateGranularity, type Locale, type NumberFormatSpec } from "@/lib/format";
+import { egikYer, kisalt } from "@/lib/olcu";
 import type { TickAngle } from "@/lib/spec";
 
 const TEXT_CLASS = "chart-axis-text";
@@ -61,25 +62,30 @@ function AxisTitle({ text, x, y, rotate }: { text: string; x: number; y: number;
   );
 }
 
+/** Eksen etiketlerinin puntosu — `.chart-axis-text` varsayılanı. */
+export const TICK_PUNTO = 11;
+
 /**
  * "auto" açısını çöz: etiketler yan yana sığmıyorsa eğ.
  *
- * Kaba bir genişlik tahmini yeterli (11 px yazıda karakter ~6,2 px); amaç
- * çakışmayı matematiksel olarak imkânsız kılmak değil, hangi açının daha
- * okunur olduğuna karar vermek.
+ * `enUzunPx` gerçek ölçüm (`enGenis`), karakter sayısı değil: "İstanbul
+ * Avrupa" ile "1.111.111" aynı karakter sayısında bambaşka genişlikte ve
+ * karakter × 6,2 tahmini büyük harfli etiketlerde %30-40 eksik kalıyordu.
  */
-export function resolveAngle(angle: TickAngle, slot: number, longestChars: number): 0 | 45 | 90 {
+export function resolveAngle(angle: TickAngle, slot: number, enUzunPx: number): 0 | 45 | 90 {
   if (angle !== "auto") return angle;
-  const need = longestChars * 6.2 + 6;
+  const need = enUzunPx + 6;
   if (need <= slot) return 0;
   return need <= slot * 2.2 ? 45 : 90;
 }
 
 /** Eğik etiketin alt kenar boşluğuna eklediği yükseklik. */
-export function tickOverhang(angle: 0 | 45 | 90, longestChars: number): number {
+export function tickOverhang(angle: 0 | 45 | 90, enUzunPx: number, kartYuksekligi = 540): number {
   if (angle === 0) return 0;
-  const len = longestChars * 6.2;
-  return Math.min(120, Math.round(angle === 45 ? len * 0.72 : len));
+  // Üst sınır kart yüksekliğinin payı olarak: sabit 120 px, 360 px'lik bir
+  // kartta grafiğin üçte birini yerken 1080 px'likte hiçbir şeyi korumuyordu.
+  const tavan = Math.max(60, kartYuksekligi * 0.35);
+  return Math.min(tavan, Math.round(egikYer(TICK_PUNTO, angle, enUzunPx).dikey));
 }
 
 function niceTicks(scale: { ticks?: (n: number) => number[]; domain: () => number[] }, n: number): number[] {
@@ -169,14 +175,14 @@ export function BarXAxis({ angle = 0, title = "" }: { angle?: 0 | 45 | 90; title
   const bw = barScale.bandwidth();
   // Düz yazı etiket bandına sığmak zorunda; eğik yazıda kısaltmaya gerek yok,
   // aşağı doğru yeri var (kenar boşluğu `tickOverhang` ile büyütülüyor).
-  const maxChars = angle === 0 ? Math.max(3, Math.floor((barScale.step() || 60) / 6.2)) : 28;
+  const enCokPx = angle === 0 ? Math.max(18, (barScale.step() || 60) - 4) : Infinity;
   return (
     <g className="chart-bar-x-axis" data-part="axis-x" aria-hidden>
       {data.map((d, i) => {
         const label = barXAccessor(d);
         const x = (barScale(label) ?? 0) + bw / 2;
         if (x < 0 || x > innerWidth) return null;
-        const text = label.length > maxChars ? `${label.slice(0, maxChars - 1)}…` : label;
+        const text = Number.isFinite(enCokPx) ? kisalt(label, TICK_PUNTO, enCokPx) : label;
         return (
           <Tick key={`${label}-${i}`} x={x} y={innerHeight + 18} angle={angle}>
             <title>{label}</title>

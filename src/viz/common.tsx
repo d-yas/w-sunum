@@ -2,6 +2,7 @@ import { ParentSize } from "@visx/responsive";
 import { motion } from "motion/react";
 import type { ReactNode } from "react";
 
+import { kisalt, olcMetin } from "@/lib/olcu";
 import type { ChartSpec, Theme } from "@/lib/spec";
 
 /**
@@ -129,16 +130,22 @@ export function mix(hex: string, target: string, amount: number): string {
 /* Metin yardımcıları                                                   */
 /* ------------------------------------------------------------------ */
 
-/** Kaba genişlik tahmini — sistem yazı yığınında ~0.55em ortalama. */
-export function textWidth(s: string, fontSize: number): number {
-  return s.length * fontSize * 0.55;
+/**
+ * Metin ölçümü ve kısaltma — ikisi de `src/lib/olcu.ts`'teki gerçek
+ * `measureText` ölçerine bağlı.
+ *
+ * Eskiden ikisi de `fontSize * 0.55` tahminiydi: dar harfli bir etiket
+ * boşuna kesiliyor, geniş harfli bir etiket kesildikten sonra bile taşıyordu.
+ * `kalinlik` parametresi şart — bu çağrıların çoğu `VIZ.strong` (600) ile
+ * çiziliyor ve 600 ağırlık ~%2-4 daha geniş.
+ */
+export function textWidth(s: string, fontSize: number, weight: string | number = 400): number {
+  return olcMetin(s, fontSize, weight);
 }
 
 /** Verilen genişliğe sığmazsa kısaltır. */
-export function ellipsize(s: string, fontSize: number, maxWidth: number): string {
-  if (textWidth(s, fontSize) <= maxWidth) return s;
-  const keep = Math.max(1, Math.floor(maxWidth / (fontSize * 0.55)) - 1);
-  return s.slice(0, keep) + "…";
+export function ellipsize(s: string, fontSize: number, maxWidth: number, weight: string | number = 400): string {
+  return kisalt(s, fontSize, maxWidth, weight);
 }
 
 /**

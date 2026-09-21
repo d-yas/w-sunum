@@ -18,6 +18,8 @@ interface BarYAxisLabelProps {
   y: number;
   bandHeight: number;
   isHovered: boolean;
+  /** Kullanılabilir genişlik — kabın genişliği eksi `pr-2`. */
+  maxWidth: number;
 }
 
 function BarYAxisLabel({
@@ -25,6 +27,7 @@ function BarYAxisLabel({
   y,
   bandHeight,
   isHovered,
+  maxWidth,
 }: BarYAxisLabelProps) {
   return (
     <div
@@ -46,7 +49,10 @@ function BarYAxisLabel({
           opacity: 0.7,
           color: "var(--chart-label, var(--color-zinc-500))",
         }}
-        style={{ maxWidth: 70 }}
+        // Sabit 70 px değil: ChartCard sol boşluğu en uzun etikete göre 160
+        // px'e kadar açabiliyordu ama etiket her hâlükârda 70'te üç noktaya
+        // iniyordu — hem boşluk israfı hem kırpılmış etiket.
+        style={{ maxWidth }}
         transition={{ duration: 0.15 }}
       >
         {label}
@@ -129,6 +135,7 @@ const BarYAxisInner = memo(function BarYAxisInner({
           isHovered={hoveredBarIndex === item.index}
           key={`${item.label}-${item.y}`}
           label={item.label}
+          maxWidth={Math.max(24, margin.left - 8)}
           y={item.y}
         />
       ))}

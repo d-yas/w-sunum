@@ -121,7 +121,7 @@ function TreemapBody({ width, height, root, model, o, colors, shadeOf, format }:
                   y={n.y0 + 12}
                   fontSize={12}
                 >
-                  {ellipsize(n.data.name, 12, n.x1 - n.x0 - 4)}
+                  {ellipsize(n.data.name, 12, n.x1 - n.x0 - 4, 600)}
                 </text>
               ))}
           {tree.leaves().map((leaf, i) => {
@@ -140,7 +140,7 @@ function TreemapBody({ width, height, root, model, o, colors, shadeOf, format }:
                 <rect width={w} height={h} rx={Math.min(o.barRadius / 2, 6, w / 2, h / 2)} fill={fill} />
                 {showLabel && (
                   <text x={6} y={15} fontSize={11.5} fontWeight={600} fill={ink}>
-                    {ellipsize(leaf.data.name, 11.5, w - 12)}
+                    {ellipsize(leaf.data.name, 11.5, w - 12, 600)}
                   </text>
                 )}
                 {showValue && (
@@ -213,7 +213,7 @@ function SunburstBody({ width, height, root, model, o, colors, shadeOf, format }
                       fontWeight={n.depth === 1 ? 600 : 400}
                       fill={ink}
                     >
-                      {ellipsize(n.data.name, 11, (r1 - r0) * 0.95)}
+                      {ellipsize(n.data.name, 11, (r1 - r0) * 0.95, n.depth === 1 ? 600 : 400)}
                     </text>
                   )}
                 </g>
@@ -271,7 +271,7 @@ function PackBody({ width, height, root, model, o, colors, shadeOf, format }: Bo
                       fontWeight={600}
                       fill={contrastText(fill)}
                     >
-                      {ellipsize(n.data.name, 11.5, n.r * 1.7)}
+                      {ellipsize(n.data.name, 11.5, n.r * 1.7, 600)}
                     </text>
                   )}
                   {showValue && (

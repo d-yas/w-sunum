@@ -4,6 +4,7 @@ import { useMemo } from "react";
 
 import { toCartesian } from "@/lib/adapters";
 import { formatNumber } from "@/lib/format";
+import { enGenis, olcMetin, olcSatir, satirYuksekligi } from "@/lib/olcu";
 import { Empty, Reveal, VIZ, VizFrame, ellipsize, type VizProps } from "./common";
 import { WithLegend } from "./with-legend";
 
@@ -29,6 +30,7 @@ export function SlopeViz({ spec, colors, isStatic }: VizProps) {
   }));
 
   const all = lines.flatMap((l) => l.values);
+  const valueTextRaw = (v: number) => formatNumber(v, o.format);
   const items = lines.map((l) => ({
     label: l.label,
     value: l.values[l.values.length - 1] - l.values[0],
@@ -39,8 +41,22 @@ export function SlopeViz({ spec, colors, isStatic }: VizProps) {
     <WithLegend spec={spec} items={o.legend ? items : []}>
       <VizFrame>
         {({ width, height }) => {
-          const labelW = o.slopeLabels ? Math.min(150, Math.max(70, width * 0.16)) : 12;
-          const margin = { top: 26, right: labelW, bottom: 12, left: labelW };
+          // Uçlardaki metin "etiket + değer" (ya da "değer + etiket"); ikisi
+          // **aynı satırda** yazıldığı için ayrılan yer ikisinin toplamı.
+          // Eskiden `labelW` genişliğe oranlıydı ve kısaltma hedefi sihirli
+          // bir `-52` idi: ölçülen metin ayrılan yerden uzun olabiliyordu.
+          const degerPx = o.slopeValues ? enGenis(all.map(valueTextRaw), 11.5, 600) + olcMetin(" ", 11.5, 600) : 0;
+          const adPx = o.slopeLabels ? enGenis(lines.map((l) => l.label), 11.5, 600) : 0;
+          const ucPay = o.slopeDots + 10;
+          const labelW = o.slopeLabels || o.slopeValues ? Math.min(width * 0.3, Math.max(70, Math.ceil(adPx + degerPx + ucPay))) : 12;
+          // Durak adları üstte, uçtaki çizgilerin etiketi altta kalabiliyor:
+          // ikisi de ölçülüyor.
+          const margin = {
+            top: o.xAxis ? Math.ceil(10 + satirYuksekligi(12)) : 8,
+            right: labelW,
+            bottom: Math.max(8, Math.ceil(0.34 * 11.5 + olcSatir(11.5, 600).in) + 4),
+            left: labelW,
+          };
           const iw = width - margin.left - margin.right;
           const ih = height - margin.top - margin.bottom;
           if (iw <= 20 || ih <= 20) return null;
@@ -52,7 +68,7 @@ export function SlopeViz({ spec, colors, isStatic }: VizProps) {
           });
           const x = (i: number) => (stops === 1 ? iw / 2 : (i / (stops - 1)) * iw);
 
-          const valueText = (v: number) => formatNumber(v, o.format);
+          const valueText = valueTextRaw;
 
           return (
             <Group top={margin.top} left={margin.left}>
@@ -102,7 +118,7 @@ export function SlopeViz({ spec, colors, isStatic }: VizProps) {
                       fontSize={11.5}
                       fill={l.color}
                     >
-                      {o.slopeValues ? `${ellipsize(l.label, 11.5, labelW - 52)} ${valueText(l.values[0])}` : ellipsize(l.label, 11.5, labelW - 10)}
+                      {o.slopeValues ? `${ellipsize(l.label, 11.5, labelW - ucPay - degerPx, 600)} ${valueText(l.values[0])}` : ellipsize(l.label, 11.5, labelW - ucPay, 600)}
                     </text>
                     <text
                       className={VIZ.strong}
@@ -113,7 +129,7 @@ export function SlopeViz({ spec, colors, isStatic }: VizProps) {
                       fontSize={11.5}
                       fill={l.color}
                     >
-                      {o.slopeValues ? `${valueText(l.values[stops - 1])} ${ellipsize(l.label, 11.5, labelW - 52)}` : ellipsize(l.label, 11.5, labelW - 10)}
+                      {o.slopeValues ? `${valueText(l.values[stops - 1])} ${ellipsize(l.label, 11.5, labelW - ucPay - degerPx, 600)}` : ellipsize(l.label, 11.5, labelW - ucPay, 600)}
                     </text>
                   </g>
                 ))}

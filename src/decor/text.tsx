@@ -11,6 +11,8 @@
  * dışa aktarım kartı da aynı `--font-sans`'ı miras aldığı için ölçü ile çizim
  * ayrılmıyor: PNG'de taşan, ekranda taşmayan bir satır olmuyor.
  */
+import { olcMetin } from "@/lib/olcu";
+
 import { num, round, str, type AssetDef, type ParamValues } from "./types";
 
 /** Boş satır: Chrome bomboş bir tspan'i hiç yerleştirmiyor. */
@@ -30,34 +32,12 @@ const KALINLIKLAR = [
 /* Ölçüm                                                                */
 /* ------------------------------------------------------------------ */
 
-let fontAilesi: string | null = null;
-
-/** Kartın yazı tipi. Bir kez okunuyor: her kelimede okumak ölçümü boğuyor. */
-function kartFontu(): string {
-  if (fontAilesi) return fontAilesi;
-  if (typeof document === "undefined") return "system-ui, sans-serif";
-  const v = getComputedStyle(document.documentElement).getPropertyValue("--font-sans").trim();
-  fontAilesi = v || "system-ui, sans-serif";
-  return fontAilesi;
-}
-
-let olcer: CanvasRenderingContext2D | null | undefined;
-const olcuUmleri = new Map<string, number>();
-
-function olcu(metin: string, punto: number, kalinlik: string): number {
-  const anahtar = `${kalinlik}|${punto}|${metin}`;
-  const hazir = olcuUmleri.get(anahtar);
-  if (hazir !== undefined) return hazir;
-  const kaba = metin.length * punto * 0.55;
-  if (olcer === undefined) olcer = typeof document === "undefined" ? null : document.createElement("canvas").getContext("2d");
-  if (!olcer) return kaba;
-  olcer.font = `${kalinlik} ${punto}px ${kartFontu()}`;
-  const w = olcer.measureText(metin).width;
-  // Uzun metinlerde önbellek şişmesin; ölçüm zaten mikrosaniyelik.
-  if (olcuUmleri.size > 4000) olcuUmleri.clear();
-  olcuUmleri.set(anahtar, w);
-  return w;
-}
+/**
+ * Ölçüm `src/lib/olcu.ts`'e taşındı: eksen etiketleri ve grafik kenar
+ * boşlukları da aynı canvas'tan geçiyor, beş ayrı karakter-sabiti yerine
+ * tek kaynak var.
+ */
+const olcu = olcMetin;
 
 /** Bir satırın parçası. `bosluk`: önüne boşluk gelir mi (bölünmüş kelimede gelmez). */
 interface Parca {

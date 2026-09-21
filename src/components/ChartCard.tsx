@@ -1,4 +1,6 @@
 import { curveLinear, curveMonotoneX, curveNatural, curveStepAfter } from "@visx/curve";
+import { ticks } from "d3-array";
+import { ParentSize } from "@visx/responsive";
 import { MotionConfig } from "motion/react";
 import { forwardRef, useId, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 
@@ -26,12 +28,14 @@ import { SankeyChart, SankeyLink, SankeyNode, SankeyTooltip } from "@/charts/san
 import { StaticChartPreviewProvider } from "@/charts/static-chart-preview-context";
 import { ChartTooltip, TooltipContent } from "@/charts/tooltip";
 import { AccentBar, CardDecor } from "@/decor";
-import { BarValueAxis, BarXAxis, XAxis, YAxis, resolveAngle, tickOverhang } from "@/ext/axes";
+import { BarValueAxis, BarXAxis, TICK_PUNTO, XAxis, YAxis, resolveAngle, tickOverhang } from "@/ext/axes";
 import { ReferenceLines } from "@/ext/reference-lines";
+import { sankeyKenari } from "@/ext/sankey-fit";
 import { HeatmapValueLabels, RingValueLabels } from "@/ext/ring-value-labels";
 import { BarValueLabels, PointValueLabels } from "@/ext/value-labels";
 import { toCartesian, toHeatmap, toRing, toSankey, type CartesianModel } from "@/lib/adapters";
-import { formatDateLong, formatNumber, type NumberFormatSpec } from "@/lib/format";
+import { formatDateLong, formatNumber, formatTick, type NumberFormatSpec } from "@/lib/format";
+import { egikYer, enGenis, olcSatir, satirYuksekligi } from "@/lib/olcu";
 import { getPalette, seriesColor, type Palette } from "@/lib/palettes";
 import type { SlotKey } from "@/decor/model";
 import { dataShape, type ChartSpec, type Theme, type ValueLabels } from "@/lib/spec";
@@ -320,18 +324,38 @@ function CartesianTime({ spec, colors, isStatic }: Omit<BodyProps, "theme">) {
   // Dates drive spacing whenever they parse; the axis shows the user's own
   // labels unless they explicitly asked for date formatting.
   const formatAsDate = model.xIsDate && o.xMode === "date";
-  const longest = model.labels.reduce((a, l) => Math.max(a, l.length), 0);
+  const enUzunPx = enGenis(model.labels, TICK_PUNTO);
   // Tarih ekseninde etiketler kendiliğinden seyreltiliyor (XAxis minGap), o
   // yüzden eğmeye gerek yok; eğik yazı yalnız kategorik eksende iş görüyor.
   const slotGuess = Math.max(12, (o.width - o.padding * 2 - 80) / Math.max(1, model.labels.length));
-  const angle = formatAsDate ? 0 : resolveAngle(o.xTickAngle, slotGuess, longest);
+  const angle = formatAsDate ? 0 : resolveAngle(o.xTickAngle, slotGuess, enUzunPx);
   const pointMode = labelMode(spec);
   const margin = {
-    top: 12 + (pointMode === "none" ? 0 : o.valueLabelSize + 6),
+    top: 12 + (pointMode === "none" ? 0 : 8 + olcSatir(o.valueLabelSize).cik),
+    // Değer etiketi son noktada `textAnchor="end"` ile yazılıyor
+    // (`value-labels.tsx`), yani sağa taşması yapısal olarak imkânsız.
     right: 16,
-    bottom: (o.xAxis ? 30 + tickOverhang(angle, longest) : 8) + (o.xTitle ? 16 : 0),
-    left: (o.yAxis ? leftMargin(model, o) : 8) + (o.yTitle ? 16 : 0),
+    bottom: (o.xAxis ? tickTabani() + tickOverhang(angle, enUzunPx, o.height) : 8) + (o.xTitle ? eksenAdiPayi() : 0),
+    left: (o.yAxis ? leftMargin(model, o) : 8) + (o.yTitle ? eksenAdiPayi() : 0),
   };
+  // Düz eksen etiketi noktanın üstünde **ortalı** yazılıyor (`XAxis` yalnız
+  // ilk/son 6 px'te uca yaslıyor), yani uçtaki etiketin yarısı çizim alanının
+  // dışına taşıyor. Dar kartta bu kartın da dışına çıkıyordu.
+  if (o.xAxis) {
+    if (angle === 0) {
+      // Düz etiket noktanın üstünde ortalı: yarısı her iki yana taşıyor.
+      const yari = Math.ceil(enUzunPx / 2);
+      margin.left = Math.max(margin.left, yari);
+      margin.right = Math.max(margin.right, yari);
+    } else {
+      // Eğik etiket `textAnchor="end"` ile noktadan geriye doğru yazılıyor ve
+      // `rotate(-angle)` ile yukarı-sola uzanıyor: yatay uzanımı cos(açı)
+      // kadar. 90°'de sıfır, 45°'de metnin ~%71'i.
+      // Yatay uzanım yalnız cos(açı)·genişlik değil: dönen kutunun yüksekliği
+      // de sin(açı) kadar yana düşüyor. `egikYer` ikisini birlikte veriyor.
+      margin.left = Math.max(margin.left, Math.ceil(egikYer(TICK_PUNTO, angle, enUzunPx).yatay));
+    }
+  }
 
   return (
     <WithLegend spec={spec} items={items}>
@@ -408,11 +432,38 @@ function CartesianTime({ spec, colors, isStatic }: Omit<BodyProps, "theme">) {
   );
 }
 
+/**
+ * Değer ekseni için sol boşluk.
+ *
+ * Tek bir "örnek" sayı yerine `d3-array.ticks` ile gerçek aday etiketler
+ * üretiliyor ve en genişi ölçülüyor: ölçek `nice()` uyguladığı için ekranda
+ * görünecek sayılar bunlar. Eski hâli `örnek.length * 7.2` idi — hem hangi
+ * sayının yazılacağını bilmiyor hem de genişliği tahmin ediyordu.
+ */
 function leftMargin(model: CartesianModel, o: ChartSpec["options"]): number {
   let max = 0;
-  for (const s of model.series) for (const v of s.values) if (v != null && Math.abs(v) > max) max = Math.abs(v);
-  const sample = formatNumber(max * 1.1, o.format);
-  return Math.min(120, Math.max(40, sample.length * 7.2 + 18));
+  let min = 0;
+  for (const s of model.series)
+    for (const v of s.values) {
+      if (v == null) continue;
+      if (v > max) max = v;
+      if (v < min) min = v;
+    }
+  const alt = o.yMin ?? Math.min(0, min);
+  const ust = o.yMax ?? max * 1.05;
+  const adaylar = (ust > alt ? ticks(alt, ust, o.yTicks || 5) : [alt, ust]).map((v) => formatTick(v, o.format));
+  // Eksen etiketi `textAnchor="end"` ile çizim alanının 8 px soluna yazılıyor.
+  return Math.min(o.width * 0.25, Math.max(40, enGenis(adaylar, TICK_PUNTO) + 10));
+}
+
+/** Eksen etiketinin taban çizgisi + iniş payı (`XAxis` etiketi `+18`'e yazıyor). */
+function tickTabani(): number {
+  return 18 + Math.ceil(olcSatir(TICK_PUNTO).in) + 2;
+}
+
+/** Eksen adının açtığı yer. Ad 11 px ve 600 ağırlıkta çiziliyor. */
+function eksenAdiPayi(): number {
+  return Math.ceil(satirYuksekligi(TICK_PUNTO, 600)) + 6;
 }
 
 /* ---------------- bars ---------------- */
@@ -427,33 +478,48 @@ function Bars({ spec, colors, isStatic }: Omit<BodyProps, "theme">) {
   const items = byCategory
     ? model.labels.map((label, i) => ({ label, value: Number(model.rows[i]?.[model.series[0].key] ?? 0), color: colors[i % colors.length] }))
     : model.series.map((s, i) => ({ label: s.name, value: s.total, color: colors[i] }));
-  const longest = model.labels.reduce((a, l) => Math.max(a, l.length), 0);
+  const enUzunPx = enGenis(model.labels, TICK_PUNTO);
   // Etiket açısı kenar boşluğunu belirliyor, kenar boşluğu da bandı: ikisi
   // birbirine bağlı. Döngüyü kesmek için açı bandın *kenar boşluğundan
   // bağımsız* kaba tahminiyle çözülüyor (çizim genişliği eksi sol/sağ pay),
   // sonra boşluk ona göre büyütülüyor.
   const slotGuess = Math.max(12, (o.width - o.padding * 2 - 80) / Math.max(1, model.labels.length));
-  const angle = horizontal ? 0 : resolveAngle(o.xTickAngle, slotGuess, longest);
+  const angle = horizontal ? 0 : resolveAngle(o.xTickAngle, slotGuess, enUzunPx);
   const mode = labelMode(spec);
-  const xBand = o.xAxis ? 30 + tickOverhang(angle, longest) : 8;
+  const xBand = o.xAxis ? tickTabani() + tickOverhang(angle, enUzunPx, o.height) : 8;
+  // Değer etiketlerinin metinleri: hem üst/sağ payı hem de yanlara taşmayı
+  // bunlar belirliyor.
+  const degerler = mode === "none" ? [] : model.series.flatMap((se) => se.values.filter((v): v is number => v != null).map((v) => formatNumber(v, o.format)));
   const margin = horizontal
     ? {
+        // Yatayda değer etiketi çubuğun sağına yazılıyor; üste taşan yok.
         top: 8,
         right: 16,
-        bottom: (o.xAxis ? 30 : 8) + (o.xTitle ? 16 : 0),
-        left: Math.min(160, Math.max(56, longest * 7 + 16)) + (o.yTitle ? 16 : 0),
+        bottom: (o.xAxis ? tickTabani() : 8) + (o.xTitle ? eksenAdiPayi() : 0),
+        // Kategori etiketi `bar-y-axis.tsx`'te `margin.left - 8` genişliğinde
+        // bir kutuya sığdırılıyor; ölçülen genişlik + o payı ayırıyoruz.
+        left: Math.min(o.width * 0.4, Math.max(56, enGenis(model.labels, 12) + 10)) + (o.yTitle ? eksenAdiPayi() : 0),
       }
     : {
         top: 12,
         right: 16,
-        bottom: xBand + (o.xTitle ? 16 : 0),
-        left: (o.yAxis ? leftMargin(model, o) : 8) + (o.yTitle ? 16 : 0),
+        bottom: xBand + (o.xTitle ? eksenAdiPayi() : 0),
+        left: (o.yAxis ? leftMargin(model, o) : 8) + (o.yTitle ? eksenAdiPayi() : 0),
       };
   // Dışarıdaki etiket çubuğun tepesinin üstüne yazılıyor; üst kenar boşluğu
   // büyümezse en yüksek çubuğun etiketi çizim alanının dışında kalıyor.
   if (mode === "outside") {
-    if (horizontal) margin.right += o.valueLabelSize * 2.6;
-    else margin.top += o.valueLabelSize + 6;
+    if (horizontal) margin.right += 6 + enGenis(degerler, o.valueLabelSize);
+    else margin.top += 5 + olcSatir(o.valueLabelSize).cik;
+  }
+  // Dikey çubukta etiket bandın ortasına yazılıyor: bandın yarısını aşan bir
+  // sayı uçtaki çubuklarda çizim alanının dışına taşıyor. Eskiden hiç
+  // sayılmıyordu.
+  if (!horizontal && mode !== "none") {
+    const bant = Math.max(12, (o.width - o.padding * 2 - margin.left - margin.right) / Math.max(1, model.labels.length));
+    const tasma = Math.max(0, enGenis(degerler, o.valueLabelSize) / 2 - bant / 2);
+    margin.right = Math.max(margin.right, Math.ceil(tasma));
+    margin.left = Math.max(margin.left, Math.ceil(tasma));
   }
 
   return (
@@ -645,7 +711,15 @@ function Heat({ spec, colors, isStatic }: BodyProps) {
         gap={2}
         weekStartDay={o.heatmapWeekStart}
         levelColors={levels}
-        margin={{ top: 20, right: 4, bottom: 4, left: 30 }}
+        // Ay ve gün etiketleri HTML portal (`heatmap-x-axis`/`heatmap-y-axis`),
+        // ikisi de `text-xs` = 12 px. Sabit {20,4,4,30} şans eseri doğruydu;
+        // biçim değişirse sessizce bozulmasın diye türetiliyor.
+        margin={{
+          top: 4 + Math.ceil(satirYuksekligi(12)),
+          right: 4,
+          bottom: 4,
+          left: 12 + Math.ceil(enGenis(["Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz"], 12)),
+        }}
         animationDuration={isStatic || !o.animate ? 0 : 900}
         enterTransition={isStatic ? INSTANT : undefined}
         animate={!isStatic && o.animate}
@@ -668,6 +742,9 @@ function Heat({ spec, colors, isStatic }: BodyProps) {
 
 /* ---------------- sankey ---------------- */
 
+/** Sankey değer etiketleri `intFmt` ile, yani `en-US` gruplamasıyla yazılıyor. */
+const SANKEY_FMT = new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 });
+
 function Flow({ spec, colors, isStatic }: Omit<BodyProps, "theme">) {
   const { options: o } = spec;
   const model = useMemo(() => toSankey(spec), [spec]);
@@ -675,34 +752,58 @@ function Flow({ spec, colors, isStatic }: Omit<BodyProps, "theme">) {
     return <Empty text="Kaynak ; Hedef ; Değer satırları girin." />;
   }
   const nodeColor = (_n: unknown, i: number) => colors[i % colors.length];
-  // Outside labels sit left of source nodes and right of outcome nodes; the
-  // margin has to make room for the longest name (plus its value line).
-  const labelWidth = (cat: string) =>
-    model.data.nodes.filter((n) => n.category === cat).reduce((a, n) => Math.max(a, n.name.length), 0) * 7.5 + 24;
-  const margin = {
-    top: 8,
-    bottom: 8,
-    left: Math.min(240, Math.max(16, labelWidth("source"))),
-    right: Math.min(240, Math.max(16, labelWidth("outcome"))),
+
+  // `sankey-node` her düğümün yanına, kaynak düğümde giden, diğerlerinde gelen
+  // bağlantıların toplamını yazıyor. Ölçtüğümüz metin çizilen metin olmak
+  // zorunda, o yüzden aynı hesap ve aynı biçim burada tekrarlanıyor.
+  const degerMetni = (i: number) => {
+    const kaynakMi = model.data.nodes[i]?.category === "source";
+    let v = 0;
+    for (const l of model.data.links) {
+      if (kaynakMi ? (l.source as number) === i : (l.target as number) === i) v += l.value;
+    }
+    const sayi = SANKEY_FMT.format(v);
+    return o.sankeyUnit ? `${sayi} ${o.sankeyUnit}` : sayi;
   };
+
   return (
     <div style={{ flex: 1, minHeight: 0, position: "relative" }}>
-      <SankeyChart
-        data={model.data}
-        aspectRatio="auto"
-        className={FILL}
-        nodeWidth={o.sankeyNodeWidth}
-        nodePadding={o.sankeyNodePadding}
-        margin={margin}
-        // The link reveal is a motion value driven by the enter tween; with a
-        // zero duration it never reaches 1. The export waits for it instead.
-        animationDuration={isStatic ? 400 : o.animate ? 1100 : 400}
-        enterTransition={isStatic ? INSTANT : undefined}
-      >
-        <SankeyLink getNodeColor={nodeColor} />
-        <SankeyNode getNodeColor={nodeColor} showValueLabels={o.sankeyValueLabels} valueUnit={o.sankeyUnit || undefined} />
-        {!isStatic && o.hover && <SankeyTooltip formatValue={(v) => formatNumber(v, o.format)} />}
-      </SankeyChart>
+      {/* Kenar boşluğu çizim kutusunun gerçek ölçüsünü istiyor: etiketin
+          sığıp sığmadığı düğümün nerede durduğuna, o da kutunun genişliğine
+          bağlı. Kutuyu tahmin etmek (kart eksi başlık eksi dipnot) sahne ile
+          dışa aktarım arasında ayrışma riski demekti. */}
+      <ParentSize>
+        {({ width, height }) => {
+          if (width < 2 || height < 2) return null;
+          const margin = sankeyKenari({
+            data: model.data,
+            width,
+            height,
+            nodeWidth: o.sankeyNodeWidth,
+            nodePadding: o.sankeyNodePadding,
+            degerEtiketleri: o.sankeyValueLabels,
+            degerMetni,
+          });
+          return (
+            <SankeyChart
+              data={model.data}
+              aspectRatio="auto"
+              className={FILL}
+              nodeWidth={o.sankeyNodeWidth}
+              nodePadding={o.sankeyNodePadding}
+              margin={margin}
+              // The link reveal is a motion value driven by the enter tween; with a
+              // zero duration it never reaches 1. The export waits for it instead.
+              animationDuration={isStatic ? 400 : o.animate ? 1100 : 400}
+              enterTransition={isStatic ? INSTANT : undefined}
+            >
+              <SankeyLink getNodeColor={nodeColor} />
+              <SankeyNode getNodeColor={nodeColor} showValueLabels={o.sankeyValueLabels} valueUnit={o.sankeyUnit || undefined} />
+              {!isStatic && o.hover && <SankeyTooltip formatValue={(v) => formatNumber(v, o.format)} />}
+            </SankeyChart>
+          );
+        }}
+      </ParentSize>
     </div>
   );
 }
