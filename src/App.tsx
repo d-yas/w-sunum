@@ -749,8 +749,17 @@ export function App() {
               </button>
             </div>
             <div className="min-h-0 flex-1 overflow-hidden px-3 pb-3">
-              {/* Bir adı değiştirmek elle sıradaki ve vurgudaki karşılığını da değiştirir. */}
-              <DataGrid kind={active.kind} data={active.data} onChange={(data) => updateChart(adlariTasi(active, data))} />
+              {/* Bir adı değiştirmek elle sıradaki ve vurgudaki karşılığını da değiştirir.
+                  Yazmak birleşen adımlar; yapıştırma, silme, taşıma ayrı geri al adımı. */}
+              <DataGrid
+                // Seçim, düzenleme ve bildirim bir karta ait: grafik değişince sıfırlanır.
+                key={active.id}
+                kind={active.kind}
+                data={active.data}
+                format={active.options.format}
+                onChange={(data) => updateChart(adlariTasi(active, data))}
+                onAdim={(data) => siraBirak((c) => adlariTasi(c, data))}
+              />
             </div>
           </div>
         </aside>

@@ -816,6 +816,59 @@ export function defaultWorkspace(): Workspace {
   };
 }
 
+/** Bir sütuna ne tür değer girilir. `columnRoles` ile aynı switch'ten. */
+export type ColumnType = "metin" | "sayi" | "tarih";
+
+/**
+ * Sütunların değer türü — hizalama ve doğrulama bunu okuyor.
+ *
+ * Eskiden tablo "ilk sütun dışındakiler sayıdır" diye varsayıp `sankey` için
+ * elle bir istisna taşıyordu; o istisna aynı rolleri paylaşan `chord`,
+ * `network` ve `arc`'a genişletilmemişti, `treemap`'in *Alt grup*'u ve
+ * `scatter`'ın *Grup*'u da sayı sayılıp sağa dayanıyordu.
+ */
+export function columnTypes(kind: ChartKind, colCount: number): ColumnType[] {
+  const roles = columnRoles(kind);
+  let sabit: ColumnType[];
+  switch (kind) {
+    case "ring":
+    case "gauge":
+      sabit = ["metin", "sayi", "sayi"];
+      break;
+    case "funnel":
+    case "waterfall":
+    case "pictogram":
+    case "map":
+      sabit = ["metin", "sayi"];
+      break;
+    case "treemap":
+    case "sunburst":
+    case "pack":
+      sabit = ["metin", "metin", "sayi"];
+      break;
+    case "scatter":
+    case "bubble":
+      sabit = ["metin", "sayi", "sayi", "sayi", "metin"];
+      break;
+    case "heatmap":
+      sabit = ["tarih", "sayi"];
+      break;
+    case "sankey":
+    case "chord":
+    case "network":
+    case "arc":
+      sabit = ["metin", "metin", "sayi"];
+      break;
+    default:
+      // Kartezyen: ilk sütun kategori ya da tarih, gerisi seri değerleri.
+      sabit = ["metin"];
+      break;
+  }
+  const out: ColumnType[] = [];
+  for (let c = 0; c < colCount; c++) out.push(c < sabit.length ? sabit[c] : roles.seriesLabel ? "sayi" : "metin");
+  return out;
+}
+
 /** Column roles per kind — used by the grid header and the adapters. */
 export function columnRoles(kind: ChartKind): { fixed: string[]; seriesLabel: string | null } {
   switch (kind) {

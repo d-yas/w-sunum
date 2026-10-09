@@ -26,7 +26,9 @@
     "test:secenek": "node scripts/options-check.mjs",
     "test:svg": "node scripts/svg-check.mjs",
     "test:sira": "node scripts/sira-check.mjs",
-    "test:sira-birim": "node scripts/sira-test.mjs"
+    "test:sira-birim": "node scripts/sira-test.mjs",
+    "test:veri": "node scripts/veri-check.mjs",
+    "test:tablo": "node scripts/tablo-test.mjs"
   },
   "dependencies": {
     "@base-ui/react": "1.7.0",

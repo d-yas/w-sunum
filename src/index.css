@@ -652,11 +652,74 @@ body.suruklerken [data-drag-row]:not([data-dragging]) { transition: transform .1
   height: 28px; width: 100%; min-width: 84px; background: transparent; padding: 0 8px; font-size: 12px; outline: none; border: 0;
   font-variant-numeric: tabular-nums; color: var(--foreground); font-family: inherit;
 }
-.grid-table input:focus { background: color-mix(in oklab, var(--ring) 10%, transparent); box-shadow: inset 0 0 0 1px var(--ring); }
-.grid-table th input { font-weight: 600; }
-.grid-table td.num input { text-align: right; }
-.grid-table th .col-x { display: none; position: absolute; right: 2px; top: 6px; }
-.grid-table th:hover .col-x { display: inline-flex; }
+
+/* Veri ızgarası — Excel kası olan biri için (DataGrid.tsx).
+
+   Hücreler düz metin; düzenleme yalnız tek hücrede açılan kutuda. Izgaranın
+   kendisi odak alıyor: oklar hücreler arasında gezer, yazmak hücreyi
+   değiştirir. Metin seçimi kapalı — fareyle sürüklemek hücre seçer. */
+.veri-izgara { outline: none; user-select: none; -webkit-user-select: none; }
+.veri-izgara .grid-table td, .veri-izgara .grid-table th {
+  position: relative; height: 28px; min-width: 84px; max-width: 240px; padding: 0 8px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: cell;
+  font-variant-numeric: tabular-nums;
+  /* Klavyeyle gezerken hücre yapışkan başlığın altında kalmasın. */
+  scroll-margin-top: 30px; scroll-margin-left: 36px;
+}
+.veri-izgara .grid-table td.num { text-align: right; }
+.veri-izgara .grid-table td.rownum { min-width: 34px; width: 34px; padding: 0; cursor: pointer; }
+.veri-izgara .grid-table th { cursor: pointer; }
+.veri-izgara .grid-table th.kose { min-width: 34px; width: 34px; padding: 0; }
+.veri-izgara .grid-table th.kose[aria-selected="true"] { background: color-mix(in oklab, var(--ring) 30%, var(--muted)); }
+.sutun-baslik { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.sutun-baslik .hucre-yazi { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.yer-tutucu { color: var(--muted-foreground); font-weight: 500; font-style: italic; }
+.tip-isaret { flex-shrink: 0; font-size: 9.5px; font-weight: 600; letter-spacing: .02em; color: var(--muted-foreground); opacity: .75; }
+
+/* Seçim: aralık soluk mavi, aktif hücre kalın çerçeve. Izgara odaktayken
+   çerçeve tam renk, değilken (panelde başka bir yere tıklandı) soluk. */
+.veri-izgara .grid-table td[aria-selected="true"] { background: color-mix(in oklab, var(--ring) 13%, var(--card)); }
+.veri-izgara .grid-table th[aria-selected="true"],
+.veri-izgara .grid-table td.rownum[aria-selected="true"] {
+  background: color-mix(in oklab, var(--ring) 26%, var(--muted)); color: var(--foreground);
+}
+.veri-izgara [data-odak] { box-shadow: inset 0 0 0 2px color-mix(in oklab, var(--ring) 55%, transparent); }
+.veri-izgara:focus [data-odak], .veri-izgara[data-duzen] [data-odak] { box-shadow: inset 0 0 0 2px var(--ring); }
+/* Türüne uymayan hücre: sayı sütununda sayı değil, tarih sütununda tarih değil. */
+.veri-izgara .grid-table td[data-hatali] {
+  color: var(--destructive); text-decoration: underline wavy color-mix(in oklab, var(--destructive) 70%, transparent);
+  text-underline-offset: 3px;
+}
+/* Tek hücrede açılan giriş kutusu hücreyi tamamen örter. */
+.veri-izgara .hucre-giris {
+  position: absolute; inset: 0; z-index: 1; width: 100%; height: 100%; min-width: 0; padding: 0 8px;
+  border: 0; outline: 2px solid var(--ring); outline-offset: -2px; background: var(--card);
+  color: var(--foreground); font: inherit; font-weight: inherit; user-select: text; -webkit-user-select: text;
+}
+/* Satır/sütun sürüklerken bırakılacak yer. Tablo satırında `::before`
+   güvenilir değil; çizgi hücrelerin iç gölgesiyle çiziliyor. */
+.veri-izgara tr[data-cizgi="once"] > td { box-shadow: inset 0 2px 0 var(--ring); }
+.veri-izgara tr[data-cizgi="sonra"] > td { box-shadow: inset 0 -2px 0 var(--ring); }
+.veri-izgara th[data-cizgi="once"], .veri-izgara td[data-cizgi="once"] { box-shadow: inset 2px 0 0 var(--ring); }
+.veri-izgara th[data-cizgi="sonra"], .veri-izgara td[data-cizgi="sonra"] { box-shadow: inset -2px 0 0 var(--ring); }
+
+/* İşlemden sonra kısa bildirim; eylemleri (başlık mı veri mi, kalan satırları
+   sil) yalnız tablo hâlâ o hâldeyken görünür. */
+.veri-bildirim {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 6px; padding: 5px 6px 5px 10px; border-radius: 7px;
+  border: 1px solid color-mix(in oklab, var(--ring) 40%, var(--border));
+  background: color-mix(in oklab, var(--ring) 9%, var(--card)); font-size: 11.5px; line-height: 1.35;
+}
+.veri-bildirim .grow { flex: 1; min-width: 140px; }
+.veri-durum { display: flex; align-items: center; gap: 10px; min-height: 16px; font-size: 11px; color: var(--muted-foreground); }
+/* Dar panelde Kopyala/Yapıştır yalnız simge (ipucu tam adı söylüyor); tam
+   ekran veri alanında yazılarıyla. */
+.veri-panel:not(.veri-tam) .arac-yazi { display: none; }
+.veri-durum > :first-child { min-width: 0; }
+.veri-hata {
+  margin-left: auto; flex-shrink: 0; padding: 0; border: 0; background: none; cursor: pointer;
+  color: var(--destructive); font: inherit; text-decoration: underline; text-underline-offset: 2px;
+}
 
 /* Stage */
 .stage { background-color: var(--background); background-image: radial-gradient(circle, var(--border) 1px, transparent 1px); background-size: 18px 18px; }

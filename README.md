@@ -37,11 +37,45 @@ panelin sekmeleriydi; artık hangi ayardaysanız orada duruyorlar.
    Aynı tablo biçimini paylaşan türler arasında geçerken veriniz korunur
    (örneğin Sankey → Akor → Ağ → Yay, ya da Sütun → Radar → Marimekko);
    biçim değişince örnek veri gelir.
-3. **Sol alttaki tabloyu** doldurun. Excel'den kopyalayıp doğrudan hücreye
-   yapıştırabilirsiniz (çok satırlı yapıştırma tabloyu genişletir); `Yapıştır`
-   düğmesi tüm tabloyu değiştirir; CSV/JSON yükleme ve indirme var. Katman
-   listesi ile tablo arasındaki çizgiyi sürükleyerek ikisinin payını
-   değiştirebilirsiniz.
+3. **Sol alttaki tablo** Excel gibi çalışır. Katman listesi ile tablo
+   arasındaki çizgiyi sürükleyerek ikisinin payını değiştirebilir, köşedeki
+   düğmeyle tabloyu tam ekran açabilirsiniz.
+
+   - **Seçmek** — hücreye tıklayın, sürükleyin ya da `Shift`+tık / `Shift`+ok
+     ile genişletin. Satır numarası satırı, **başlık sütunu** seçer (başlık ve
+     değerler); köşe ya da `Ctrl+A` tümünü. `Ctrl`+ok dolu bloğun ucuna atlar.
+   - **Yazmak** — seçili hücrede yazmaya başlamak içeriği değiştirir; `F2` ya
+     da çift tık içinde düzenler. `Enter` aşağı, `Tab` sağa geçer (son
+     satırda yeni satır açar), `Esc` vazgeçer, `Del` seçimi temizler.
+     Başlıkta yazmak sütunun adını değiştirir.
+   - **Excel'den getirmek** — kopyalayın, tabloya tıklayın, `Ctrl+V`. Tablonun
+     tamamı ilk hücreye geldiyse yerine konur; başlıklar yıl olsa bile
+     (`Ürün | 2023 | 2024`) tanınır. Başka bir hücreye yapıştırmak oradan
+     itibaren üzerine yazar, sığmayan satırları (kartezyende serileri) ekler;
+     bir sütunu seçip yapıştırmak adını da alır — yeni bir seri böyle eklenir.
+     Tek bir değeri çok hücreye yapıştırmak hepsini doldurur. Yapıştırdıktan
+     sonra çıkan çubuk tahmini tek tıkla düzeltir ("İlk satır veriydi") ve
+     yeni dönemin verisi eskisinden kısaysa alttaki eski satırları siler.
+   - **Geri kopyalamak** — `Ctrl+C` seçimi Excel'in anladığı sekmeli metin
+     **ve** PowerPoint/Word'ün tablo olarak aldığı HTML olarak kopyalar; sütun
+     seçiliyse adlarıyla. `Ctrl+X` keser. Araç çubuğundaki **Kopyala** tablonun
+     tamamını, **Yapıştır** panodakini seçili hücreye koyar (tarayıcı panoyu
+     okumaya izin vermezse metin kutusu açılır).
+   - **Satır ve sütun** — sağ tık: üstüne/altına ekle, çoğalt, taşı, sil;
+     sütunda yeniden adlandır, seri ekle/sil, sola/sağa taşı ve **sütuna göre
+     sırala** (tablonun kendisini; grafikteki sıra ayrı, bkz. 4a). Seçili
+     satırları numarasından, seçili serileri başlığından sürükleyerek taşıyın;
+     `Alt+↑/↓` satırı, `Alt+←/→` seriyi bir adım taşır. `Ctrl+D` aşağı doldurur.
+   - **Kontrol** — sayı sütununda sayı olmayan (tarih sütununda tarih olmayan)
+     hücre kırmızı altı çizili; durum çubuğu kaç tane olduğunu söyler, tıklamak
+     ilkine götürür. Seçimdeki sayıların **toplamı ve ortalaması** da orada.
+   - **⋯ menüsü** — CSV/JSON yükle, CSV indir, metin yapıştır, panodakini alta
+     ekle, ilk satırı başlık yap / başlığı satıra indir, **satır ↔ sütun
+     çevir** (Excel'den ters yönlü gelen tablo için), boş satırları sil,
+     tabloyu temizle, örnek veri.
+
+   Yazmak ardışık tuşları tek geri al adımında birleştirir; yapıştırma,
+   silme, taşıma her biri ayrı adım — `Ctrl+Z` tam olarak son işlemi geri alır.
 
    **Kartın altındaki şeritte** her grafiğin küçük resmi duruyor — resim
    gerçek dışa aktarım çıktısı, yani şeritte gördüğünüz şey indireceğiniz şey.
@@ -316,6 +350,8 @@ pnpm test:secenek # ayarlar çizime ulaşıyor mu — köşe, vurgu, aralık, et
 pnpm test:svg     # kart SVG'si eksiksiz mi — başlık, gösterge, portal eksenleri
 pnpm test:sira    # elle sıralama: sahnede seç/sürükle, klavye, liste, gösterge, sankey sütunu, serbest yerleşim
 pnpm test:sira-birim # sıra modeli (Node, Vite ssrLoadModule): her tür × mod, dondurma, renk kimliği, ad izleme
+pnpm test:veri    # veri tablosu, kullanıcı yolculuklarıyla: Excel'den ilk tablo, sütun güncelleme, yeni seri, geri kopyalama, hızlı düzeltme, satır/sütun, kes-taşı, hata/doldur/ölç
+pnpm test:tablo   # tablo işlemleri ve seçim modeli (Node): yapıştırma kuralları, başlık tahmini, taşıma, devrik, doğrulama
 node scripts/gen-country-codes.mjs   # src/lib/country-codes.ts üretir (world-atlas + Node ICU)
 ```
 
@@ -459,6 +495,18 @@ yazar. pnpm 11'de esbuild'in kurulum betiği `pnpm-workspace.yaml` içindeki
 - `src/components/SiraPaneli.tsx` — sağ paneldeki "Sıra" ve "Öğe"
   bölümleri; liste `useDragOrder` ile. `BaglamMenusu.tsx` katman listesiyle
   ortak sağ tık menüsü.
+- `src/components/DataGrid.tsx` — veri tablosu. Hücreler düz metin;
+  düzenleme yalnız tek hücrede açılan kutuda, ızgaranın kendisi odak alıyor
+  (eskiden her hücre bir `<input>`'tu: oklar yazının içinde geziyordu, aralık
+  seçimi, aralık kopyalama ve `Del` ile temizleme yoktu). Pano ızgaranın
+  `copy`/`cut`/`paste` olaylarından: kopyalarken sekmeli metin **ve** HTML
+  tablo yazılıyor. İşlemler saf modüllerde: `src/lib/tablo.ts` (yapıştırma
+  kuralları ve başlık tahmini, satır/sütun ekle-sil-taşı, doldur, sırala,
+  devrik, doğrulama, seçim özeti) ve `src/lib/grid-selection.ts` (hücre,
+  satır, sütun kipleri; başlık satırı yalnız sütun kipinde). Yazmak
+  `onChange` (birleşen geri al adımları), ayrık işlemler `onAdim` (her biri
+  ayrı adım). Kurallar kullanıcı yolculuklarından türedi; her yolculuk
+  `scripts/veri-check.mjs`'te bir senaryo.
 - `src/viz/` — Bklit'te karşılığı olmayan, **Flourish şablonlarına denk gelen**
   grafikler; visx ilkelleri üzerine ayrıca yazıldı, `src/charts/` hiç
   değişmedi. Kart, palet, sayı biçimi ve dışa aktarım yolu ortaktır.
