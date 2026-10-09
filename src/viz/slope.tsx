@@ -5,6 +5,7 @@ import { useMemo } from "react";
 import { toCartesian } from "@/lib/adapters";
 import { formatNumber } from "@/lib/format";
 import { enGenis, olcMetin, olcSatir, satirYuksekligi } from "@/lib/olcu";
+import { anahtarla } from "@/lib/sira";
 import { Empty, Reveal, VIZ, VizFrame, ellipsize, type VizProps } from "./common";
 import { WithLegend } from "./with-legend";
 
@@ -29,6 +30,8 @@ export function SlopeViz({ spec, colors, isStatic }: VizProps) {
     color: colors[ri % colors.length],
   }));
 
+  const anahtarlar = anahtarla(lines.map((l) => l.label));
+  const durakAnahtarlari = anahtarla(model.series.map((s) => s.name));
   const all = lines.flatMap((l) => l.values);
   const valueTextRaw = (v: number) => formatNumber(v, o.format);
   const items = lines.map((l) => ({
@@ -83,6 +86,7 @@ export function SlopeViz({ spec, colors, isStatic }: VizProps) {
                   <text
                     key={`h${i}`}
                     className={VIZ.strong}
+                    data-seri={durakAnahtarlari[i]}
                     x={x(i)}
                     y={-10}
                     textAnchor={i === 0 ? "start" : i === stops - 1 ? "end" : "middle"}
@@ -96,7 +100,7 @@ export function SlopeViz({ spec, colors, isStatic }: VizProps) {
                 {lines.map((l, li) => {
                   const d = l.values.map((v, i) => `${i === 0 ? "M" : "L"}${x(i).toFixed(2)},${ys(v).toFixed(2)}`).join(" ");
                   return (
-                    <g key={li}>
+                    <g key={li} data-oge={anahtarlar[li]}>
                       <path d={d} fill="none" stroke={l.color} strokeWidth={o.strokeWidth} strokeLinecap="round" strokeLinejoin="round" />
                       {o.slopeDots > 0 &&
                         l.values.map((v, i) => <circle key={i} cx={x(i)} cy={ys(v)} r={o.slopeDots} fill={l.color} />)}
@@ -108,7 +112,7 @@ export function SlopeViz({ spec, colors, isStatic }: VizProps) {
               {/* uç etiketleri: solda ad, sağda ad + değer */}
               {o.slopeLabels &&
                 lines.map((l, li) => (
-                  <g key={`lb${li}`}>
+                  <g key={`lb${li}`} data-oge={anahtarlar[li]}>
                     <text
                       className={VIZ.strong}
                       x={-o.slopeDots - 8}

@@ -3,7 +3,7 @@ import type { RingData } from "@/charts/ring-context";
 import type { SankeyData } from "@/charts/sankey/sankey-chart";
 import type { Locale } from "./format";
 import { parseDate, parseNumber } from "./parse";
-import type { ChartSpec, SortOrder, TableData } from "./spec";
+import type { ChartSpec, TableData } from "./spec";
 
 export interface Series {
   key: string;
@@ -22,19 +22,13 @@ export interface CartesianModel {
   spanMs: number;
 }
 
-/**
- * Satırları değere göre sırala.
- *
- * Sıralama veri katmanında yapılıyor, çizim katmanında değil: eksen etiketleri,
- * gösterge, değer etiketleri ve ipucu hepsi aynı sıradan okuyor, yani tek bir
- * yerde sıralamak hepsini tutarlı tutuyor. Sıralanan yalnız tek serili
- * grafikler; çok serilide "hangi seriye göre" sorusunun cevabı yok.
+/*
+ * Sıralama burada yapılmıyor. Adaptörler tabloyu geldiği sırayla okur;
+ * sırayı `src/lib/sira.ts`'in `gorunum()`'ü, çizimden hemen önce satırları
+ * (ve sütunları) dizerek verir. Eskiden `sortRows` burada iki adaptörde
+ * çalışıyordu, halkada hiç çalışmıyordu ve denetimi olmayan türlerde gizlice
+ * çalışıyordu.
  */
-export function sortRows<T>(rows: T[], order: SortOrder, valueOf: (row: T) => number): T[] {
-  if (order === "none") return rows;
-  const sign = order === "asc" ? 1 : -1;
-  return [...rows].sort((a, b) => sign * (valueOf(a) - valueOf(b)));
-}
 
 /** Series keys are positional so renamed columns never break lookups. */
 export function seriesKey(i: number): string {
@@ -44,13 +38,7 @@ export function seriesKey(i: number): string {
 export function toCartesian(spec: ChartSpec): CartesianModel {
   const { data, options } = spec;
   const locale = options.format.locale;
-  const kept = data.rows.filter((r) => (r[0] ?? "").trim() !== "" || r.slice(1).some((c) => (c ?? "").trim() !== ""));
-  // Tek seri + kategorik eksen: sıralamak anlamlı. Tarih ekseninde zaman
-  // sırası verinin kendisi, ona dokunulmaz.
-  const rows =
-    data.columns.length === 2 && options.xMode !== "date"
-      ? sortRows(kept, options.sort, (r) => parseNumber(r[1], locale) ?? 0)
-      : kept;
+  const rows = data.rows.filter((r) => (r[0] ?? "").trim() !== "" || r.slice(1).some((c) => (c ?? "").trim() !== ""));
   const labels = rows.map((r, i) => (r[0] ?? "").trim() || `#${i + 1}`);
 
   const parsedDates = labels.map((l) => parseDate(l));
@@ -244,10 +232,9 @@ export function toCategoryValue(spec: ChartSpec): CategoryModel {
     if (label === "" || value == null) continue;
     items.push({ label, value, target: parseNumber(r[2], locale) });
   }
-  const sorted = sortRows(items, spec.options.sort, (i) => i.value);
-  const values = sorted.map((i) => i.value);
+  const values = items.map((i) => i.value);
   return {
-    items: sorted,
+    items,
     total: values.reduce((a, v) => a + v, 0),
     max: values.length ? Math.max(...values) : 0,
     min: values.length ? Math.min(...values) : 0,
@@ -483,14 +470,23 @@ export function toFlow(spec: ChartSpec): FlowModel {
     }
     return i;
   };
-  const links: FlowLink[] = [];
+  const gecerli: [string, string, number][] = [];
   for (const r of spec.data.rows) {
     const s = (r[0] ?? "").trim();
     const t = (r[1] ?? "").trim();
     const v = parseNumber(r[2], locale);
     if (!s || !t || v == null || v <= 0 || s === t) continue;
-    links.push({ source: id(s), target: id(t), value: v });
+    gecerli.push([s, t, v]);
   }
+  // Akorda düğüm sırası çemberdeki, yayda soldan sağa sıra: elle sıra düğüm
+  // dizisini tohumlar (`sira.ts` `gorunum`). Ağda dizi kimlik sırasında kalır —
+  // kuvvet yerleşimi başlangıç çemberini bu sıradan kuruyor, gösterge sırası
+  // değişince ağ baştan dağılmasın.
+  if (spec.options.sort === "manual" && (spec.kind === "chord" || spec.kind === "arc")) {
+    const var_ = new Set(gecerli.flatMap(([s, t]) => [s, t]));
+    for (const ad of spec.options.sira.oge) if (var_.has(ad)) id(ad);
+  }
+  const links: FlowLink[] = gecerli.map(([s, t, v]) => ({ source: id(s), target: id(t), value: v }));
   const n = names.length;
   const matrix = Array.from({ length: n }, () => new Array<number>(n).fill(0));
   const totals = new Array<number>(n).fill(0);

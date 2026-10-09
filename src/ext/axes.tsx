@@ -24,22 +24,25 @@ function Tick({
   angle,
   children,
   anchor = "middle",
+  oge,
 }: {
   x: number;
   y: number;
   angle: 0 | 45 | 90;
   children: React.ReactNode;
   anchor?: "start" | "middle" | "end";
+  /** Kategori etiketi bir öğeyi temsil ediyorsa sıra anahtarı — sahnede tutulup sürüklenebilir. */
+  oge?: string;
 }) {
   if (angle === 0) {
     return (
-      <text className={TEXT_CLASS} x={x} y={y} textAnchor={anchor}>
+      <text className={TEXT_CLASS} data-oge={oge} x={x} y={y} textAnchor={anchor}>
         {children}
       </text>
     );
   }
   return (
-    <text className={TEXT_CLASS} x={x} y={y} textAnchor="end" transform={`rotate(-${angle} ${x} ${y})`}>
+    <text className={TEXT_CLASS} data-oge={oge} x={x} y={y} textAnchor="end" transform={`rotate(-${angle} ${x} ${y})`}>
       {children}
     </text>
   );
@@ -146,6 +149,8 @@ export function XAxis({ labels, xIsDate, locale, granularity, spanMs, minGap = 5
   const points = source.map((d, i) => ({
     x: xScale(xAccessor(d)) ?? 0,
     label: xIsDate ? formatDate(xAccessor(d), locale, granularity, spanMs) : (labels[i] ?? String(d.x ?? "")),
+    // Tarih ekseninde sıra zamandan gelir; tutulacak bir öğe yok.
+    oge: xIsDate ? undefined : String(d.x ?? labels[i] ?? ""),
   }));
   const every = Math.max(1, Math.ceil((points.length * minGap) / Math.max(innerWidth, 1)));
   const shown = points.filter((_, i) => i % every === 0 || (every > 1 && i === points.length - 1 && (points.length - 1) % every > every / 2));
@@ -156,7 +161,7 @@ export function XAxis({ labels, xIsDate, locale, granularity, spanMs, minGap = 5
       {dedup.map((p, i) => {
         const anchor = p.x < 6 ? "start" : p.x > innerWidth - 6 ? "end" : "middle";
         return (
-          <Tick key={`${p.label}-${i}`} x={p.x} y={innerHeight + 18} angle={angle} anchor={anchor}>
+          <Tick key={`${p.label}-${i}`} x={p.x} y={innerHeight + 18} angle={angle} anchor={anchor} oge={p.oge}>
             {p.label}
           </Tick>
         );
@@ -184,7 +189,7 @@ export function BarXAxis({ angle = 0, title = "" }: { angle?: 0 | 45 | 90; title
         if (x < 0 || x > innerWidth) return null;
         const text = Number.isFinite(enCokPx) ? kisalt(label, TICK_PUNTO, enCokPx) : label;
         return (
-          <Tick key={`${label}-${i}`} x={x} y={innerHeight + 18} angle={angle}>
+          <Tick key={`${label}-${i}`} x={x} y={innerHeight + 18} angle={angle} oge={label}>
             <title>{label}</title>
             {text}
           </Tick>

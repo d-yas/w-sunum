@@ -5,6 +5,7 @@ import { useMemo } from "react";
 
 import { toHierarchy, type HierarchyDatum } from "@/lib/adapters";
 import { formatNumber } from "@/lib/format";
+import { anahtarla } from "@/lib/sira";
 import { Empty, Reveal, VIZ, VizFrame, contrastText, ellipsize, mix, type VizProps } from "./common";
 import { WithLegend } from "./with-legend";
 
@@ -17,22 +18,29 @@ export function HierarchyViz({ spec, colors, isStatic, theme }: VizProps) {
   const o = spec.options;
   const model = useMemo(() => toHierarchy(spec), [spec]);
 
-  const root = useMemo(
-    () =>
-      hierarchy<HierarchyDatum>(model.root)
-        .sum((d) => d.value ?? 0)
-        .sort((a, b) => (b.value ?? 0) - (a.value ?? 0)),
-    [model]
-  );
+  // Sıra modu: "Otomatik" ve "Büyükten küçüğe" bugünkü görüntü (her düzeyde
+  // azalan), "Küçükten büyüğe" artan. A→Z ve Elle'de karşılaştırıcı yok —
+  // `gorunum` satırları zaten o sıraya dizdi ve modu "manual"e çevirdi;
+  // d3-hierarchy çocukları girdi sırasında bırakıyor.
+  const mod = o.sort;
+  const root = useMemo(() => {
+    const r = hierarchy<HierarchyDatum>(model.root).sum((d) => d.value ?? 0);
+    if (mod === "asc") return r.sort((a, b) => (a.value ?? 0) - (b.value ?? 0));
+    if (mod === "alpha" || mod === "manual") return r;
+    return r.sort((a, b) => (b.value ?? 0) - (a.value ?? 0));
+  }, [model, mod]);
 
   if (model.leaves === 0) {
     return <Empty text="Ana grup, alt grup ve pozitif bir değer girin (örn. Yazılım ; Lisans ; 420)." />;
   }
 
-  const items = model.groups.map((g, i) => ({
+  // Renk ilk görünüş sırasından (`model.groups`) gelir. Gösterge Otomatik'te
+  // eskisi gibi o sırada; diğer modlarda çizilen sırayı izler.
+  const gosterge = mod === "none" ? model.groups : (root.children ?? []).map((c) => c.data.name);
+  const items = gosterge.map((g) => ({
     label: g,
     value: root.children?.find((c) => c.data.name === g)?.value ?? 0,
-    color: colors[i % colors.length],
+    color: colors[Math.max(0, model.groups.indexOf(g)) % colors.length],
   }));
 
   /** Aynı dalın yaprakları ana renkten zemine doğru kademelenir. */
@@ -92,6 +100,22 @@ function groupIndexOf(node: { ancestors: () => { depth: number; data: HierarchyD
   return i < 0 ? 0 : i;
 }
 
+type Dugum = { depth: number; data: HierarchyDatum; parent: Dugum | null; children?: Dugum[] };
+
+/**
+ * Sahnede seçmek ve sürükleyerek sıralamak için: ana grup `data-oge`, yaprak
+ * ayrıca `data-alt` (grup içi anahtarı). Grup kendisi yaprak olduysa yalnız grup.
+ */
+function sahneOznitelikleri(n: Dugum): { "data-oge"?: string; "data-alt"?: string } {
+  if (n.depth === 1) return { "data-oge": n.data.name };
+  const grup = n.parent;
+  if (!grup || grup.depth !== 1) return {};
+  const kardesler = (grup.children ?? []).map((c) => c.data.name);
+  const anahtarlar = anahtarla(kardesler);
+  const i = (grup.children ?? []).indexOf(n);
+  return { "data-oge": grup.data.name, "data-alt": anahtarlar[i] };
+}
+
 /* ---------------- ağaç haritası ---------------- */
 
 function TreemapBody({ width, height, root, model, o, colors, shadeOf, format }: BodyProps) {
@@ -117,6 +141,7 @@ function TreemapBody({ width, height, root, model, o, colors, shadeOf, format }:
                 <text
                   key={`h-${n.data.name}`}
                   className={VIZ.strong}
+                  data-oge={n.data.name}
                   x={n.x0 + 2}
                   y={n.y0 + 12}
                   fontSize={12}
@@ -136,7 +161,7 @@ function TreemapBody({ width, height, root, model, o, colors, shadeOf, format }:
             const showLabel = o.hierarchyLabels && w > 44 && h > 22;
             const showValue = o.hierarchyValues && w > 44 && h > 34;
             return (
-              <Group key={`l-${i}`} top={leaf.y0} left={leaf.x0}>
+              <Group key={`l-${i}`} top={leaf.y0} left={leaf.x0} {...sahneOznitelikleri(leaf as unknown as Dugum)}>
                 <rect width={w} height={h} rx={Math.min(o.barRadius / 2, 6, w / 2, h / 2)} fill={fill} />
                 {showLabel && (
                   <text x={6} y={15} fontSize={11.5} fontWeight={600} fill={ink}>
@@ -202,7 +227,8 @@ function SunburstBody({ width, height, root, model, o, colors, shadeOf, format }
               const flip = deg > 90 || deg < -90;
               const ink = contrastText(fill);
               return (
-                <g key={`a-${i}`}>
+                // `data-aci`: sahnede sürüklerken dilimin açısı (saat 12'den, radyan).
+                <g key={`a-${i}`} {...sahneOznitelikleri(n as unknown as Dugum)} data-aci={(n.x0 + n.x1) / 2}>
                   <path d={d} fill={fill} />
                   {showLabel && (
                     <text
@@ -251,7 +277,7 @@ function PackBody({ width, height, root, model, o, colors, shadeOf, format }: Bo
               const showLabel = o.hierarchyLabels && !isBranch && n.r > 22;
               const showValue = o.hierarchyValues && !isBranch && n.r > 32;
               return (
-                <g key={`p-${i}`}>
+                <g key={`p-${i}`} {...sahneOznitelikleri(n as unknown as Dugum)}>
                   <circle
                     cx={n.x}
                     cy={n.y}

@@ -13,6 +13,8 @@
 import type { SlotKey } from "@/decor/model";
 import type { ZeminSlot } from "@/decor/types";
 
+import type { SiraBoyutu } from "./sira";
+
 /** Kartın seçilebilir parçaları. Alt parçalar (çubuk, değer etiketi…) grafiğe katlanır. */
 export type KartParcasi = "title" | "subtitle" | "note" | "legend" | "axis-x" | "axis-y" | "chart";
 
@@ -26,11 +28,27 @@ export type Secim =
   | { tur: "parca"; part: KartParcasi }
   | { tur: "nesne"; ids: string[] }
   /** Zemin yuvası — katman listesinden seçilir, sahnede tutamağı yok. */
-  | { tur: "zemin"; slot: ZeminSlot };
+  | { tur: "zemin"; slot: ZeminSlot }
+  /**
+   * Grafiğin öğeleri (kategori, aşama, grup, düğüm) ya da serileri. Figma'nın
+   * grup kuralı: ilk tık grafiği seçer, grafik seçiliyken tık öğeyi. Birden
+   * çok öğe birlikte taşınabilir. `grup` yalnız hiyerarşi yapraklarında.
+   */
+  | { tur: "oge"; boyut: SiraBoyutu; anahtarlar: string[]; grup?: string };
 
 export const nesneSecimi = (ids: string[]): Secim => (ids.length ? { tur: "nesne", ids } : SLAYT);
 
 export const SLAYT: Secim = { tur: "slayt" };
+
+export const GRAFIK: Secim = { tur: "parca", part: "chart" };
+
+/**
+ * Grafiğin "içinde" miyiz: grafik, göstergesi ya da bir öğesi seçili. İçeride
+ * tıklamak öğe seçer ve sürüklemek sıralar; dışarıdayken ilk tık grafiği seçer.
+ */
+export function icerideMi(s: Secim): boolean {
+  return s.tur === "oge" || (s.tur === "parca" && (s.part === "chart" || s.part === "legend"));
+}
 
 /**
  * Karttaki `data-part` değerini seçilebilir bir parçaya indirger.
@@ -101,6 +119,8 @@ export function gorunenBolumler(s: Secim): string[] {
       return ["zemin"];
     case "nesne":
       return s.ids.length > 1 ? ["coklu"] : ["secili"];
+    case "oge":
+      return ["oge", "sira"];
     case "parca":
       switch (s.part) {
         case "title":
@@ -108,12 +128,12 @@ export function gorunenBolumler(s: Secim): string[] {
         case "note":
           return ["metin"];
         case "legend":
-          return ["gosterge"];
+          return ["gosterge", "sira"];
         case "axis-x":
         case "axis-y":
           return ["eksenler"];
         default:
-          return ["tur", "eksenler", "gosterge", "bicimlendirme", "vurgu", "etiketler", "referans", "bicim"];
+          return ["tur", "sira", "eksenler", "gosterge", "bicimlendirme", "etiketler", "referans", "bicim"];
       }
   }
 }
@@ -123,6 +143,7 @@ export function secimAdi(s: Secim, nesneAdi?: string): string {
   if (s.tur === "slayt") return "Slayt";
   if (s.tur === "zemin") return { doku: "Doku", isik: "Işık", cerceve: "Çerçeve" }[s.slot];
   if (s.tur === "nesne") return s.ids.length > 1 ? `${s.ids.length} nesne` : (nesneAdi ?? "Süsleme");
+  if (s.tur === "oge") return s.anahtarlar.length > 1 ? `${s.anahtarlar.length} öğe` : (nesneAdi ?? s.anahtarlar[0] ?? "Öğe");
   const adlar: Record<KartParcasi, string> = {
     title: "Başlık",
     subtitle: "Alt başlık",

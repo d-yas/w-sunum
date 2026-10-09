@@ -13,7 +13,7 @@ export interface LegendItemProps {
 
 export function LegendItem({ className = "", children }: LegendItemProps) {
   const { setHoveredIndex } = useLegend();
-  const { index, isHovered } = useLegendItem();
+  const { index, isHovered, item } = useLegendItem();
 
   return (
     // biome-ignore lint/a11y/noNoninteractiveElementInteractions: Legend item hover interaction
@@ -24,6 +24,8 @@ export function LegendItem({ className = "", children }: LegendItemProps) {
         isHovered && "bg-legend-muted",
         className
       )}
+      // Veri Görsel eki: sahnede öğeyi seçmek ve sürükleyerek sıralamak için.
+      data-anahtar={item.anahtar ?? item.label}
       data-hovered={isHovered ? "" : undefined}
       onMouseEnter={() => setHoveredIndex(index)}
       onMouseLeave={() => setHoveredIndex(null)}

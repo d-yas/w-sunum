@@ -4,6 +4,7 @@ import { pictoIcon } from "@/lib/chart-icons";
 import { toCategoryValue } from "@/lib/adapters";
 import { formatNumber } from "@/lib/format";
 import { enGenis } from "@/lib/olcu";
+import { anahtarla } from "@/lib/sira";
 import { Empty, type VizProps } from "./common";
 
 /**
@@ -45,6 +46,7 @@ export function PictogramViz({ spec, colors }: VizProps) {
   const valueWidth =
     o.valueLabels === "none" ? 0 : Math.ceil(enGenis(rows.map((r) => formatNumber(r.value, o.format)), o.valueLabelSize + 1, 700)) + 6;
   const totalLines = rows.reduce((a, r) => a + r.lines, 0);
+  const anahtarlar = anahtarla(rows.map((r) => r.label));
 
   /**
    * Simge boyutu bütün satırlarda aynıdır — satır başına ayrı hesaplansaydı
@@ -75,7 +77,7 @@ export function PictogramViz({ spec, colors }: VizProps) {
       {rows.map((row, i) => {
         const color = colors[i % colors.length];
         return (
-          <div key={i} style={{ display: "flex", alignItems: "center", gap: 14, minHeight: 0 }}>
+          <div key={i} data-oge={anahtarlar[i]} style={{ display: "flex", alignItems: "center", gap: 14, minHeight: 0 }}>
             <div
               style={{
                 width: labelWidth,

@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { ChevronDown, X } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 
 import { GRADIENT_LABELS, PATTERN_LABELS } from "@/decor";
 import type { Bicem } from "@/lib/bicem";
@@ -270,8 +270,6 @@ export function OptionsPanel({ spec, theme, onChange }: { spec: ChartSpec; theme
     spec.kind === "heatmap" ||
     spec.kind === "waterfall" ||
     spec.kind === "pictogram";
-  /** Sıralaması anlamlı olanlar: tek serili kartezyen + kategori/değer türleri. */
-  const sortable = (bars && singleSeries) || spec.kind === "ring" || spec.kind === "funnel" || spec.kind === "pictogram";
   const hierarchy = dataShape(spec.kind) === "hierarchy";
   const xy = dataShape(spec.kind) === "xy";
   const relation = spec.kind === "chord" || spec.kind === "network" || spec.kind === "arc";
@@ -487,50 +485,6 @@ export function OptionsPanel({ spec, theme, onChange }: { spec: ChartSpec; theme
           <Field label="Köşe yarıçapı" hint="0 = keskin köşe">
             <Slider value={o.barRadius} min={0} max={24} step={1} onChange={(v) => set({ barRadius: v })} />
           </Field>
-        </Section>
-      )}
-
-      {(sortable || bars) && (
-        <Section id="vurgu" title="Sıralama ve vurgu">
-          {sortable && (
-            <Field label="Sırala" hint="Değere göre; tarih ekseninde uygulanmaz">
-              <Seg
-                value={o.sort}
-                options={[
-                  ["none", "Yok"],
-                  ["desc", "Azalan"],
-                  ["asc", "Artan"],
-                ]}
-                onChange={(v) => set({ sort: v })}
-              />
-            </Field>
-          )}
-          {bars && (
-            <>
-              <Field label="Vurgulananlar" hint="Sahnede bir çubuğa tıklayarak da seçilir">
-                <span className="text-[11px] text-muted-foreground">
-                  {o.highlight.length === 0 ? "hepsi tam" : `${o.highlight.length} kategori`}
-                </span>
-              </Field>
-              {o.highlight.length > 0 && (
-                <div className="flex flex-wrap items-center gap-1 pb-1">
-                  {o.highlight.map((h) => (
-                    <button
-                      key={h}
-                      className="chip"
-                      title="Vurgudan çıkar"
-                      onClick={() => set({ highlight: o.highlight.filter((x) => x !== h) })}
-                    >
-                      {h} <X size={11} />
-                    </button>
-                  ))}
-                  <button className="btn btn-sm" onClick={() => set({ highlight: [] })}>
-                    Temizle
-                  </button>
-                </div>
-              )}
-            </>
-          )}
         </Section>
       )}
 

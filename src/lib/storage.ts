@@ -2,7 +2,7 @@ import { normalizeDecor, normalizeLayout } from "@/decor/model";
 
 import { normalizePalettes } from "./palettes";
 
-import { DEFAULT_OPTIONS, defaultWorkspace, uid, type ChartOptions, type ChartSpec, type RefLine, type Workspace } from "./spec";
+import { DEFAULT_OPTIONS, defaultWorkspace, uid, type ChartOptions, type ChartSpec, type ElleSira, type RefLine, type Workspace } from "./spec";
 import { DEFAULT_FORMAT } from "./format";
 
 const KEY = "data-gorsel.workspace.v1";
@@ -65,7 +65,7 @@ export function normalizeChart(input: unknown): ChartSpec {
         : fallback.data,
     paletteId: c.paletteId ?? "varsayilan",
     colors: Array.isArray(c.colors) ? c.colors.map(String) : [],
-    options: normalizeOptions(c.options),
+    options: siraGocu(c.kind, c.options, normalizeOptions(c.options)),
     // Added after v1 shipped — workspaces saved before the decoration pack
     // simply come back undecorated instead of failing to load.
     decor: normalizeDecor(c.decor),
@@ -101,7 +101,8 @@ export function normalizeOptions(raw: unknown): ChartOptions {
   o.barRadius = clamp(o.barRadius, 0, 24, DEFAULT_OPTIONS.barRadius);
   o.valueLabelSize = clamp(o.valueLabelSize, 6, 32, DEFAULT_OPTIONS.valueLabelSize);
   o.colorBy = pick(o.colorBy, ["series", "category"], "series");
-  o.sort = pick(o.sort, ["none", "asc", "desc"], "none");
+  o.sort = pick(o.sort, ["none", "asc", "desc", "alpha", "manual"], "none");
+  o.sira = normalizeSira(o.sira);
   o.valueLabels = pick(o.valueLabels, ["auto", "none", "inside", "outside"], "auto");
   o.valueLabelPoints = pick(o.valueLabelPoints, ["all", "last"], "all");
   o.xTickAngle = ([0, 45, 90] as unknown[]).includes(o.xTickAngle) ? o.xTickAngle : "auto";
@@ -119,6 +120,29 @@ export function normalizeOptions(raw: unknown): ChartOptions {
           dash: l.dash !== false,
         }))
     : [];
+  return o;
+}
+
+/** Elle sıra listeleri — kullanıcı JSON'u elle düzenleyebiliyor, biçimi güvenceye al. */
+function normalizeSira(raw: unknown): ElleSira {
+  const s = (raw ?? {}) as Partial<Record<keyof ElleSira, unknown>>;
+  const liste = (v: unknown) => (Array.isArray(v) ? v.map(String).slice(0, 2000) : []);
+  const alt: Record<string, string[]> = {};
+  if (s.alt && typeof s.alt === "object" && !Array.isArray(s.alt)) {
+    for (const [g, l] of Object.entries(s.alt as Record<string, unknown>).slice(0, 500)) alt[g] = liste(l);
+  }
+  return { oge: liste(s.oge), seri: liste(s.seri), alt };
+}
+
+/**
+ * Elle sıradan önce kaydedilmiş kartlar. Halkada "Sırala" görünüyordu ama hiç
+ * uygulanmıyordu (`toRing` okumuyordu); şimdi uygulanıyor, yani eski bir
+ * halkada kalmış `sort` görüntüyü sessizce değiştirirdi. `sira` alanının
+ * yokluğu kartın o dönemden geldiğini söylüyor.
+ */
+function siraGocu(kind: unknown, raw: unknown, o: ChartOptions): ChartOptions {
+  const eski = !raw || typeof raw !== "object" || (raw as { sira?: unknown }).sira == null;
+  if (eski && kind === "ring" && o.sort !== "none") return { ...o, sort: "none" };
   return o;
 }
 

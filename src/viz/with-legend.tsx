@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 
 import { Legend, LegendItem, LegendLabel, LegendMarker, LegendValue } from "@/charts/legend";
 import { formatNumber } from "@/lib/format";
+import { anahtarla, gostergeBoyutu } from "@/lib/sira";
 import type { ChartSpec } from "@/lib/spec";
 
 export interface LegendSpec {
@@ -9,6 +10,8 @@ export interface LegendSpec {
   value: number;
   color: string;
   maxValue?: number;
+  /** Sıra anahtarı; verilmezse etiketten türetilir (aynı ad yinelenirse `ad#2`). */
+  anahtar?: string;
 }
 
 /**
@@ -32,11 +35,18 @@ export function WithLegend({
   const { options: o } = spec;
   const show = o.legend && items.length > 0;
   const fmt = (v: number) => formatNumber(v, o.format);
+  // Göstergenin girdileri grafiğin öğeleri (ya da serileri): sahnede tıklayıp
+  // sürükleyerek dizilebilsinler diye hangi boyutu listelediğini ve her
+  // girdinin anahtarını taşıyor. Şelalenin artış/azalış göstergesi öğe değil.
+  const boyut = gostergeBoyutu(spec);
+  const anahtarlar = anahtarla(items.map((it) => it.label));
+  const girdiler = items.map((it, i) => ({ ...it, anahtar: it.anahtar ?? anahtarlar[i] }));
   const legend = show ? (
     <Legend
       // Sahnede tıkla-seç bunu okuyor; dışa aktarım öznitelikleri koruyor.
       data-part="legend"
-      items={items}
+      data-boyut={boyut ?? undefined}
+      items={girdiler}
       hoveredIndex={hoveredIndex}
       onHoverChange={onHoverChange}
       className={

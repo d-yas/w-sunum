@@ -36,6 +36,12 @@ export function RelationViz(props: VizProps) {
     value: model.totals[i],
     color: colors[i % colors.length],
   }));
+  // Ağda düğüm dizisi kimlik sırasında kalıyor (kuvvet yerleşimi oynamasın);
+  // elle sıra yalnız göstergeyi diziyor. Akor ve yayda dizinin kendisi sıralı.
+  if (spec.kind === "network" && spec.options.sort === "manual") {
+    const yer = new Map(spec.options.sira.oge.map((k, i) => [k, i] as const));
+    items.sort((a, b) => (yer.get(a.label) ?? 0) - (yer.get(b.label) ?? 0));
+  }
 
   return (
     <WithLegend spec={spec} items={items}>
@@ -87,7 +93,7 @@ function ChordBody({ spec, colors, isStatic, model, width, height }: BodyProps) 
               const deg = (angle * 180) / Math.PI - 90;
               const flip = angle > Math.PI;
               return (
-                <g key={`g${i}`}>
+                <g key={`g${i}`} data-oge={model.names[i]} data-aci={angle}>
                   <Arc
                     data={group}
                     startAngle={group.startAngle}
@@ -194,7 +200,7 @@ function NetworkBody({ spec, colors, isStatic, model, width, height }: BodyProps
         );
       })}
       {nodes.map((n, i) => (
-        <g key={`n${i}`}>
+        <g key={`n${i}`} data-oge={n.name}>
           <circle cx={px(n.x ?? 0)} cy={py(n.y ?? 0)} r={nodeR(i)} fill={colors[i % colors.length]} />
           {o.nodeLabels && (
             <text
@@ -259,7 +265,7 @@ function ArcBody({ spec, colors, isStatic, model, width, height }: BodyProps) {
         );
       })}
       {model.names.map((name, i) => (
-        <g key={`p${i}`}>
+        <g key={`p${i}`} data-oge={name}>
           <circle
             cx={x(i)}
             cy={baseY}

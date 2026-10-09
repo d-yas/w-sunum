@@ -30,6 +30,8 @@ export interface RingProps {
   animate?: boolean;
   showGlow?: boolean;
   lineCap?: RingLineCap;
+  /** Veri Görsel eki: sahnede seçmek ve sürükleyerek sıralamak için `data-oge`. */
+  anahtar?: string;
 }
 
 function ringHoverScale(isHovered: boolean, isPushedOut: boolean): number {
@@ -68,6 +70,7 @@ export const Ring = memo(function Ring({
   animate = true,
   showGlow = true,
   lineCap = "round",
+  anahtar,
 }: RingProps) {
   const {
     data,
@@ -177,6 +180,7 @@ export const Ring = memo(function Ring({
   if (enterDone) {
     return (
       <motion.g
+        data-oge={anahtar}
         animate={{ scale: hoverScale, opacity: layerOpacity }}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
@@ -195,6 +199,7 @@ export const Ring = memo(function Ring({
   if (!expandComplete) {
     return (
       <motion.g
+        data-oge={anahtar}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
         style={{
@@ -210,6 +215,7 @@ export const Ring = memo(function Ring({
 
   return (
     <motion.g
+      data-oge={anahtar}
       animate={{ scale: hoverScale, opacity: layerOpacity }}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}

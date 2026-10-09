@@ -23,6 +23,10 @@ import type { ChartOptions, ChartSpec } from "./spec";
 export const ICERIK_ALANLARI: (keyof ChartOptions)[] = [
   // Bu kartın kategori adları / satır numaraları
   "highlight",
+  // Elle sıra bu kartın öğe adlarının listesi. `sort` ise biçem: "hepsini
+  // büyükten küçüğe" bir şablon kararı — yalnız "Elle" taşınmıyor, bkz.
+  // `bicemUygula`.
+  "sira",
   "refLines",
   "forecastFrom",
   // Yazılan metin
@@ -77,13 +81,17 @@ export function bicemAl(spec: ChartSpec): Bicem {
  * "nasıl göründüğü", "ne anlattığı" değil.
  */
 export function bicemUygula(spec: ChartSpec, b: Bicem): ChartSpec {
+  const options = { ...spec.options, ...klon(b.options) };
+  // "Elle" kaynağın kendi öğe listesine bağlı; hedefte o adlar yok. Hedef
+  // kendi sırasını korur.
+  if (b.options.sort === "manual") options.sort = spec.options.sort;
   return {
     ...spec,
     paletteId: b.paletteId,
     colors: [...b.colors],
     decor: klon(b.decor) ?? emptyDecor(),
     yerlesim: klon(b.yerlesim) ?? emptyLayout(),
-    options: { ...spec.options, ...klon(b.options) },
+    options,
   };
 }
 

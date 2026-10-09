@@ -25,7 +25,7 @@ const GLYPHS = {
  * dördüncü sütun (Boyut) yarıçapa, dağılımda sabit noktaya karşılık gelir.
  * Beşinci sütun (Grup) renk serisini belirler.
  */
-export function XYViz({ spec, colors, isStatic }: VizProps) {
+export function XYViz({ spec, colors, isStatic, taban }: VizProps) {
   const o = spec.options;
   const model = useMemo(() => toXY(spec), [spec]);
   const isBubble = spec.kind === "bubble";
@@ -114,7 +114,8 @@ export function XYViz({ spec, colors, isStatic }: VizProps) {
                   y1={ys(model.trend.slope * model.xDomain[0] + model.trend.intercept)}
                   x2={iw}
                   y2={ys(model.trend.slope * model.xDomain[1] + model.trend.intercept)}
-                  stroke={colors[0]}
+                  // Eğilim çizgisi bir gruba ait değil: grup sırası değişince renk değiştirmesin.
+                  stroke={taban ?? colors[0]}
                   strokeWidth={1.5}
                   strokeDasharray="6 4"
                   strokeOpacity={0.7}
@@ -128,7 +129,7 @@ export function XYViz({ spec, colors, isStatic }: VizProps) {
                   const r = isBubble ? rs(p.size) : o.pointSize;
                   const Glyph = GLYPHS[o.pointGlyph];
                   return (
-                    <g key={`p${i}`}>
+                    <g key={`p${i}`} data-oge={grouped && p.group ? p.group : undefined}>
                       <Glyph
                         left={xs(p.x)}
                         top={ys(p.y)}

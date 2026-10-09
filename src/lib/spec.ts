@@ -57,7 +57,27 @@ export type TickAngle = "auto" | 0 | 45 | 90;
 /** Değer etiketi yerleşimi. "auto" = türün kendi geleneği. */
 export type ValueLabels = "auto" | "none" | "inside" | "outside";
 export type ColorBy = "series" | "category";
-export type SortOrder = "none" | "asc" | "desc";
+/**
+ * Öğelerin sırası. `none` arayüzde "Otomatik": türün kendi doğal sırası —
+ * çoğunda tablo, hiyerarşide değere göre, sankey'de kesişmeyi azaltan
+ * yerleşim, tarih gibi görünen etiketlerde tarih. `manual` = `sira.oge`.
+ */
+export type SortOrder = "none" | "asc" | "desc" | "alpha" | "manual";
+
+/**
+ * Elle verilen sıra — ad listeleri, tablo değil. Tablo olduğu gibi kalır; bir
+ * adın listede olmaması "tablodaki sırasıyla sona" demek, tabloda olmayan bir
+ * ad da sessizce yok sayılır. Başka bir moda geçmek listeyi silmez: "Elle"ye
+ * dönünce son elle düzen geri gelir. Ayrıntı: `src/lib/sira.ts`.
+ */
+export interface ElleSira {
+  /** Kategoriler, aşamalar, gruplar, düğümler… — türün ana öğeleri. */
+  oge: string[];
+  /** Değer sütunları; boşsa tablodaki sütun sırası. */
+  seri: string[];
+  /** Hiyerarşide grup içi yaprak sırası, grup adına göre. */
+  alt: Record<string, string[]>;
+}
 
 /**
  * Değer eksenine çizilen yatay (yatay çubukta dikey) çizgi — hedef, eşik,
@@ -198,8 +218,9 @@ export interface ChartOptions {
   colorBy: ColorBy;
   /** Vurgulanan kategori adları; gerisi soluklaşır. Boş = hepsi tam. */
   highlight: string[];
-  /** Kategorileri değere göre sırala (tek seri, halka, huni, piktogram). */
+  /** Öğelerin sırası — bkz. `SortOrder`; elle sıra `sira`'da. */
   sort: SortOrder;
+  sira: ElleSira;
 
   /* --- eksenler --- */
   xTitle: string;
@@ -445,6 +466,7 @@ export const DEFAULT_OPTIONS: ChartOptions = {
   colorBy: "series",
   highlight: [],
   sort: "none",
+  sira: { oge: [], seri: [], alt: {} },
 
   xTitle: "",
   yTitle: "",

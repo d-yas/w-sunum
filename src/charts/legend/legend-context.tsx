@@ -20,6 +20,12 @@ export interface LegendItemData {
   maxValue?: number;
   /** Item color */
   color: string;
+  /**
+   * Veri Görsel eki: öğenin sıra anahtarı (`src/lib/sira.ts`). Sahnede tıkla-seç
+   * ve sürükleyerek sıralama `data-anahtar`dan okuyor; React anahtarı da bu —
+   * etiket aynı adlı iki öğede çakışıyordu.
+   */
+  anahtar?: string;
 }
 
 export interface LegendContextValue {

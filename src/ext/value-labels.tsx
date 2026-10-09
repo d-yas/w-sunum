@@ -34,9 +34,11 @@ export interface BarValueLabelsProps {
   stackGap?: number;
   /** Çubuklarla aynı vurgu listesi — etiket de çubuğuyla birlikte soluklaşır. */
   highlight?: readonly string[];
+  /** Kategoriye göre boyanan çubukta içteki etiketin zemini: o çubuğun rengi. */
+  colorFor?: (index: number) => string;
 }
 
-export function BarValueLabels({ series, mode, format, size, stackGap = 0, highlight }: BarValueLabelsProps) {
+export function BarValueLabels({ series, mode, format, size, stackGap = 0, highlight, colorFor }: BarValueLabelsProps) {
   const { data, barScale, bandWidth, barXAccessor, innerHeight, innerWidth, orientation, stacked, stackOffsets } = useChartStable();
   const valueScale = useYScale();
   if (mode === "none" || !barScale || !barXAccessor || !bandWidth) return null;
@@ -87,6 +89,7 @@ export function BarValueLabels({ series, mode, format, size, stackGap = 0, highl
       // göz rengin soluğuna değil yazının koyuluğuna takılıyor.
       const dim = highlight != null && highlight.length > 0 && !highlight.includes(String(category));
       const opacity = dim ? 0.25 : undefined;
+      const zemin = colorFor ? colorFor(i) : s.color;
       if (horizontal) {
         const x = inside ? (near + far) / 2 : far + 6;
         if (!inside && x > innerWidth - 4) return;
@@ -95,13 +98,14 @@ export function BarValueLabels({ series, mode, format, size, stackGap = 0, highl
             key={key}
             className="viz-value"
             data-part="value"
+            data-oge={String(category)}
             x={x}
             y={cross}
             dy="0.34em"
             fontSize={size}
             textAnchor={inside ? "middle" : "start"}
             opacity={opacity}
-            fill={inside ? contrastText(s.color) : undefined}
+            fill={inside ? contrastText(zemin) : undefined}
           >
             {text}
           </text>
@@ -114,13 +118,14 @@ export function BarValueLabels({ series, mode, format, size, stackGap = 0, highl
             key={key}
             className="viz-value"
             data-part="value"
+            data-oge={String(category)}
             x={cross}
             y={y}
             dy={inside ? "0.34em" : undefined}
             fontSize={size}
             textAnchor="middle"
             opacity={opacity}
-            fill={inside ? contrastText(s.color) : undefined}
+            fill={inside ? contrastText(zemin) : undefined}
           >
             {text}
           </text>
@@ -166,7 +171,7 @@ export function PointValueLabels({ series, which, format, size }: PointValueLabe
       const y = yScale(value) ?? 0;
       const anchor = x < 12 ? "start" : x > innerWidth - 12 ? "end" : "middle";
       out.push(
-        <text key={`${s.key}-${i}`} className="viz-value" data-part="value" x={x} y={y - 8} fontSize={size} textAnchor={anchor}>
+        <text key={`${s.key}-${i}`} className="viz-value" data-part="value" data-oge={String(d.x ?? "")} x={x} y={y - 8} fontSize={size} textAnchor={anchor}>
           {formatNumber(value, format)}
         </text>
       );

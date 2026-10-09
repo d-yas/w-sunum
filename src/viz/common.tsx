@@ -14,9 +14,12 @@ import type { ChartSpec, Theme } from "@/lib/spec";
 
 export interface VizProps {
   spec: ChartSpec;
+  /** Öğe sırasıyla dizilmiş renkler — `colors[i]` i. çizilen öğenin rengi. */
   colors: string[];
   isStatic: boolean;
   theme: Theme;
+  /** Dizilmemiş paletin ilk rengi: hiçbir öğeye ait olmayan işaretler için. */
+  taban?: string;
 }
 
 /**

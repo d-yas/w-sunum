@@ -49,7 +49,10 @@ export function Toolbar({
       if (!ref.current?.contains(e.target as Node)) setAcik(null);
     };
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setAcik(null);
+      if (e.key !== "Escape") return;
+      // Yalnız kutuyu kapatsın; seçimi bir üste taşıyan Esc başka bir basış.
+      e.preventDefault();
+      setAcik(null);
     };
     document.addEventListener("pointerdown", onDown);
     document.addEventListener("keydown", onKey);

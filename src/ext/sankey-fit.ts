@@ -142,3 +142,31 @@ function enGenisDizi(v: number[]): number {
 
 /** Test ve ölçüm için: bir etiket listesinin en geniş adı. */
 export const enGenisAd = (adlar: string[]) => enGenis(adlar, AD_PUNTO, AD_KALINLIK);
+
+/**
+ * Düğüm adı → sütunu (0'dan). Sıra panelinin sankey listesini sütun sütun
+ * bölmesi ve klavyenin düğümü kendi sütununda tutması için.
+ *
+ * Kâğıt üstünde, sabit bir kutuyla: sütun ataması (`sankeyCenter`) yalnız
+ * bağlantı yapısına bakıyor, ne kutunun ölçüsüne ne düğüm sırasına.
+ */
+export function sankeySutunlari(data: SankeyData): Map<string, number> {
+  const sutun = new Map<string, number>();
+  try {
+    const yerlesim = sankey<{ name: string; category?: string }, { value: number }>()
+      .nodeAlign(sankeyCenter)
+      .extent([
+        [0, 0],
+        [1000, 1000],
+      ])({
+      nodes: data.nodes.map((n) => ({ ...n })) as never,
+      links: data.links.map((l) => ({ ...l })) as never,
+    });
+    // `layer` d3-sankey 0.12'nin hizalanmış sütunu; tip paketinde yok.
+    for (const n of yerlesim.nodes) sutun.set(n.name, (n as { layer?: number }).layer ?? n.depth ?? 0);
+  } catch {
+    // Döngülü grafta d3 atıyor; o zaman tek sütun say.
+    for (const n of data.nodes) sutun.set(n.name, 0);
+  }
+  return sutun;
+}

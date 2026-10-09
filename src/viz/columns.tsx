@@ -5,6 +5,7 @@ import { useMemo } from "react";
 import { toCartesian, toCategoryValue, toWaterfall } from "@/lib/adapters";
 import { formatNumber, formatTick } from "@/lib/format";
 import { enGenis, olcSatir } from "@/lib/olcu";
+import { anahtarla } from "@/lib/sira";
 import { Empty, Reveal, VIZ, VizFrame, contrastText, ellipsize, type VizProps } from "./common";
 import { WithLegend } from "./with-legend";
 
@@ -28,6 +29,8 @@ export function WaterfallViz({ spec, colors, isStatic }: VizProps) {
   const up = colors[0];
   const down = colors[1] ?? colors[0];
   const total = colors[2] ?? colors[0];
+  // Toplam bir öğe değil: sırası yok, hep sonda.
+  const anahtarlar = anahtarla(model.steps.filter((s) => s.kind !== "total").map((s) => s.label));
   const items = [
     { label: "Artış", value: model.steps.filter((s) => s.kind === "increase").length, color: up },
     { label: "Azalış", value: model.steps.filter((s) => s.kind === "decrease").length, color: down },
@@ -78,7 +81,7 @@ export function WaterfallViz({ spec, colors, isStatic }: VizProps) {
                   const show = o.valueLabels !== "none";
                   const inside = o.valueLabels === "inside" || (o.valueLabels !== "outside" && h > 22 && bw > 34);
                   return (
-                    <g key={i}>
+                    <g key={i} data-oge={s.kind === "total" ? undefined : anahtarlar[i]}>
                       {o.waterfallConnectors && i > 0 && (
                         <line
                           className={VIZ.hair}
@@ -122,6 +125,7 @@ export function WaterfallViz({ spec, colors, isStatic }: VizProps) {
                   <text
                     key={`x${i}`}
                     className={VIZ.label}
+                    data-oge={s.kind === "total" ? undefined : anahtarlar[i]}
                     transform={`translate(${slot * i + slot / 2} ${ih + 8}) rotate(${slot < 66 ? 30 : 0})`}
                     textAnchor={slot < 66 ? "start" : "middle"}
                     dy={slot < 66 ? "0.32em" : "0.9em"}
@@ -150,7 +154,10 @@ export function FunnelViz({ spec, colors, isStatic }: VizProps) {
   }
 
   const items = model.items.map((it, i) => ({ label: it.label, value: it.value, color: colors[i % colors.length] }));
-  const first = model.items[0].value || 1;
+  const anahtarlar = anahtarla(model.items.map((it) => it.label));
+  // Genişlik en büyük aşamaya göre. Eskiden ilk aşamaya göreydi — elle sırada
+  // en büyük aşama ilk olmayınca huni etiket ve değer sütunlarına taşıyordu.
+  const enBuyuk = model.max || 1;
 
   return (
     <WithLegend spec={spec} items={o.legend ? items : []}>
@@ -169,7 +176,7 @@ export function FunnelViz({ spec, colors, isStatic }: VizProps) {
           const widthOf = (i: number) => {
             if (o.funnelShape === "bar") return (model.items[i].value / (model.max || 1)) * iw;
             if (o.funnelShape === "pyramid") return (iw * (n - i)) / n;
-            return (model.items[i].value / first) * iw;
+            return (model.items[i].value / enBuyuk) * iw;
           };
 
           return (
@@ -189,7 +196,7 @@ export function FunnelViz({ spec, colors, isStatic }: VizProps) {
                     : `M0,${y} L${w},${y} L${w},${y + bodyH} L0,${y + bodyH} Z`;
                   const drop = i > 0 ? model.items[i].value / (model.items[i - 1].value || 1) : 1;
                   return (
-                    <g key={i}>
+                    <g key={i} data-oge={anahtarlar[i]}>
                       <path d={d} fill={fill} />
                       <text className={VIZ.strong} x={-10} y={y + bodyH / 2} dy="0.34em" textAnchor="end" fontSize={12}>
                         {ellipsize(it.label, 12, labelW - 14, 600)}
@@ -245,6 +252,7 @@ export function MarimekkoViz({ spec, colors, isStatic }: VizProps) {
   }
 
   const items = model.series.map((s, i) => ({ label: s.name, value: s.total, color: colors[i] }));
+  const anahtarlar = anahtarla(model.labels);
 
   return (
     <WithLegend spec={spec} items={items}>
@@ -279,7 +287,7 @@ export function MarimekkoViz({ spec, colors, isStatic }: VizProps) {
                   x += w + o.mekkoGap;
                   let y = 0;
                   return (
-                    <g key={ri}>
+                    <g key={ri} data-oge={anahtarlar[ri]}>
                       {row.parts.map((v, si) => {
                         const h = row.total === 0 ? 0 : (v / row.total) * ih;
                         const top = y;

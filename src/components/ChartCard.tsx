@@ -37,6 +37,7 @@ import { toCartesian, toHeatmap, toRing, toSankey, type CartesianModel } from "@
 import { formatDateLong, formatNumber, formatTick, type NumberFormatSpec } from "@/lib/format";
 import { egikYer, enGenis, olcSatir, satirYuksekligi } from "@/lib/olcu";
 import { getPalette, seriesColor, type Palette } from "@/lib/palettes";
+import { anahtarla, gorunum } from "@/lib/sira";
 import type { SlotKey } from "@/decor/model";
 import { dataShape, type ChartSpec, type Theme, type ValueLabels } from "@/lib/spec";
 import { WaterfallViz, FunnelViz, MarimekkoViz } from "@/viz/columns";
@@ -97,8 +98,13 @@ export const ChartCard = forwardRef<HTMLDivElement, ChartCardProps>(function Cha
   // kuralı bir sınıf seçicisi, satır içi değişkeni ezemezdi.
   if (o.cardBackground && !transparent) cssVars["--card-bg"] = o.cardBackground;
 
+  // Sıra burada uygulanıyor: çiziciler tabloyu geldiği sırayla çiziyor, renkler
+  // de öğeyle birlikte diziliyor (`src/lib/sira.ts`). Kartın kendi süslemeleri
+  // (vurgu çubuğu, dekor, yerleştirilen nesneler) dizilmemiş paleti okur —
+  // sıra değişince başlığın yanındaki çubuk renk değiştirmesin.
+  const gorunen = useMemo(() => gorunum(spec, colors), [spec, colors]);
   const body = (
-    <ChartBody spec={spec} colors={colors} isStatic={isStatic} theme={theme} />
+    <ChartBody spec={gorunen.spec} colors={gorunen.colors} taban={colors[0]} isStatic={isStatic} theme={theme} />
   );
 
   // One prefix per rendered instance. The stage card and the offscreen export
@@ -263,10 +269,12 @@ interface BodyProps {
   colors: string[];
   isStatic: boolean;
   theme: Theme;
+  /** Dizilmemiş paletin ilk rengi — öğeye ait olmayan işaretler için (eğilim çizgisi). */
+  taban?: string;
 }
 
-function ChartBody({ spec, colors, isStatic, theme }: BodyProps) {
-  const viz = { spec, colors, isStatic, theme };
+function ChartBody({ spec, colors, isStatic, theme, taban }: BodyProps) {
+  const viz = { spec, colors, isStatic, theme, taban };
   switch (spec.kind) {
     case "line":
     case "area":
@@ -565,6 +573,8 @@ function Bars({ spec, colors, isStatic }: Omit<BodyProps, "theme">) {
         {mode !== "none" && (
           <BarValueLabels
             series={model.series.map((s, i) => ({ key: s.key, color: byCategory ? colors[0] : colors[i] }))}
+            // Kategoriye göre boyanınca içteki etiketin zemini çubuğun kendi rengi.
+            colorFor={byCategory ? (bi) => colors[bi % colors.length] : undefined}
             mode={mode}
             format={o.format}
             size={o.valueLabelSize}
@@ -608,6 +618,7 @@ function Bars({ spec, colors, isStatic }: Omit<BodyProps, "theme">) {
 function Rings({ spec, colors, isStatic }: Omit<BodyProps, "theme">) {
   const { options: o } = spec;
   const model = useMemo(() => toRing(spec, colors), [spec, colors]);
+  const anahtarlar = useMemo(() => anahtarla(model.data.map((d) => d.label)), [model]);
   const [hovered, setHovered] = useState<number | null>(null);
   const items = model.data.map((d) => ({ label: d.label, value: d.value, color: d.color ?? colors[0], maxValue: d.maxValue }));
   // With hover off the ring keeps its own state but never reports it, so the
@@ -634,7 +645,9 @@ function Rings({ spec, colors, isStatic }: Omit<BodyProps, "theme">) {
           endAngle={Math.PI * 2}
         >
           {model.data.map((d, i) => (
-            <Ring key={`${d.label}-${i}`} index={i} color={d.color} animate={!isStatic && o.animate} />
+            // Anahtar öğenin kendisi, yeri değil: sıra değişince halka yeniden
+            // doğup giriş animasyonunu baştan oynatmasın.
+            <Ring key={anahtarlar[i]} anahtar={anahtarlar[i]} index={i} color={d.color} animate={!isStatic && o.animate} />
           ))}
           {labelMode(spec) !== "none" && <RingValueLabels format={o.format} share={o.ringShare} size={o.valueLabelSize} />}
           {o.ringCenter && (
@@ -748,6 +761,14 @@ const SANKEY_FMT = new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 });
 function Flow({ spec, colors, isStatic }: Omit<BodyProps, "theme">) {
   const { options: o } = spec;
   const model = useMemo(() => toSankey(spec), [spec]);
+  // Elle (ya da değere göre) sıra: düğüm dizisine dokunmadan sütun içi sırayı
+  // veren karşılaştırıcı. `gorunum` her modu tam bir `sira.oge` listesine
+  // çeviriyor; "Otomatik"te d3-sankey kendi yerleşimini kurar.
+  const nodeSort = useMemo(() => {
+    if (o.sort !== "manual") return undefined;
+    const yer = new Map(o.sira.oge.map((k, i) => [k, i] as const));
+    return (a: { name: string }, b: { name: string }) => (yer.get(a.name) ?? 0) - (yer.get(b.name) ?? 0);
+  }, [o.sort, o.sira.oge]);
   if (model.data.links.length === 0) {
     return <Empty text="Kaynak ; Hedef ; Değer satırları girin." />;
   }
@@ -791,6 +812,7 @@ function Flow({ spec, colors, isStatic }: Omit<BodyProps, "theme">) {
               className={FILL}
               nodeWidth={o.sankeyNodeWidth}
               nodePadding={o.sankeyNodePadding}
+              nodeSort={nodeSort}
               margin={margin}
               // The link reveal is a motion value driven by the enter tween; with a
               // zero duration it never reaches 1. The export waits for it instead.

@@ -10,6 +10,7 @@ import { DecorStage } from "@/components/DecorStage";
 import { DataGrid } from "@/components/DataGrid";
 import { Inspector } from "@/components/Inspector";
 import { LayersPanel } from "@/components/LayersPanel";
+import { SiraSahnesi, type UzerindeOge } from "@/components/SiraSahnesi";
 import { ColorsPanel, ExportPanel, SectionScope } from "@/components/Panels";
 import { Toolbar, type Arac } from "@/components/Toolbar";
 import { copyBlobToClipboard, serializeElement, snapshotElement } from "@/lib/export-png";
@@ -18,10 +19,13 @@ import { createHistory } from "@/lib/history";
 import { buildPptx, type PptxSlide } from "@/lib/pptx";
 import { yazilariTopla } from "@/lib/pptx-metin";
 import { buildZip } from "@/lib/zip";
-import { KIND_LABELS, dataShape, newChart, type ChartKind, type ChartSpec, type Workspace } from "@/lib/spec";
+import { KIND_LABELS, newChart, type ChartKind, type ChartSpec, type Workspace } from "@/lib/spec";
 import { bicemAl, bicemUygula, type Bicem } from "@/lib/bicem";
 import { setFreeLayout } from "@/lib/free-layout";
-import { SLAYT, parcaya, sahneSecimi, sahnedenSecim, type Secim } from "@/lib/selection";
+import { GRAFIK, SLAYT, icerideMi, parcaya, sahneSecimi, sahnedenSecim, type Secim } from "@/lib/selection";
+import { olculenSira } from "@/lib/sahne-olcu";
+import { adlariTasi, gostergeBoyutu, gorunenSira, renkAdlari, siraBoyutlari } from "@/lib/sira";
+import { adimla, komsu, vurguDegistir } from "@/lib/sira-eylem";
 import { downloadBlob, downloadText, loadWorkspace, normalizeWorkspace, safeFilename, saveWorkspace } from "@/lib/storage";
 import { useKindPreviews } from "@/lib/kind-previews";
 import { useThumbnails } from "@/lib/thumbnails";
@@ -38,6 +42,13 @@ export function App() {
   const [stageSize, setStageSize] = useState({ w: 800, h: 600 });
   /** Stil panosu — oturumluk; iş dosyasına yazılmıyor, geçmişte yer almıyor. */
   const [bicemPano, setBicemPano] = useState<Bicem | null>(null);
+  /**
+   * Sahnede öğe sürüklenirken karta giden geçici spec — yalnız sıra alanları
+   * farklı. İşe yazılmaz, geçmişe girmez; küçük resim ve dışa aktarım onu görmez.
+   */
+  const [onizleme, setOnizleme] = useState<ChartSpec | null>(null);
+  /** Sağ paneldeki sıra listesinde üstüne gelinen öğe — sahnede çerçevelenir. */
+  const [uzerinde, setUzerinde] = useState<UzerindeOge | null>(null);
   const [layerHeight, setLayerHeight] = useState(() => loadPrefs().layerHeight);
 
   const active = ws.charts.find((c) => c.id === ws.activeId) ?? ws.charts[0];
@@ -89,7 +100,21 @@ export function App() {
   }, [history]);
 
   // Seçim bir karta ait; grafik değişince düşer.
-  useEffect(() => setSecim(SLAYT), [ws.activeId]);
+  useEffect(() => {
+    setSecim(SLAYT);
+    setOnizleme(null);
+    setUzerinde(null);
+  }, [ws.activeId]);
+
+  // Tablo değişince seçili öğeler yok olmuş olabilir: kalmayanlar düşer,
+  // hiçbiri kalmadıysa grafiğin kendisi seçili kalır.
+  useEffect(() => {
+    if (secim.tur !== "oge") return;
+    const var_ = new Set(gorunenSira(active, secim.boyut).map((x) => x.anahtar));
+    const kalan = secim.anahtarlar.filter((k) => var_.has(k));
+    if (kalan.length === secim.anahtarlar.length) return;
+    setSecim(kalan.length > 0 ? { ...secim, anahtarlar: kalan } : GRAFIK);
+  }, [active, secim]);
 
   useEffect(() => {
     document.documentElement.dataset.theme = ws.theme;
@@ -113,6 +138,22 @@ export function App() {
       commit((w) => ({ ...w, charts: w.charts.map((c) => (c.id === next.id ? next : c)) }));
     },
     [commit]
+  );
+
+  /**
+   * Sahnede sürüklemeyi bırakmak: **tek** geri al adımı. Geçmiş 400 ms
+   * içindeki değişiklikleri birleştiriyor; bırakmadan hemen önceki bir
+   * düzenlemeyle (ya da art arda iki sürüklemeyle) kaynaşmasın diye pencere
+   * kapatılıyor. Sonuç güncel durumdan hesaplanıyor, sürüklemenin başında
+   * alınmış bir kopyadan değil.
+   */
+  const siraBirak = useCallback(
+    (fn: (s: ChartSpec) => ChartSpec) => {
+      history.mark();
+      commit((w) => ({ ...w, charts: w.charts.map((c) => (c.id === w.activeId ? fn(c) : c)) }));
+      history.mark();
+    },
+    [commit, history]
   );
 
   /* ---------------- stili kopyala / yapıştır ---------------- */
@@ -179,7 +220,10 @@ export function App() {
   useEffect(() => {
     if (!veriTam) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setVeriTam(false);
+      if (e.key !== "Escape") return;
+      // Yalnız paneli kapatsın; seçimi bir üste taşımak ayrı bir Esc.
+      e.preventDefault();
+      setVeriTam(false);
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
@@ -196,43 +240,12 @@ export function App() {
     });
   };
 
-  /** Renk panelinde listelenecek adlar — her tür rengi başka bir eksene dağıtır. */
-  const seriesNames = useMemo(() => {
-    const uniqueFirst = (col: number) => {
-      const seen: string[] = [];
-      for (const r of active.data.rows) {
-        const v = (r[col] ?? "").trim();
-        if (v && !seen.includes(v)) seen.push(v);
-      }
-      return seen;
-    };
-    switch (dataShape(active.kind)) {
-      case "categoryValue":
-        return active.data.rows.map((r) => (r[0] ?? "").trim()).filter(Boolean);
-      case "flow": {
-        const seen: string[] = [];
-        for (const r of active.data.rows) {
-          for (const n of [r[0], r[1]]) {
-            const v = (n ?? "").trim();
-            if (v && !seen.includes(v)) seen.push(v);
-          }
-        }
-        return seen;
-      }
-      case "hierarchy":
-        return uniqueFirst(0);
-      case "xy":
-        return uniqueFirst(4).length > 0 ? uniqueFirst(4) : ["Noktalar"];
-      case "calendar":
-        return ["Hücre rengi"];
-      case "region":
-        return ["Yoğunluk"];
-      default:
-        return active.kind === "slope"
-          ? active.data.rows.map((r) => (r[0] ?? "").trim()).filter(Boolean)
-          : active.data.columns.slice(1).map((c, i) => c.trim() || `Seri ${i + 1}`);
-    }
-  }, [active]);
+  /**
+   * Renk panelinde listelenecek adlar — `colors[i]`'nin hangi öğeye ait olduğu.
+   * Çizimle aynı kimlikten (`src/lib/sira.ts`): eskiden ham tablo sırasından
+   * okunuyordu, sıralama ya da süzülen satırlar adları renklerden kaydırıyordu.
+   */
+  const seriesNames = useMemo(() => renkAdlari(active), [active]);
 
   /* ---------------- export ---------------- */
 
@@ -547,15 +560,7 @@ export function App() {
     }
     const cat = el?.dataset.category;
     if (e.altKey && cat) {
-      const has = active.options.highlight.includes(cat);
-      const next = e.shiftKey
-        ? has
-          ? active.options.highlight.filter((h) => h !== cat)
-          : [...active.options.highlight, cat]
-        : has && active.options.highlight.length === 1
-          ? []
-          : [cat];
-      updateChart({ ...active, options: { ...active.options, highlight: next } });
+      updateChart(vurguDegistir(active, cat, e.shiftKey));
       return;
     }
     setSecim({ tur: "parca", part: parcaya(part) });
@@ -563,14 +568,18 @@ export function App() {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      // Bir menü, açılır kutu ya da odaktaki liste tuşu zaten kullandıysa dokunma.
+      if (e.defaultPrevented) return;
       // Esc önce araçtan çıkarıyor: bir kipte sıkışıp kalmanın çıkışı, seçimi
-      // düşürmekten daha acil.
+      // düşürmekten daha acil. Seçimde bir üste çıkar — öğe → grafik → slayt,
+      // Figma'daki gibi.
       if (e.key === "Escape") {
         setArac("sec");
-        setSecim(SLAYT);
+        setSecim(secim.tur === "oge" ? GRAFIK : SLAYT);
       }
       const hedef = e.target as HTMLElement | null;
       if (hedef && hedef.closest("input, textarea, select")) return;
+      if (siraTusu(e)) return;
       // Ctrl+Alt+C / V: stil panosu. Düz Ctrl+C metin kopyalamayı bozardı.
       if ((e.ctrlKey || e.metaKey) && e.altKey && (e.key === "c" || e.key === "C" || e.code === "KeyC")) {
         e.preventDefault();
@@ -588,9 +597,50 @@ export function App() {
       if (e.key === "t" || e.key === "T") setArac("metin");
       if (e.key === "l" || e.key === "L") setArac("cizgi");
     };
+    /**
+     * Grafik öğelerinin klavyesi. Yalnız odak sahnedeyken (ya da hiçbir
+     * yerdeyken): paneldeki bir düğmede `Tab`/`Enter`'ı çalmamalı.
+     */
+    const siraTusu = (e: KeyboardEvent): boolean => {
+      const odak = document.activeElement;
+      if (odak && odak !== document.body && !odak.closest(".stage")) return false;
+      if (e.ctrlKey || e.metaKey || e.altKey) return false;
+      if (secim.tur === "oge") {
+        const s = { boyut: secim.boyut, anahtarlar: secim.anahtarlar, grup: secim.grup };
+        const geri = e.key === "ArrowLeft" || e.key === "ArrowUp" || e.key === "[" || e.key === "{";
+        const ileri = e.key === "ArrowRight" || e.key === "ArrowDown" || e.key === "]" || e.key === "}";
+        if (geri || ileri) {
+          e.preventDefault();
+          // Her basış ayrı bir geri al adımı — yazmak gibi birleşmesin.
+          const olculen = olculenSira(active);
+          siraBirak((c) => adimla(c, s, geri ? -1 : 1, e.shiftKey, olculen));
+          return true;
+        }
+        if (e.key === "Tab") {
+          e.preventDefault();
+          const k = komsu(active, s, e.shiftKey ? -1 : 1, olculenSira(active));
+          if (k) setSecim({ tur: "oge", boyut: secim.boyut, anahtarlar: [k], grup: secim.grup });
+          return true;
+        }
+        return false;
+      }
+      // Grafikten (ya da göstergesinden) ilk öğesine in.
+      if (e.key === "Enter" && icerideMi(secim)) {
+        const boyut =
+          secim.tur === "parca" && secim.part === "legend"
+            ? gostergeBoyutu(active)
+            : (siraBoyutlari(active).find((b) => b.boyut === "oge" && !b.kapali) ?? siraBoyutlari(active)[0])?.boyut;
+        const ilk = boyut ? gorunenSira(active, boyut, olculenSira(active))[0] : undefined;
+        if (!boyut || !ilk) return false;
+        e.preventDefault();
+        setSecim({ tur: "oge", boyut, anahtarlar: [ilk.anahtar], grup: ilk.grup });
+        return true;
+      }
+      return false;
+    };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [bicemKopyala, bicemYapistir]);
+  }, [bicemKopyala, bicemYapistir, secim, active, siraBirak]);
 
   /**
    * El aracı: sahneyi sürükleyerek kaydırır. Sahne zaten `overflow: auto`,
@@ -699,7 +749,8 @@ export function App() {
               </button>
             </div>
             <div className="min-h-0 flex-1 overflow-hidden px-3 pb-3">
-              <DataGrid kind={active.kind} data={active.data} onChange={(data) => updateChart({ ...active, data })} />
+              {/* Bir adı değiştirmek elle sıradaki ve vurgudaki karşılığını da değiştirir. */}
+              <DataGrid kind={active.kind} data={active.data} onChange={(data) => updateChart(adlariTasi(active, data))} />
             </div>
           </div>
         </aside>
@@ -754,7 +805,7 @@ export function App() {
                 // kendisine asla: aynı DOM dışa aktarılıyor, hover çerçevesi
                 // PNG'ye sızmasın.
                 className="inspect"
-                data-sel={secim.tur === "parca" ? secim.part : undefined}
+                data-sel={secim.tur === "parca" ? secim.part : secim.tur === "oge" ? "oge" : undefined}
                 onClick={onStageClick}
                 style={{
                   position: "relative",
@@ -765,7 +816,8 @@ export function App() {
                 }}
               >
                 <ChartCard
-                  spec={active}
+                  // Sürüklerken yer açan önizleme; bırakınca kayıtlı spec geri gelir.
+                  spec={onizleme ?? active}
                   theme={ws.theme}
                   palettes={ws.palettes}
                   transparent={ws.export.background === "transparent"}
@@ -781,6 +833,18 @@ export function App() {
                   onChange={updateChart}
                   arac={arac}
                   onArac={setArac}
+                />
+                <SiraSahnesi
+                  spec={active}
+                  cizilen={onizleme ?? active}
+                  scale={scale}
+                  secim={secim}
+                  onSecim={setSecim}
+                  onChange={updateChart}
+                  onBirak={siraBirak}
+                  onOnizleme={setOnizleme}
+                  arac={arac}
+                  uzerinde={uzerinde}
                 />
               </div>
             </div>
@@ -879,6 +943,8 @@ export function App() {
             onPreviewHover={onTurHover}
             onSecim={setSecim}
             onChange={updateChart}
+            onSira={siraBirak}
+            onUzerinde={setUzerinde}
             bicem={{
               pano: bicemPano,
               kartSayisi: ws.charts.length,

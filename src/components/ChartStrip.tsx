@@ -89,7 +89,10 @@ export function ChartStrip({
       setEkleme(null);
     };
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setEkleme(null);
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setEkleme(null);
+      }
     };
     document.addEventListener("pointerdown", onDown);
     document.addEventListener("keydown", onKey);

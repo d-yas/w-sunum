@@ -17,6 +17,7 @@ import type { Box, DecorItem, DecorSlot, SlotKey } from "@/decor/model";
 import { SLOT_KEYS, SLOT_LABELS, decorStack, grubuCoz, grupGenislet, grupla, restack, restackEnd } from "@/decor/model";
 import { getAsset, newItem, otomatikBoy } from "@/decor/registry";
 import { defaults, num, str, type AssetDef, type ZeminSlot } from "@/decor/types";
+import { ON_KATMAN_Z } from "@/lib/sahne-olcu";
 import type { ChartSpec } from "@/lib/spec";
 
 import type { Arac } from "./Toolbar";
@@ -75,7 +76,8 @@ interface Handle {
 
 /** Kart parçaları iki süsleme katının arasında; `DecorLayer`'ın `zIndex: 1`'i. */
 const Z_KART = 1000;
-const Z_ON = 2000;
+/** Sahnedeki sıralama da bu sınırı okuyor: altındaki kutuları delip grafiğin öğesine ulaşıyor. */
+const Z_ON = ON_KATMAN_Z;
 
 interface Drag {
   mode: Mode;
@@ -273,10 +275,18 @@ export function DecorStage({ spec, scale, selectedIds, onSelect, onChange, arac,
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      // Odaktaki liste (katmanlar, sıra listesi) ya da bir menü tuşu kullandıysa
+      // dokunma: yoksa listede ok tuşu seçili kutuyu da bir piksel kaydırıyordu.
+      if (e.defaultPrevented) return;
       const el = e.target as HTMLElement | null;
       // Never steal keys from the panel's own inputs.
       if (el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT" || el.isContentEditable)) return;
-      if (e.key === "Escape") return onSelect([]);
+      // Esc yalnız kendi seçimini bırakır; grafik öğesi seçiliyken bir üste
+      // çıkmak uygulamanın işi (öğe → grafik).
+      if (e.key === "Escape") {
+        if (selectedIds.length > 0) onSelect([]);
+        return;
+      }
 
       // Gruplama çoklu seçimle çalışıyor, o yüzden tek seçim şartından önce.
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "g") {

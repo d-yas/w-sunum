@@ -73,14 +73,51 @@ panelin sekmeleriydi; artık hangi ayardaysanız orada duruyorlar.
      piktogram yazar, diğerleri yazmaz. `Dışta`/`İçte` yerleşimi seçer;
      içteki etiket zemine göre koyu ya da açık olur ve sığmıyorsa hiç
      yazılmaz. Çizgide "yalnız son nokta" seçeneği var.
-   - **Sıralama ve vurgu** — kategorileri değere göre dizer; vurgulanan
-     kategoriler tam opak kalır, gerisi soluklaşır. Vurguyu panelden değil
-     **grafikte çubuğa tıklayarak** seçmek daha kolay (`Shift` ekler/çıkarır).
+   - **Sıra** — bkz. aşağıdaki 4a. Sütun ve yatay çubukta satırdaki
+     vurgulayıcı kategoriyi vurgular: vurgulananlar tam opak kalır, gerisi
+     soluklaşır (sahnede `Alt+tık`, `Alt+Shift+tık` ekler/çıkarır).
    - **Referans çizgileri** — hedef, eşik ya da ortalama; değer, etiket, renk
      ve kesikli/düz. Dekor okundan farkı: bunlar veri uzayında durur, tabloyu
      değiştirince yerini korur.
    - **Çizgi / Alan** — eğri türü, kalınlık, işaretçiler, dolgu gradyanı ve
      **tahmin kesiği** (şu satırdan sonrası kesikli; 1 yazarsanız tüm çizgi).
+4a. **Öğeleri dizmek** — her grafikte öğelerin (kategori, aşama, halka,
+   grup, düğüm…) ve serilerin sırasını siz verirsiniz; Figma'daki gibi
+   doğrudan sahnede:
+
+   - **Seçmek.** Grafiğe ilk tık grafiği seçer; grafik seçiliyken bir çubuğa,
+     dilime, düğüme ya da gösterge girdisine tık **o öğeyi** seçer (`Shift`/`Ctrl`
+     ekler). Hiyerarşide bir daha tıklamak gruptan yaprağa iner. Serbest
+     yerleşimde grafik seçiliyken sürüklemek kutuyu taşır; öğeye çift tıkla inilir.
+   - **Sürüklemek.** Öğeyi tutup bırakmak istediğiniz yere götürün: komşular
+     yer açar, imlecin yanında öğenin adı yürür, `Esc` vazgeçer. Göstergedeki
+     bir seriyi sürüklemek serilerin sırasını (gruplu/yığılı çubukta grup ve
+     yığın sırasını) değiştirir. Ağaç haritası ve gösterge yayında yerleşim
+     sıraya bağlı olduğu için yer açılmaz: altındaki öğe çerçevelenir,
+     bırakınca yer değiştirir.
+   - **Klavye.** Öğe seçiliyken `←`/`→` (ya da `↑`/`↓`, `[`/`]`) bir adım,
+     `Shift` ile uca taşır; `Tab` sonraki öğeye geçer, `Enter` grafikten ilk
+     öğeye iner, `Esc` bir üste çıkar (öğe → grafik → slayt).
+   - **Sağ tık** öğede: başa/sona, bir öne/arkaya, büyükten küçüğe, küçükten
+     büyüğe, A→Z, ters çevir, otomatiğe dön, vurgula.
+   - **Sağ panel → Sıra.** Mod (Otomatik · Büyükten küçüğe · Küçükten büyüğe ·
+     A→Z · Elle), ters çevir ve sürüklenebilir öğe listesi; çok serili
+     türlerde ayrıca **Seriler** listesi. Liste görünen sırayı gösterir;
+     satırın üstüne gelmek sahnede öğeyi çerçeveler. Sankey düğümleri sütun
+     sütun, hiyerarşi yaprakları grup grup listelenir.
+
+   **Otomatik** türün kendi doğal sırasıdır: çoğunda tablo, ağaç
+   haritası/güneş/daire yığınında büyükten küçüğe, sankey'de kesişmeyi
+   azaltan yerleşim, tarih gibi görünen etiketlerde ("Ç1 2025") tarih. Elle
+   bir hareket o anki görüntüyü dondurup **Elle**'ye geçer — hiçbir şey
+   zıplamaz; başka bir moda geçip "Elle"ye dönünce son elle düzen geri gelir.
+   Sıra grafiğin ayarıdır, **tablo olduğu gibi kalır**: Excel'den yeniden
+   yapıştırdığınızda aynı adlar yerini korur, tabloda bir adı düzeltmek
+   sıradaki karşılığını da düzeltir. **Renk öğeyle gider**: taşınan çubuk
+   rengini götürür. Konumu veriden gelen türlerde (dağılım, balon, ağ) sıra
+   göstergede ve üst üste binmede görünür; zaman ekseninde (çizgi/alan, tarih
+   x) öğe sırası tarihten gelir, seriler yine dizilir. Isı takvimi ve
+   haritada sıralanacak öğe yok.
 5. **Renkler** (araç çubuğundaki palet düğmesi): dört hazır palet (varsayılan palet renk körlüğü için
    doğrulanmış) ve seri başına özel renk. `+ Palet ekle` seçili paletin
    kopyasından **kendi paletinizi** açar: adını yazın, renkleri tek tek
@@ -97,8 +134,9 @@ panelin sekmeleriydi; artık hangi ayardaysanız orada duruyorlar.
    ızgara / gösterge anahtarları, değer etiketleri, sayı biçimi, köşe
    yarıçapı, kart dekoru, süsleme ve serbest yerleşim. **Taşınmayan:** veri,
    tür, başlık, alt başlık, dipnot ve *bu karta ait olan* ayarlar — vurgulanan
-   kategori, eksen adları, değer aralığı (`yMin`/`yMax`), referans çizgileri,
-   tahmin başlangıcı. Sınır tek cümleyle: yazdığınız metin, bu kartın
+   kategori, elle sıra (öğe adlarının listesi; "Büyükten küçüğe" gibi bir mod
+   ise taşınır), eksen adları, değer aralığı (`yMin`/`yMax`), referans
+   çizgileri, tahmin başlangıcı. Sınır tek cümleyle: yazdığınız metin, bu kartın
    verisinden gelen bir ad, bir satır numarası ya da bir değer aralığı biçem
    değildir. Liste `src/lib/bicem.ts` içinde `ICERIK_ALANLARI` — **dışlama**
    listesi, yani sonradan eklenen bir ayar varsayılan olarak biçeme dâhil.
@@ -238,7 +276,10 @@ makineye taşımak için `Kaydet (JSON)` / `Yükle` kullanın.
 | `Ctrl+Shift+Z` / `Ctrl+Y` | Yinele |
 | `Ctrl+S` | Çalışma alanını JSON olarak kaydet |
 | `Ctrl+Shift+S` | PNG indir |
-| `Esc` | Seçimi bırak |
+| `Esc` | Seçimi bir üste taşı (öğe → grafik → slayt) |
+| `←` `→` / `↑` `↓` / `[` `]` | Seçili grafik öğesini bir adım taşı (`Shift`: uca) |
+| `Tab` / `Shift+Tab` | Sonraki / önceki öğe |
+| `Enter` | Seçili grafikten ilk öğesine in |
 
 Geri al yalnız **işi** kapsar: grafikler ve paletler. Tema, yakınlaştırma ve
 seçim pencerenin hâli, geri almaya girmez. Yazmak tek adım sayılır —
@@ -273,6 +314,8 @@ pnpm test:sunu    # .pptx paketi: metin kutuları, resimde yazı yokluğu, slayt
 pnpm test:kabuk   # üç sütun, küçük resimler, liste eylemleri, geri al, tıkla-seç, tür kutusu, liste sürükleme
 pnpm test:secenek # ayarlar çizime ulaşıyor mu — köşe, vurgu, aralık, etiket, referans
 pnpm test:svg     # kart SVG'si eksiksiz mi — başlık, gösterge, portal eksenleri
+pnpm test:sira    # elle sıralama: sahnede seç/sürükle, klavye, liste, gösterge, sankey sütunu, serbest yerleşim
+pnpm test:sira-birim # sıra modeli (Node, Vite ssrLoadModule): her tür × mod, dondurma, renk kimliği, ad izleme
 node scripts/gen-country-codes.mjs   # src/lib/country-codes.ts üretir (world-atlas + Node ICU)
 ```
 
@@ -358,7 +401,7 @@ yazar. pnpm 11'de esbuild'in kurulum betiği `pnpm-workspace.yaml` içindeki
 - `src/charts/` — **Bklit** kaynağı, coretex-hub'daki kopyadan alındı
   (üç hata düzeltmesi dâhil: yatay yığılı bar genişliği, giriş animasyonu,
   Sankey kaynak düğüm etiketi). Elden geldiğince dokunulmaz; bugüne kadarki
-  yedi ek şunlar:
+  ekler şunlar:
   - `bar.tsx` — `highlightCategories` ve `fillFor` propları, `isFaded`e bir OR
     terimi, ve dört rect biçiminin hepsine `data-part="bar" data-category`
     (tıkla-seç bunu okuyor).
@@ -378,6 +421,44 @@ yazar. pnpm 11'de esbuild'in kurulum betiği `pnpm-workspace.yaml` içindeki
   - `area-chart.tsx` + `time-series-chart-shell.tsx` — `yDomain` /
     `yDomainOverride`. `nice`tan **sonra** uygulanıyor, yoksa kullanıcının
     yazdığı 95 sessizce 100 olurdu.
+  - Elle sıralama için (bkz. `src/lib/sira.ts`):
+    - `sankey/sankey-chart.tsx` — `nodeSort` prop'u, d3-sankey'e olduğu gibi
+      geçer. Tanımsız = d3'ün kesişmeyi azaltan gevşetmesi; karşılaştırıcı =
+      sütun içi elle sıra. Düğüm dizisi yeniden dizilmiyor: düğüm ve
+      bağlantı anahtarları dizinden kuruluyor, dizi oynasaydı düğümler her
+      yer değişiminde baştan büyürdü.
+    - `legend/legend.tsx` — bilinmeyen proplar kök `div`e geçiyor. Eskiden
+      düşüyordu ve `with-legend.tsx`'in `data-part="legend"`i DOM'a hiç
+      ulaşmıyordu: gösterge sahnede seçilemiyordu. `legend-context` /
+      `legend-item` — girdinin `anahtar`ı (`data-anahtar` ve React anahtarı;
+      etiket aynı adlı iki girdide çakışıyordu).
+    - `ring.tsx` (`anahtar` → `data-oge`) ve `sankey/sankey-node.tsx`
+      (`data-oge`) — sahnede öğeyi bulmak için kimlik öznitelikleri.
+- `src/lib/sira.ts` — **öğe sırası, tek yer.** Model `options.sort`
+  (Otomatik/↓/↑/A→Z/Elle) + `options.sira` (ad listeleri: öğeler, seriler,
+  hiyerarşide grup içi yapraklar). `gorunum()` `ChartCard`'da çizimden hemen
+  önce tabloyu görünen sıraya dizer ve renk dizisini aynı permütasyonla
+  dizer — çiziciler sıranın nereden geldiğini bilmez, renk öğeyle gider.
+  Dayatılan üç sıralama ayrıca ele alınıyor: bant türlerinde tarih sırası
+  (görünümde `xMode`), hiyerarşinin d3 karşılaştırıcısı (`hierarchy.tsx` modu
+  okur), sankey'in `nodeSort`'u. Kimlik her türün **kendi adaptör süzgeciyle**
+  hesaplanıyor; renk paneli, öğe renk seçici ve sahne aynı kimliği okuyor.
+  Tablo hiç değişmiyor. `sira-eylem.ts` sürükleme/klavye/menünün ortak
+  eylemleri (sankey'de sütun içi taşıma), `sahne-olcu.ts` sahnedeki öğeleri
+  `data-oge`/`data-category`/`data-alt`/`data-seri`/`data-anahtar`
+  özniteliklerinden bulup ölçer.
+- `src/components/SiraSahnesi.tsx` — sahnede seçme, sürükleme, çerçeveler,
+  hayalet etiket, sağ tık menüsü. `ChartCard`'ın **dışında**: kartın DOM'u
+  dışa aktarılan DOM. Tıklamayı `.inspect` üzerinde yakalama evresinde alıyor
+  ve süsleme kutularının arkasını görüyor (serbest yerleşimin grafik kutusu ve
+  arka katman süslemeleri öğeyi örtmüyor). Canlı yer açma geçici bir önizleme
+  spec'iyle: yalnız sıra alanları farklı, animasyon ayarlarına dokunulmuyor —
+  `animate`'i değiştirmek giriş animasyonlarını baştan oynatıyordu. Hedef
+  sürüklemenin başında ölçülen yuvalardan hesaplanıyor, titremesin diye.
+  Bırakma `App`'teki `siraBirak` kapısından tek geri al adımı.
+- `src/components/SiraPaneli.tsx` — sağ paneldeki "Sıra" ve "Öğe"
+  bölümleri; liste `useDragOrder` ile. `BaglamMenusu.tsx` katman listesiyle
+  ortak sağ tık menüsü.
 - `src/viz/` — Bklit'te karşılığı olmayan, **Flourish şablonlarına denk gelen**
   grafikler; visx ilkelleri üzerine ayrıca yazıldı, `src/charts/` hiç
   değişmedi. Kart, palet, sayı biçimi ve dışa aktarım yolu ortaktır.
@@ -614,3 +695,16 @@ yazar. pnpm 11'de esbuild'in kurulum betiği `pnpm-workspace.yaml` içindeki
   yerleşimi elle sürüklenemez.
 - Piktogram simgeleri satır başına sabit sayıdadır ve boyut bütün satırlarda
   ortaktır; en kalabalık satır boyutu belirler.
+- Renk öğeye bağlı (elle sıralamayla geldi): eskiden konuma bağlıydı ve
+  "Büyükten küçüğe" ile kaydedilmiş, kategoriye göre boyanan çubuk / huni /
+  gösterge / piktogram kartlarında renkler sıraya göre dağılıyordu. Bu
+  kartlar açıldığında renkler öğelere göre yeniden eşleşir — bilinçli: Renkler
+  panelindeki adlar artık çizilen renklerle aynı öğeyi gösteriyor.
+- Daire yığınında sahnede sürükleme yok: yerleşim merkezden sarmal dizildiği
+  için her değişimde bütün daireler yer değiştiriyor, "nereye bırakıldı"
+  sorusunun görsel bir cevabı yok. Sıra panelden, klavyeyle ya da sağ tık
+  menüsüyle verilir. Dağılım, balon ve ağda konum veriden ya da kuvvet
+  yerleşiminden geliyor; sıra göstergede (dağılımda üst üste binmede de)
+  görünür ve göstergede sürüklenir.
+- Aynı adlı iki satır (`ad`, `ad#2`) sıra modelinde ayrı öğedir; çubuk
+  grafiği ise aynı adları tek banda birleştirir.

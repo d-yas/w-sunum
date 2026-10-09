@@ -2,6 +2,7 @@
 
 import {
   cloneElement,
+  type HTMLAttributes,
   isValidElement,
   type ReactElement,
   useState,
@@ -13,7 +14,14 @@ import {
   LegendProvider,
 } from "./legend-context";
 
-export interface LegendProps {
+/**
+ * Veri Görsel eki: kök `div`e geçen öznitelikler (`data-part`, `data-boyut`).
+ * Eskiden bilinmeyen proplar düşüyordu ve `with-legend.tsx`'in verdiği
+ * `data-part="legend"` DOM'a hiç ulaşmıyordu — gösterge sahnede seçilemiyordu.
+ */
+type LegendRootAttrs = Omit<HTMLAttributes<HTMLDivElement>, "children" | "className" | "title">;
+
+export interface LegendProps extends LegendRootAttrs {
   /** Legend items data */
   items: LegendItemData[];
   /** Controlled hover state */
@@ -38,6 +46,7 @@ export function Legend({
   titleClassName = "text-sm font-semibold",
   className = "",
   children,
+  ...rest
 }: LegendProps) {
   const [internalHoveredIndex, setInternalHoveredIndex] = useState<
     number | null
@@ -64,7 +73,7 @@ export function Legend({
 
   return (
     <LegendProvider value={contextValue}>
-      <div className={cn("legend-container flex flex-col gap-2", className)}>
+      <div {...rest} className={cn("legend-container flex flex-col gap-2", className)}>
         {title && (
           <h3 className={cn("mb-1 text-legend-foreground", titleClassName)}>
             {title}
@@ -88,7 +97,7 @@ export function Legend({
           // Clone the child element for each item
           if (isValidElement(children)) {
             return (
-              <LegendItemProvider key={item.label} value={itemContext}>
+              <LegendItemProvider key={item.anahtar ?? item.label} value={itemContext}>
                 {cloneElement(children)}
               </LegendItemProvider>
             );

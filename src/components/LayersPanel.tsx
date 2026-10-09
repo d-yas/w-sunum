@@ -45,6 +45,7 @@ import { katmanAgaci, katmanTasi, tasinabilir, type KatmanSatir } from "@/decor/
 import { grubuCoz, grupla, restackEnd, type DecorItem, type DecorState, type SlotKey } from "@/decor/model";
 import { getAsset, newItem } from "@/decor/registry";
 import { useDragOrder } from "@/lib/use-drag-order";
+import { BaglamMenusu, type MenuEylem } from "@/components/BaglamMenusu";
 import type { ChartSpec } from "@/lib/spec";
 import type { DecorFamily } from "@/decor/types";
 
@@ -80,69 +81,6 @@ function SatirIkon({ satir }: { satir: KatmanSatir }) {
   const aile = getAsset(satir.tur === "nesne" ? satir.item.asset : satir.veri.asset)?.family;
   const I = aile ? AILE_IKON[aile] : Shapes;
   return <I size={13} />;
-}
-
-/* ---------------- bağlam menüsü ---------------- */
-
-interface MenuEylem {
-  ad: string;
-  kisayol?: string;
-  ikon?: typeof Shapes;
-  tehlike?: boolean;
-  calistir: () => void;
-}
-
-function BaglamMenusu({ x, y, eylemler, onKapat }: { x: number; y: number; eylemler: MenuEylem[]; onKapat: () => void }) {
-  const ref = useRef<HTMLDivElement>(null);
-  const [yer, setYer] = useState({ x, y });
-
-  // Menü imlecin altında açılır ama pencereden taşmaz; ölçüyü çizildikten
-  // sonra alıyoruz çünkü yüksekliği eylem sayısına göre değişiyor.
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const r = el.getBoundingClientRect();
-    setYer({
-      x: Math.min(x, window.innerWidth - r.width - 8),
-      y: Math.min(y, window.innerHeight - r.height - 8),
-    });
-  }, [x, y]);
-
-  useEffect(() => {
-    const kapat = () => onKapat();
-    const esc = (e: KeyboardEvent) => e.key === "Escape" && onKapat();
-    // `capture`: menünün kendi tıklaması önce eylemi çalıştırsın diye eylem
-    // düğmeleri olayı durduruyor.
-    window.addEventListener("pointerdown", kapat);
-    window.addEventListener("keydown", esc);
-    window.addEventListener("resize", kapat);
-    return () => {
-      window.removeEventListener("pointerdown", kapat);
-      window.removeEventListener("keydown", esc);
-      window.removeEventListener("resize", kapat);
-    };
-  }, [onKapat]);
-
-  return (
-    <div ref={ref} className="katman-menu" style={{ left: yer.x, top: yer.y }} onPointerDown={(e) => e.stopPropagation()} role="menu">
-      {eylemler.map((a, i) => (
-        <button
-          key={`${a.ad}${i}`}
-          type="button"
-          role="menuitem"
-          className={a.tehlike ? "katman-menu-oge danger" : "katman-menu-oge"}
-          onClick={() => {
-            a.calistir();
-            onKapat();
-          }}
-        >
-          {a.ikon ? <a.ikon size={12} /> : <span style={{ width: 12 }} />}
-          <span className="grow">{a.ad}</span>
-          {a.kisayol && <kbd>{a.kisayol}</kbd>}
-        </button>
-      ))}
-    </div>
-  );
 }
 
 /* ---------------- panel ---------------- */

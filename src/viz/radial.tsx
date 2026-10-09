@@ -4,6 +4,7 @@ import { useMemo } from "react";
 
 import { toCartesian, toCategoryValue } from "@/lib/adapters";
 import { formatNumber } from "@/lib/format";
+import { anahtarla } from "@/lib/sira";
 import { Empty, Reveal, VIZ, VizFrame, ellipsize, type VizProps } from "./common";
 import { WithLegend } from "./with-legend";
 
@@ -30,6 +31,7 @@ export function RadarViz({ spec, colors, isStatic }: VizProps) {
   );
   const max = o.yMax ?? (dataMax > 0 ? dataMax : 1);
   const items = model.series.map((s, i) => ({ label: s.name, value: s.total, color: colors[i] }));
+  const anahtarlar = anahtarla(model.labels);
 
   return (
     <WithLegend spec={spec} items={items}>
@@ -102,7 +104,7 @@ export function RadarViz({ spec, colors, isStatic }: VizProps) {
                   const y = Math.sin(a) * (r + 14);
                   const anchor = Math.abs(Math.cos(a)) < 0.25 ? "middle" : Math.cos(a) > 0 ? "start" : "end";
                   return (
-                    <text key={`ax${i}`} className={VIZ.strong} x={x} y={y} textAnchor={anchor} dy="0.34em" fontSize={11.5}>
+                    <text key={`ax${i}`} className={VIZ.strong} data-oge={anahtarlar[i]} data-aci={(i / axes) * Math.PI * 2} x={x} y={y} textAnchor={anchor} dy="0.34em" fontSize={11.5}>
                       {ellipsize(label, 11.5, labelPad - 4, 600)}
                     </text>
                   );
@@ -144,6 +146,7 @@ export function GaugeViz({ spec, colors, isStatic, theme }: VizProps) {
     color: colors[i % colors.length],
   }));
 
+  const anahtarlar = anahtarla(model.items.map((it) => it.label));
   const sweep = (Math.min(350, Math.max(90, o.gaugeSweep)) * Math.PI) / 180;
   const start = -sweep / 2;
   const end = sweep / 2;
@@ -185,7 +188,7 @@ export function GaugeViz({ spec, colors, isStatic, theme }: VizProps) {
                   const track = arcGen({ a0: start, a1: end, r0, r1 });
                   const fill = arcGen({ a0: start, a1: start + (end - start) * t, r0, r1 });
                   return (
-                    <g key={`g${i}`}>
+                    <g key={`g${i}`} data-oge={anahtarlar[i]}>
                       {track && <path className={VIZ.track} d={track} />}
                       {fill && t > 0 && <path d={fill} fill={colors[i % colors.length]} />}
                       {o.gaugeNeedle && single && (

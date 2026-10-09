@@ -26,7 +26,7 @@
 import { useCallback, useRef, useState } from "react";
 
 /** Bu kadar piksel hareket etmeden sürükleme sayılmaz. */
-const ESIK = 4;
+export const ESIK = 4;
 
 /** Sıralamanın ekseni. */
 export type Eksen = "y" | "x";

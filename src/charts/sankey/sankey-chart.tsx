@@ -52,6 +52,13 @@ export interface SankeyChartProps {
   hoveredNodeIndex?: number | null;
   /** Called when node hover changes from the chart surface. */
   onNodeHoverChange?: (index: number | null) => void;
+  /**
+   * Veri Görsel eki: sütun içi düğüm sırası. `undefined` = d3-sankey'in kendi
+   * gevşetmesi (kesişmeyi azaltır); bir karşılaştırıcı = o sıra, düğümler yine
+   * dikeyde kayar ama yer değiştirmez. Düğüm dizisi hiç yeniden dizilmiyor —
+   * anahtarlar, renkler ve bağlantı indeksleri kimlik sırasında kalıyor.
+   */
+  nodeSort?: (a: SankeyNodeDatum, b: SankeyNodeDatum) => number;
 }
 
 const DEFAULT_MARGIN: Margin = { top: 40, right: 180, bottom: 40, left: 180 };
@@ -69,6 +76,7 @@ interface SankeyChartInnerProps {
   children: ReactNode;
   hoveredNodeIndexProp?: number | null;
   onNodeHoverChange?: (index: number | null) => void;
+  nodeSort?: (a: SankeyNodeDatum, b: SankeyNodeDatum) => number;
 }
 
 function SankeyChartInner(props: SankeyChartInnerProps) {
@@ -94,6 +102,7 @@ const SankeyChartCore = memo(function SankeyChartCore({
   children,
   hoveredNodeIndexProp,
   onNodeHoverChange,
+  nodeSort,
 }: SankeyChartInnerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [isLoaded, setIsLoaded] = useState(false);
@@ -137,7 +146,7 @@ const SankeyChartCore = memo(function SankeyChartCore({
   }, [animationDuration, revealSignature]);
 
   const sankeyGenerator = useMemo(() => {
-    return sankey<SankeyNodeDatum, SankeyLinkDatum>()
+    const gen = sankey<SankeyNodeDatum, SankeyLinkDatum>()
       .nodeWidth(nodeWidth)
       .nodePadding(nodePadding)
       .nodeAlign(sankeyCenter)
@@ -145,7 +154,9 @@ const SankeyChartCore = memo(function SankeyChartCore({
         [0, 0],
         [innerWidth, innerHeight],
       ]);
-  }, [innerWidth, innerHeight, nodeWidth, nodePadding]);
+    // `undefined` geçmek d3'ün otomatik sırasını geri verir.
+    return gen.nodeSort(nodeSort as never);
+  }, [innerWidth, innerHeight, nodeWidth, nodePadding, nodeSort]);
 
   const graph = useMemo(() => {
     const clonedData = {
@@ -240,6 +251,7 @@ export function SankeyChart({
   children,
   hoveredNodeIndex,
   onNodeHoverChange,
+  nodeSort,
 }: SankeyChartProps) {
   const margin = { ...DEFAULT_MARGIN, ...marginProp };
 
@@ -255,6 +267,7 @@ export function SankeyChart({
             hoveredNodeIndexProp={hoveredNodeIndex}
             margin={margin}
             nodePadding={nodePadding}
+            nodeSort={nodeSort}
             nodeWidth={nodeWidth}
             onNodeHoverChange={onNodeHoverChange}
             revealSignature={revealSignature}

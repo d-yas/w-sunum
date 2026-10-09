@@ -278,6 +278,8 @@ function AnimatedNode({
 
   return (
     <motion.g
+      // Veri Görsel eki: sahnede seçmek ve sütun içinde sürükleyerek sıralamak için.
+      data-oge={name}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
       style={{ cursor: "pointer" }}
